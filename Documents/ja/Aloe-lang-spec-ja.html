@@ -1,3 +1,205 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+    }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   "Hiragino Sans", "Yu Gothic", sans-serif;
+      line-height: 1.7;
+      background: #f5f5f7;
+    }
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 380px;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 1.5rem 1.25rem;
+      box-sizing: border-box;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      max-height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar h1 {
+      font-size: 1.1rem;
+      margin: 0 0 0.4rem;
+    }
+    .sidebar .subtitle {
+      font-size: 0.8rem;
+      color: #9ca3af;
+      margin-bottom: 1.4rem;
+    }
+    .sidebar h2 {
+      font-size: 0.85rem;
+      margin: 1.2rem 0 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+    }
+    .sidebar nav ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+    .sidebar nav li {
+      margin: 0.15rem 0;
+    }
+    .sidebar a {
+      color: inherit;
+      text-decoration: none;
+      display: block;
+      padding: 0.25rem 0.4rem;
+      border-radius: 0.35rem;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar a:hover {
+      background: #1f2937;
+    }
+    .sidebar a.active {
+      background: #1d4ed8;
+      color: #e5e7eb;
+    }
+    .sidebar .chapter-index {
+      font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-right: 0.35rem;
+    }
+
+    .content {
+      flex: 1;
+      max-width: 1100px;
+      padding: 2rem 3rem;
+      box-sizing: border-box;
+      margin: 0 auto;
+      background: #f9fafb;
+    }
+    h1, h2, h3, h4, h5 {
+      margin-top: 1.6em;
+      color: #111827;
+    }
+    h1 {
+      margin-top: 0;
+    }
+    pre, code {
+      font-family: "JetBrains Mono", "Cascadia Code", Consolas,
+                   "Ricty Diminished", monospace;
+      font-size: 0.9rem;
+    }
+    pre {
+      background: #1118270d;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      border: 1px solid #e5e7eb;
+    }
+    ul, ol {
+      padding-left: 1.4em;
+    }
+    hr {
+      margin: 2.2rem 0;
+      border: none;
+      border-top: 1px solid #e5e7eb;
+    }
+    .note {
+      font-size: 0.9rem;
+      color: #4b5563;
+    }
+
+    .chapter {
+      display: none;
+    }
+    .chapter.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- 左側メニュー -->
+  <aside class="sidebar">
+    <h1>Aloe Language Spec</h1>
+    <div class="subtitle">Draft • Japanese translation + with 拡張</div>
+
+    <h2>Chapters</h2>
+    <nav>
+      <ul>
+        <li><a data-target="ch0" class="nav-link active"><span class="chapter-index">0.</span>概要</a></li>
+        <li><a data-target="ch1" class="nav-link"><span class="chapter-index">1.</span>基本文法</a></li>
+        <li><a data-target="ch2" class="nav-link"><span class="chapter-index">2.</span>型システム</a></li>
+        <li><a data-target="ch3" class="nav-link"><span class="chapter-index">3.</span>数値と変換</a></li>
+        <li><a data-target="ch4" class="nav-link"><span class="chapter-index">4.</span>ブロックとスコープ</a></li>
+        <li><a data-target="ch5" class="nav-link"><span class="chapter-index">5.</span>変数と定数</a></li>
+        <li><a data-target="ch6" class="nav-link"><span class="chapter-index">6.</span>フィールド</a></li>
+        <li><a data-target="ch7" class="nav-link"><span class="chapter-index">7.</span>クラス / 構造体 / インタフェース / トレイト</a></li>
+        <li><a data-target="ch8" class="nav-link"><span class="chapter-index">8.</span>delete と null</a></li>
+        <li><a data-target="ch9" class="nav-link"><span class="chapter-index">9.</span>is 演算子</a></li>
+        <li><a data-target="ch10" class="nav-link"><span class="chapter-index">10.</span>コレクション</a></li>
+        <li><a data-target="ch11" class="nav-link"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
+        <li><a data-target="ch12" class="nav-link"><span class="chapter-index">12.</span>main ブロック</a></li>
+        <li><a data-target="ch13" class="nav-link"><span class="chapter-index">13.</span>一時変数 <code>_</code></a></li>
+        <li><a data-target="ch14" class="nav-link"><span class="chapter-index">14.</span>swap キーワード</a></li>
+        <li><a data-target="ch15" class="nav-link"><span class="chapter-index">15.</span>演算子</a></li>
+        <li><a data-target="ch16" class="nav-link"><span class="chapter-index">16.</span>例外</a></li>
+        <li><a data-target="ch17" class="nav-link"><span class="chapter-index">17.</span>モジュール / namespace / import</a></li>
+        <li><a data-target="ch18" class="nav-link"><span class="chapter-index">18.</span>Pipes と Filters</a></li>
+      </ul>
+    </nav>
+
+    <h2>Key Section</h2>
+    <nav>
+      <ul>
+        <li><a data-target="ch4" class="nav-link">4.2 with ブロック</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- 右側コンテンツ -->
+  <main class="content">
+    <h1>Aloe 言語仕様書（ドラフト、日本語版）</h1>
+    <p class="note">
+      この文書は、英語版仕様
+      <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>
+      をベースにした日本語ドラフトです。<br />
+      その上で <strong>4.2 with-blocks</strong> に
+      <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
+      の拡張を追加しています。<br />
+      それ以外の仕様は原文にできるだけ忠実に訳しています。
+    </p>
+
+    <!-- 0. Overview -->
+    <section class="chapter active" id="ch0">
+      <hr />
+      <h2>0. Overview（概要）</h2>
+      <p>
+        Aloe は静的型付けのスクリプト言語であり、シンプルで直感的な構文を目指している。<br />
+        スタックベースの仮想マシン（AloeVM）上で動作し、主に次のような目標を持つ。
+      </p>
+      <ul>
+        <li>教育用途や小規模アプリケーションで読み書きしやすいこと</li>
+        <li>C# ランタイムおよび WebAssembly (WASM) 環境で動作すること</li>
+        <li><code>pipe</code> と <code>filter</code> によって、I/O と並行処理を静的型付けのまま制御できること</li>
+      </ul>
+      <p>特徴：</p>
+      <ul>
+        <li>静的型付け
+          <ul>
             <li><code>var</code> による型推論</li>
             <li><code>let</code> による明示的な型指定</li>
           </ul>
@@ -150,7 +352,7 @@ Print(x);
 
       <h3>1.8 Naming rules（命名規則）</h3>
       <ul>
-        <li>ローカル変数 / フィールド名は、小文字始まりのキャメルケースを推奨：
+        <li>ローカル変数 / 引数は、小文字始まりのキャメルケースを推奨：
           <ul>
             <li><code>count</code>, <code>userName</code>, <code>totalPrice</code> など</li>
           </ul>
@@ -308,11 +510,11 @@ Print(x);
 
       <h3>4.1 Static (lexical) scope and shadowing（静的スコープとシャドウイング）</h3>
 <pre><code>class Sample {
-    field value: int = 1;
+    field Value: int = 1;
     method Foo(): void {
         var value = 2;        // shadows the field
         Print(value);         // 2
-        Print(this.value);    // 1
+        Print(this.Value);    // 1
     }
 }
 </code></pre>
@@ -329,9 +531,9 @@ Print(x);
         <code>with</code> ブロックがある。
       </p>
 <pre><code>with (user) {
-    name = "Alice";
-    age = age + 1;
-    Print(name);
+    Name = "Alice";
+    Age = Age + 1;
+    Print(Name);
 }
 </code></pre>
       <ul>
@@ -341,7 +543,7 @@ Print(x);
             <li>以降のメンバーアクセスでは、その内部一時変数に対してアクセスが行われる。</li>
           </ul>
         </li>
-        <li>with ブロック内の「単純な識別子」<code>name</code> の解決順は次の通り：
+        <li>with ブロック内の「単純な識別子」<code>Name</code> の解決順は次の通り：
           <ol>
             <li>そのブロック内で宣言されたローカル変数 / 引数</li>
             <li><strong>with 対象</strong> のメンバー
@@ -364,7 +566,7 @@ Print(x);
 
       <h4>4.2.1 複数ターゲット with</h4>
 <pre><code>with (user), (profile) {
-    name = "Alice";        // user.name または profile.name に解決を試みる
+    Name = "Alice";        // user.Name または profile.Name に解決を試みる
     UpdateProfile();       // user.UpdateProfile() または profile.UpdateProfile()
 }
 </code></pre>
@@ -376,11 +578,11 @@ Print(x);
 
       <h4>4.2.2 ネストした with</h4>
 <pre><code>with (user) {
-    name = "Alice";
+    Name = "Alice";
 
     with (address) {
-        city = "Tokyo";     // address.city
-        Print(name);        // ここでは user.name かローカル name か、通常の解決順に従う
+        City = "Tokyo";     // address.City
+        Print(Name);        // ここでは user.Name かローカル Name か、通常の解決順に従う
     }
 }
 </code></pre>
@@ -495,7 +697,7 @@ main(args: string[]) {
 
       <h5>例：値ターゲットと型ターゲットの混在</h5>
 <pre><code>with (user), (Color) {
-    name = "Alice";      // user.name （他ターゲットに name があると曖昧でエラー）
+    Name = "Alice";      // user.Name （他ターゲットに Name があると曖昧でエラー）
     var c: Color = Red;  // Color.Red
 }
 </code></pre>
@@ -560,17 +762,17 @@ const AppName: string = "Aloe VM";
       <h2>6. Fields（フィールド宣言）</h2>
       <p>class / struct のフィールドは <code>field</code> キーワードで宣言する。</p>
 <pre><code>class Sample {
-    field count: int = 0;
-    field name: string = "default";
+    field Count: int = 0;
+    field Name: string = "default";
 
-    readonly field id: int;
+    readonly field Id: int;
 
     construct(id: int) {
-        this.id = id; // OK: inside the constructor
+        this.Id = id; // OK: inside the constructor
     }
     method Change(): void {
-        this.count = this.count + 1; // OK
-        // this.id = 2; // NG: readonly field cannot be changed outside constructor
+        this.Count = this.Count + 1; // OK
+        // this.Id = 2; // NG: readonly field cannot be changed outside constructor
     }
 }
 </code></pre>
@@ -589,7 +791,7 @@ const AppName: string = "Aloe VM";
       <h3>7.1 class</h3>
 <pre><code>class FizzBuzz {
     field _count: int = 0;
-    field name: string = "FizzBuzz";
+    field Name: string = "FizzBuzz";
 
     construct() {
     }
@@ -611,12 +813,12 @@ const AppName: string = "Aloe VM";
 
       <h3>7.2 struct</h3>
 <pre><code>struct Point {
-    field x: int;
-    field y: int;
+    field X: int;
+    field Y: int;
 
     construct(x: int, y: int) {
-        this.x = x;
-        this.y = y;
+        this.X = x;
+        this.Y = y;
     }
 }
 </code></pre>
@@ -676,8 +878,8 @@ var obj3 = obj2 - Trait_A;     // obj3 is obj2 without Trait_A
 </code></pre>
 
       <h4>Alias with as</h4>
-<pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.Hello(); // OK
+<pre><code>var obj2 = obj + Trait_A as A;
+obj2.A.Hello(); // OK
 
 // obj2.Hello(); // NG: alias only; no direct member flattening
 </code></pre>
@@ -685,7 +887,7 @@ obj2.a.Hello(); // OK
       <h4>Trait conflicts</h4>
       <ul>
         <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
-        <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
+        <li><code>as A</code> などのエイリアス付き適用は衝突判定の対象外。</li>
         <li>クラス本体と trait メンバとの衝突の扱いは将来バージョンで定義予定。</li>
       </ul>
     </section>
@@ -745,7 +947,7 @@ var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
 
       <h3>10.3 Sets (T{})</h3>
 <pre><code>var st: int{} = {1, 2, 3};
-var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
+var structSt: Point{} = {Point { X:0, Y:0 }, Point { X:1, Y:1 }};
 </code></pre>
 
       <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
@@ -975,7 +1177,7 @@ finally {
       <p><code>filter(F)</code> はパイプライン中の中間変換ステージ。</p>
 
       <h4>18.2.1 フィルタ定義</h4>
-<pre><code>filter lineSplit {
+<pre><code>filter LineSplit {
     in:  pipe&lt;string&gt;;
     out: pipe&lt;string&gt;;
 
@@ -1035,8 +1237,8 @@ finally {
 
       <h3>18.7 例：簡単な REST 風パイプライン</h3>
 <pre><code>class User {
-    field id: int;
-    field name: string;
+    field Id: int;
+    field Name: string;
 }
 
 main(args: string[]) {
@@ -1050,7 +1252,7 @@ main(args: string[]) {
 
     let u: User? = users.Next();
     if (u is User) {
-        Print("User: " + u.name);
+        Print("User: " + u.Name);
     }
 
     _ = 0;
