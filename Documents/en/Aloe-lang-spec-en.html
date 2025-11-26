@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>Aloe Language Specification (Draft, with with-extension)</title>
   <style>
-    /* Layout only; fonts are left mostly to browser defaults */
     body {
       margin: 0;
     }
@@ -167,7 +166,7 @@
       Base document: <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>.<br />
       This is an English draft based on the original spec, with an additional extension in
       <strong>4.2 with-blocks</strong>: “dot-less” with-blocks + <strong>type-based with</strong> (class/struct/enum static members and enum constants shortcut).<br />
-      Also, in the examples, <strong>method names, property names, and field names are written in PascalCase (leading uppercase)</strong>, according to the current naming guideline.
+      Also, in the examples, <strong>method names, property names, and fields are written in PascalCase (leading uppercase)</strong>, according to the current naming guideline.
     </p>
 
     <!-- 0. Overview -->
@@ -181,7 +180,7 @@
       <ul>
         <li>Easy to read and write for educational use and small applications.</li>
         <li>Targets C# runtime and WASM environments.</li>
-        <li>Controls I/O and concurrency using <code>pipe</code> and <code>filter</code> in a statically typed manner.</li>
+        <li>Controls I/O and concurrency using <code>Pipe</code> and <code>Filter</code> in a statically typed manner.</li>
       </ul>
       <p>Main characteristics:</p>
       <ul>
@@ -199,7 +198,7 @@
         </li>
         <li>GC-based memory management (actual algorithm is VM-dependent).</li>
         <li>No explicit <code>= null</code> in source code (use <code>delete</code> instead).</li>
-        <li>Data-flow oriented design with <code>pipe</code> and <code>filter</code>.</li>
+        <li>Data-flow oriented design with <code>Pipe</code> and <code>Filter</code>.</li>
       </ul>
     </section>
 
@@ -209,9 +208,9 @@
       <h2>1. Basic Syntax</h2>
 
       <h3>1.1 Comments</h3>
-<pre><code>// single-line comment
+<pre><code>// Single-line comment
 
-/* multi-line
+/* Multi-line
    comment */
 </code></pre>
       <ul>
@@ -299,12 +298,12 @@ yield
         <li>Decimal: <code>10.12345678901234567890:d</code>, etc.</li>
         <li>Boolean: <code>true</code>, <code>false</code>.</li>
         <li>String: <code>"Hello, World!"</code>.</li>
-        <li>Char: <code>'A'</code>, <code>'z'</code>, etc.</li>
+        <li>Char: <code>'A'</code>, <code>'Z'</code>, etc.</li>
         <li>Null literal: <code>null</code> (exists as a literal but is not used in assignments directly).</li>
         <li>Array literal: <code>[1, 2, 3]</code>.</li>
         <li>List literal: <code>(1, 2, 3)</code>.</li>
         <li>Set literal: <code>{1, 2, 3}</code>.</li>
-        <li>Map literal: <code>["key1": 10, "key2": 20]</code>.</li>
+        <li>Map literal: <code>["Key1": 10, "Key2": 20]</code>.</li>
         <li>Enum literal: <code>EnumType.Value1</code>.</li>
         <li>Struct literal: <code>Point { X: 0, Y: 1 }</code>.</li>
         <li>Object creation: <code>new ClassName()</code>.</li>
@@ -417,7 +416,7 @@ Print(X);
     field Value: int = 1;
 
     method Foo(): void {
-        var Value = 2;        // shadows the field
+        var Value = 2;        // Shadows the field
         Print(Value);         // 2
         Print(this.Value);    // 1
     }
@@ -457,8 +456,8 @@ Print(X);
 
       <h4>4.2.1 Multiple with-targets</h4>
 <pre><code>with (User), (Profile) {
-    Name = "Alice";          // resolved on User.Name or Profile.Name
-    UpdateProfile();         // resolved on User.UpdateProfile() or Profile.UpdateProfile()
+    Name = "Alice";          // Resolved on User.Name or Profile.Name
+    UpdateProfile();         // Resolved on User.UpdateProfile() or Profile.UpdateProfile()
 }
 </code></pre>
       <ul>
@@ -472,7 +471,7 @@ Print(X);
 
     with (Address) {
         City = "Tokyo";   // Address.City
-        Print(Name);      // resolved to User.Name or a local Name
+        Print(Name);      // Resolved to User.Name or a local Name
     }
 }
 </code></pre>
@@ -486,32 +485,6 @@ Print(X);
         If you specify a <strong>type name</strong> instead of an expression in a with-block,
         you can use it as a shortcut to static members (for classes/structs) or enum constants.
       </p>
-<pre><code>with (AngleUtil) {
-    var Rad  = DegToRad(90.0);   // AngleUtil.DegToRad(90.0)
-    var Rad2 = DegToRad(45.0);
-    Print(Pi);                   // AngleUtil.Pi
-}
-</code></pre>
-      <ul>
-        <li>Allowed type targets:
-          <ul>
-            <li>class types</li>
-            <li>struct types</li>
-            <li>enum / bitfield enum types</li>
-          </ul>
-        </li>
-        <li>In a type-based with:
-          <ol>
-            <li>Locals and parameters.</li>
-            <li>Static fields, static methods, and enum constants of the target type(s).</li>
-            <li>Outer scopes.</li>
-          </ol>
-        </li>
-        <li>Accessing instance members in a type-based with is a compile-time error.</li>
-        <li>The special <code>_</code> can be treated as a pseudo-object representing the first type target's static context; <code>_.Member</code> is equivalent to simply <code>Member</code>.</li>
-      </ul>
-
-      <h5>Example: struct / class</h5>
 <pre><code>struct AngleUtil {
     static field Pi: float = 3.14159;
 
@@ -595,10 +568,10 @@ let S: string = "Hello, Aloe!";
 let C: char = 'A';
 let B: byte = 255;
 
-let Arr: int[] = [1, 2, 3];
-let Lst: int() = (1, 2, 3);
-let St : int{} = {1, 2, 3};
-let Mp : map&lt;string/int&gt; = ["key": 10];
+let Arr: int[]   = [1, 2, 3];
+let Lst: int()   = (1, 2, 3);
+let St : int{}   = {1, 2, 3};
+let Mp : map&lt;string/int&gt; = ["Key": 10];
 </code></pre>
 
       <h3>5.3 const</h3>
@@ -614,7 +587,7 @@ const AppName : string = "Aloe VM";
       <h2>6. Fields</h2>
 <pre><code>class Sample {
     field Count: int = 0;
-    field Name : string = "default";
+    field Name : string = "Default";
 
     readonly field Id: int;
 
@@ -638,7 +611,7 @@ const AppName : string = "Aloe VM";
       <h3>7.1 class</h3>
 <pre><code>class FizzBuzz {
     field _Count: int = 0;
-    field Name : string = "FizzBuzz";
+    field Name  : string = "FizzBuzz";
 
     construct() {
     }
@@ -720,7 +693,7 @@ Obj2.A.Hello();
       <hr />
       <h2>8. delete and null</h2>
 <pre><code>var Obj = new FizzBuzz();
-delete Obj;   // at VM level, equivalent to Obj = null
+delete Obj;   // At VM level, equivalent to Obj = null
 </code></pre>
       <ul>
         <li>You cannot write <code>Obj = null;</code> directly in source code.</li>
@@ -762,8 +735,8 @@ var ObjLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
 var St: int{} = {1, 2, 3};
 var StructSt: Point{} = {Point { X:0, Y:0 }, Point { X:1, Y:1 }};
 
-var Mp: map&lt;int&gt; = ["key1": 10, "key2": 20];
-var Mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
+var Mp: map&lt;int&gt; = ["Key1": 10, "Key2": 20];
+var Mp2: map&lt;string/float&gt; = ["Key1": 10.5, "Key2": 20.5];
 var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()];
 </code></pre>
     </section>
@@ -781,7 +754,7 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
 }
 </code></pre>
       <ul>
-        <li>Underlying representation is always int32.</li>
+        <li>Underlying representation is always Int32.</li>
         <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code> etc. are not allowed.</li>
         <li>Enum types can be used as type-based with targets: <code>with (Color) { Red; }</code> is a shortcut for <code>Color.Red</code>.</li>
       </ul>
@@ -806,7 +779,7 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
         <li><code>Name : b(n)</code> assigns that bit to the enumerator.</li>
         <li>Usable bits are at most 32 (n = 0–31).</li>
         <li>Multiple enumerators can share the same bit; this may be a warning but not necessarily an error.</li>
-        <li>Underlying type is always int32; <code>bitfield enum&lt;byte&gt;</code>, etc. are compile-time errors.</li>
+        <li>Underlying type is always Int32; <code>bitfield enum&lt;byte&gt;</code>, etc. are compile-time errors.</li>
       </ul>
     </section>
 
@@ -818,7 +791,7 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
     var Fb = new FizzBuzz();
     Fb.Run();
 
-    _ = 0;   // process exit code
+    _ = 0;   // Process exit code
 }
 </code></pre>
       <ul>
@@ -834,7 +807,7 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
       <h2>13. Temp Variable <code>_</code></h2>
 <pre><code>method Foo(): void {
     var X = 10;
-    _ = X + 5;   // temporary result in this block
+    _ = X + 5;   // Temporary result in this block
 }
 </code></pre>
       <p class="note">
@@ -866,8 +839,8 @@ swap (A, B);
 
       <h3>15.1 Precedence (high to low)</h3>
       <ol>
-        <li>Member / call: <code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
-        <li>Unary: <code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
+        <li>Member / call: <code>X.Y</code>, <code>X[Y]</code>, <code>X(Args...)</code></li>
+        <li>Unary: <code>+X</code>, <code>-X</code>, <code>!X</code>, <code>delete X</code></li>
         <li>Multiplicative: <code>*</code>, <code>/</code>, <code>%</code></li>
         <li>Additive: <code>+</code>, <code>-</code></li>
         <li>Shift: <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
@@ -875,7 +848,7 @@ swap (A, B);
         <li>Equality: <code>==</code>, <code>!=</code></li>
         <li>Bitwise AND: <code>&amp;</code></li>
         <li>Bitwise XOR: <code>^</code></li>
-        <li>Bitwise OR: <code>|</code> (different meaning from pipeline <code>|</code> in pipe/filter syntax)</li>
+        <li>Bitwise OR: <code>|</code></li>
         <li>Logical AND: <code>&amp;&amp;</code></li>
         <li>Logical OR: <code>||</code></li>
         <li>Assignment: <code>=</code></li>
@@ -895,13 +868,13 @@ swap (A, B);
       <hr />
       <h2>16. Exceptions</h2>
 <pre><code>try {
-    // code that might throw
+    // Code that might throw
 }
 catch (E) {
-    // handle exception
+    // Handle exception
 }
 finally {
-    // cleanup
+    // Cleanup
 }
 </code></pre>
 
@@ -955,16 +928,16 @@ finally {
       <hr />
       <h2>18. Pipes &amp; Filters</h2>
 
-      <h3>18.1 pipe&lt;T&gt;</h3>
+      <h3>18.1 Pipe&lt;T&gt;</h3>
       <ul>
-        <li><code>pipe&lt;T&gt;</code> represents a stream of <code>T</code>.</li>
-        <li>Built-in pipes such as <code>stdin</code>, <code>stdout</code>, etc. are assumed.</li>
+        <li><code>Pipe&lt;T&gt;</code> represents a stream of <code>T</code>.</li>
+        <li>Built-in pipes such as <code>StdIn</code>, <code>StdOut</code>, etc. are assumed.</li>
       </ul>
 
       <h3>18.2 Defining filters</h3>
 <pre><code>filter LineSplit {
-    in : pipe&lt;string&gt;;
-    out: pipe&lt;string&gt;;
+    in : Pipe&lt;string&gt;;
+    out: Pipe&lt;string&gt;;
 
     bound(Input, Output) {
         foreach (Chunk in Input) {
@@ -979,7 +952,7 @@ finally {
 </code></pre>
 
       <h3>18.3 Pipeline statement</h3>
-<pre><code>stdin
+<pre><code>StdIn
     | filter(Utf8)
     | filter(Json&lt;User&gt;)
     | Users;
@@ -1008,7 +981,7 @@ finally {
 
       <h3>18.6 Concurrency model with pipes</h3>
       <ul>
-        <li><code>pipe&lt;T&gt;</code> is the primary communication mechanism between tasks.</li>
+        <li><code>Pipe&lt;T&gt;</code> is the primary communication mechanism between tasks.</li>
         <li>Aloe encourages a “shared-nothing” model; shared mutable data structures are discouraged.</li>
       </ul>
 
@@ -1019,15 +992,15 @@ finally {
 }
 
 main(Args: string[]) {
-    let Req  : pipe&lt;byte&gt; = pipe&lt;byte&gt;.Create();
-    let Users: pipe&lt;User&gt; = pipe&lt;User&gt;.Create();
+    let ReqPipe  : Pipe&lt;byte&gt; = Pipe&lt;byte&gt;.Create();
+    let UserPipe : Pipe&lt;User&gt; = Pipe&lt;User&gt;.Create();
 
-    stdin
+    StdIn
         | filter(Utf8)
         | filter(Json&lt;User&gt;)
-        | Users;
+        | UserPipe;
 
-    let U: User? = Users.Next();
+    let U: User? = UserPipe.Next();
     if (U is User) {
         Print("User: " + U.Name);
     }
