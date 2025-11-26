@@ -1,26 +1,23 @@
-﻿```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe Language Specification (Draft)</title>
+  <title>Aloe Language Specification (Draft, with with-extension)</title>
   <style>
-    * { box-sizing: border-box; }
+    /* Layout only; fonts are left mostly to browser defaults */
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      line-height: 1.7;
-      color: #222;
     }
     .layout {
       display: flex;
       min-height: 100vh;
     }
     .sidebar {
-      width: 260px;
+      width: 320px;
       background: #111827;
-      color: #f9fafb;
-      padding: 1rem 0.75rem 2rem;
+      color: #e5e7eb;
+      padding: 1.2rem 1rem;
+      box-sizing: border-box;
       position: sticky;
       top: 0;
       align-self: flex-start;
@@ -28,278 +25,213 @@
       overflow-y: auto;
     }
     .sidebar h1 {
-      font-size: 1.1rem;
-      margin: 0 0 0.5rem;
-      padding: 0 0.25rem;
+      font-size: 1rem;
+      margin: 0 0 0.25rem;
     }
-    .sidebar small {
-      display: block;
-      font-size: 0.75rem;
-      color: #9ca3af;
-      margin-bottom: 0.75rem;
-      padding: 0 0.25rem;
-    }
-    .nav-section-title {
+    .sidebar .subtitle {
       font-size: 0.8rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
       color: #9ca3af;
-      margin: 0.75rem 0 0.25rem;
-      padding: 0 0.25rem;
+      margin-bottom: 1rem;
     }
-    .nav-list {
+    .sidebar h2 {
+      font-size: 0.8rem;
+      margin: 0.8rem 0 0.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #9ca3af;
+    }
+    .sidebar nav ul {
       list-style: none;
-      margin: 0;
       padding: 0;
-    }
-    .nav-list li {
       margin: 0;
-    }
-    .nav-link {
-      display: block;
-      padding: 0.25rem 0.5rem;
-      margin: 0 0.1rem;
-      border-radius: 4px;
       font-size: 0.85rem;
-      color: #e5e7eb;
+    }
+    .sidebar nav li {
+      margin: 0.1rem 0;
+    }
+    .sidebar a {
+      color: inherit;
       text-decoration: none;
+      display: block;
+      padding: 0.2rem 0.35rem;
+      border-radius: 0.3rem;
       cursor: pointer;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .nav-link:hover {
-      background: #374151;
+    .sidebar a:hover {
+      background: #1f2937;
     }
-    .nav-link.active {
-      background: #4b5563;
-      color: #ffffff;
-      font-weight: 600;
+    .sidebar a.active {
+      background: #1d4ed8;
+      color: #e5e7eb;
     }
+    .chapter-index {
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-right: 0.3rem;
+    }
+
     .content {
       flex: 1;
-      padding: 1.5rem 2rem 3rem;
-      max-width: 980px;
-      margin: 0 auto;
+      max-width: 1100px;
+      padding: 1.8rem 2.4rem;
+      box-sizing: border-box;
     }
-    .chapter {
-      display: none;
-      padding-bottom: 2rem;
-      border-bottom: 1px solid #e5e7eb;
-      margin-bottom: 2rem;
+    h1, h2, h3, h4, h5 {
+      margin-top: 1.4em;
     }
-    .chapter.active {
-      display: block;
-    }
-    h2, h3, h4 {
-      line-height: 1.3;
-    }
-    h2 {
-      border-bottom: 2px solid #e5e7eb;
-      padding-bottom: 0.25rem;
+    h1 {
       margin-top: 0;
     }
-    pre {
-      background: #f5f5f5;
-      padding: 0.75rem 1rem;
-      overflow-x: auto;
-      border-radius: 4px;
+    pre, code {
+      font-family: Consolas, Menlo, Monaco, monospace;
       font-size: 0.9rem;
     }
-    code {
-      font-family: "SF Mono", Menlo, Consolas, monospace;
-      font-size: 0.9rem;
+    pre {
+      background: #f3f4f6;
+      padding: 0.7rem 0.9rem;
+      border-radius: 0.4rem;
+      overflow-x: auto;
+      border: 1px solid #e5e7eb;
+    }
+    ul, ol {
+      padding-left: 1.4em;
     }
     hr {
-      margin: 2rem 0;
+      margin: 1.8rem 0;
       border: none;
       border-top: 1px solid #e5e7eb;
     }
     .note {
-      padding: 0.5rem 0.75rem;
-      border-left: 4px solid #888;
-      background: #fafafa;
-      margin: 1rem 0;
       font-size: 0.9rem;
+      color: #4b5563;
     }
-    .table-wrap {
-      overflow-x: auto;
-    }
-    table {
-      border-collapse: collapse;
-      font-size: 0.9rem;
-      margin: 0.5rem 0 1rem;
-      min-width: 60%;
-    }
-    th, td {
-      border: 1px solid #d1d5db;
-      padding: 0.35rem 0.6rem;
-      text-align: left;
-      vertical-align: top;
-    }
-    th {
-      background: #f3f4f6;
-      font-weight: 600;
-    }
-    ul, ol { padding-left: 1.3rem; }
 
-    @media (max-width: 800px) {
-      .layout { flex-direction: column; }
-      .sidebar {
-        width: 100%;
-        position: static;
-        max-height: none;
-        display: flex;
-        flex-wrap: wrap;
-      }
-      .sidebar h1, .sidebar small, .nav-section-title {
-        width: 100%;
-      }
-      .nav-list {
-        display: flex;
-        flex-wrap: wrap;
-      }
-      .nav-list li {
-        flex: 0 0 50%;
-      }
-      .content {
-        padding: 1rem 1rem 3rem;
-      }
+    .chapter {
+      display: none;
+    }
+    .chapter.active {
+      display: block;
     }
   </style>
-  <script>
-    function showChapter(id) {
-      const chapters = document.querySelectorAll('.chapter');
-      chapters.forEach(ch => ch.classList.remove('active'));
-      const target = document.getElementById(id);
-      if (target) target.classList.add('active');
-
-      const links = document.querySelectorAll('.nav-link');
-      links.forEach(a => a.classList.remove('active'));
-      const activeLink = document.querySelector('.nav-link[data-target="' + id + '"]');
-      if (activeLink) activeLink.classList.add('active');
-
-      if (window.innerWidth <= 800) {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-    }
-    window.addEventListener('DOMContentLoaded', () => {
-      const first = document.querySelector('.chapter');
-      if (first) first.classList.add('active');
-      const firstLink = document.querySelector('.nav-link');
-      if (firstLink) firstLink.classList.add('active');
-
-      document.querySelectorAll('.nav-link').forEach(a => {
-        a.addEventListener('click', (e) => {
-          e.preventDefault();
-          showChapter(a.dataset.target);
-        });
-      });
-    });
-  </script>
 </head>
 <body>
 <div class="layout">
-  <aside class="sidebar">
-    <h1>Aloe Language Spec</h1>
-    <small>(Current draft; subject to change/extension.)</small>
 
-    <div class="nav-section">
-      <div class="nav-section-title">Chapters</div>
-      <ul class="nav-list">
-        <li><a class="nav-link" data-target="lang-ch0">0. Overview</a></li>
-        <li><a class="nav-link" data-target="lang-ch1">1. Basic Syntax</a></li>
-        <li><a class="nav-link" data-target="lang-ch2">2. Type System</a></li>
-        <li><a class="nav-link" data-target="lang-ch3">3. Numbers & Conversions</a></li>
-        <li><a class="nav-link" data-target="lang-ch4">4. Blocks & Scope</a></li>
-        <li><a class="nav-link" data-target="lang-ch5">5. Variables & Constants</a></li>
-        <li><a class="nav-link" data-target="lang-ch6">6. Fields</a></li>
-        <li><a class="nav-link" data-target="lang-ch7">7. Class / Struct / Interface / Trait</a></li>
-        <li><a class="nav-link" data-target="lang-ch8">8. delete & null</a></li>
-        <li><a class="nav-link" data-target="lang-ch9">9. is Operator</a></li>
-        <li><a class="nav-link" data-target="lang-ch10">10. Collections</a></li>
-        <li><a class="nav-link" data-target="lang-ch11">11. enum / bitfield enum</a></li>
-        <li><a class="nav-link" data-target="lang-ch12">12. main Block</a></li>
-        <li><a class="nav-link" data-target="lang-ch13">13. Temp Variable _</a></li>
-        <li><a class="nav-link" data-target="lang-ch14">14. swap Keyword</a></li>
-        <li><a class="nav-link" data-target="lang-ch15">15. Operators</a></li>
-        <li><a class="nav-link" data-target="lang-ch16">16. Exceptions</a></li>
-        <li><a class="nav-link" data-target="lang-ch17">17. Modules / namespace / import</a></li>
-        <li><a class="nav-link" data-target="lang-ch18">18. Pipes & Filters</a></li>
-      </ul>
+  <!-- Left menu -->
+  <aside class="sidebar">
+    <h1>Aloe Language Specification</h1>
+    <div class="subtitle">
+      Draft / English version + <code>with</code> extension
     </div>
+
+    <h2>Chapters</h2>
+    <nav>
+      <ul>
+        <li><a class="nav-link active" data-target="ch0"><span class="chapter-index">0.</span>Overview</a></li>
+        <li><a class="nav-link" data-target="ch1"><span class="chapter-index">1.</span>Basic Syntax</a></li>
+        <li><a class="nav-link" data-target="ch2"><span class="chapter-index">2.</span>Type System</a></li>
+        <li><a class="nav-link" data-target="ch3"><span class="chapter-index">3.</span>Numbers &amp; Conversions</a></li>
+        <li><a class="nav-link" data-target="ch4"><span class="chapter-index">4.</span>Blocks &amp; Scope</a></li>
+        <li><a class="nav-link" data-target="ch5"><span class="chapter-index">5.</span>Variables &amp; Constants</a></li>
+        <li><a class="nav-link" data-target="ch6"><span class="chapter-index">6.</span>Fields</a></li>
+        <li><a class="nav-link" data-target="ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
+        <li><a class="nav-link" data-target="ch8"><span class="chapter-index">8.</span>delete and null</a></li>
+        <li><a class="nav-link" data-target="ch9"><span class="chapter-index">9.</span>is Operator</a></li>
+        <li><a class="nav-link" data-target="ch10"><span class="chapter-index">10.</span>Collections</a></li>
+        <li><a class="nav-link" data-target="ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
+        <li><a class="nav-link" data-target="ch12"><span class="chapter-index">12.</span>main Block</a></li>
+        <li><a class="nav-link" data-target="ch13"><span class="chapter-index">13.</span>Temp Variable <code>_</code></a></li>
+        <li><a class="nav-link" data-target="ch14"><span class="chapter-index">14.</span>swap Keyword</a></li>
+        <li><a class="nav-link" data-target="ch15"><span class="chapter-index">15.</span>Operators</a></li>
+        <li><a class="nav-link" data-target="ch16"><span class="chapter-index">16.</span>Exceptions</a></li>
+        <li><a class="nav-link" data-target="ch17"><span class="chapter-index">17.</span>Modules / namespace / import</a></li>
+        <li><a class="nav-link" data-target="ch18"><span class="chapter-index">18.</span>Pipes and Filters</a></li>
+      </ul>
+    </nav>
+
+    <h2>Key Section</h2>
+    <nav>
+      <ul>
+        <li><a class="nav-link" data-target="ch4">4.2 with-blocks</a></li>
+      </ul>
+    </nav>
   </aside>
 
+  <!-- Right content -->
   <main class="content">
+    <h1>Aloe Language Specification (Draft)</h1>
+    <p class="note">
+      Base document: <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>.<br />
+      This is an English draft based on the original spec, with an additional extension in
+      <strong>4.2 with-blocks</strong>: “dot-less” with-blocks + <strong>type-based with</strong> (class/struct/enum static members and enum constants shortcut).<br />
+      Also, in the examples, <strong>method names, property names, and field names are written in PascalCase (leading uppercase)</strong>, according to the current naming guideline.
+    </p>
 
     <!-- 0. Overview -->
-    <section id="lang-ch0" class="chapter">
+    <section class="chapter active" id="ch0">
+      <hr />
       <h2>0. Overview</h2>
       <p>
-        Aloe is a statically-typed scripting language with a simple and intuitive syntax.
-        It targets a stack-based virtual machine (AloeVM), with the following primary goals:
+        Aloe is a statically-typed scripting language with simple and intuitive syntax,
+        running on a stack-based virtual machine (AloeVM).
       </p>
       <ul>
-        <li>Easy to read and write for education and small applications.</li>
-        <li>Runs on C# runtime and WebAssembly (WASM) environments.</li>
-        <li>Strong typing with inference, and explicit control over concurrency and I/O via <code>pipe</code> and <code>filter</code>.</li>
+        <li>Easy to read and write for educational use and small applications.</li>
+        <li>Targets C# runtime and WASM environments.</li>
+        <li>Controls I/O and concurrency using <code>pipe</code> and <code>filter</code> in a statically typed manner.</li>
       </ul>
+      <p>Main characteristics:</p>
       <ul>
         <li>Static typing
           <ul>
-            <li>Type inference with <code>var</code></li>
-            <li>Explicit type annotation with <code>let</code></li>
+            <li><code>var</code> for type inference.</li>
+            <li><code>let</code> for explicit type annotations.</li>
           </ul>
         </li>
-        <li>Value types / reference types
+        <li>Value types vs reference types
           <ul>
             <li><code>struct</code> … value type</li>
             <li><code>class</code> … reference type</li>
           </ul>
         </li>
-        <li>GC-based memory management (algorithm is implementation-specific on the VM side)</li>
-        <li>No explicit <code>= null</code> assignment in source code
-          <ul>
-            <li>Reference types may be null internally, but <code>= null</code> is not written in user code.</li>
-            <li><code>delete obj;</code> is provided as syntactic sugar for “set this reference to null”.</li>
-          </ul>
-        </li>
+        <li>GC-based memory management (actual algorithm is VM-dependent).</li>
+        <li>No explicit <code>= null</code> in source code (use <code>delete</code> instead).</li>
+        <li>Data-flow oriented design with <code>pipe</code> and <code>filter</code>.</li>
       </ul>
-      <div class="note">
-        Aloe is designed with a “pipe &amp; filter” style dataflow in mind: servers, CLI tools, and web apps can
-        all be composed from small units connected by pipes.
-      </div>
     </section>
 
     <!-- 1. Basic Syntax -->
-    <section id="lang-ch1" class="chapter">
+    <section class="chapter" id="ch1">
+      <hr />
       <h2>1. Basic Syntax</h2>
 
       <h3>1.1 Comments</h3>
-      <pre><code class="language-aloe">
-// single-line comment
+<pre><code>// single-line comment
 
 /* multi-line
    comment */
-      </code></pre>
+</code></pre>
       <ul>
-        <li><code>//</code> to end-of-line is a single-line comment.</li>
-        <li><code>/*</code> … <code>*/</code> is a multi-line comment.</li>
-        <li>Nested <code>/* */</code> is not supported (undefined behavior).</li>
+        <li><code>//</code> to end-of-line is a line comment.</li>
+        <li><code>/* ... */</code> is a multi-line comment.</li>
+        <li>Nested <code>/* */</code> is unspecified (not supported).</li>
       </ul>
 
       <h3>1.2 Identifiers</h3>
       <ul>
-        <li>Allowed characters: letters (A–Z, a–z), digits (0–9), underscore (<code>_</code>).</li>
+        <li>Allowed characters: letters (A–Z, a–z), digits (0–9), underscore <code>_</code>.</li>
         <li>First character must be a letter or <code>_</code>.</li>
-        <li>Case-sensitive (<code>Variable</code> and <code>variable</code> are different).</li>
-        <li>Cannot use the same spelling as a keyword.</li>
-        <li>Identifiers starting with <code>_</code> are considered “private” and are not accessible from outside.</li>
-        <li>Unicode letters are allowed (except whitespace and separator-like symbols).</li>
+        <li>Case-sensitive.</li>
+        <li>Keywords cannot be used as identifiers.</li>
+        <li>Identifiers starting with <code>_</code> are considered “private” by convention.</li>
+        <li>Certain Unicode letters may be allowed (whitespace and punctuation are excluded).</li>
       </ul>
 
       <h3>1.3 Keywords</h3>
-      <pre><code>abstract
+<pre><code>abstract
 as
 async
 bitfield
@@ -353,734 +285,602 @@ void
 while
 with
 yield
-      </code></pre>
+</code></pre>
       <ul>
-        <li><code>package</code> is not used; <code>namespace</code> is used instead.</li>
-        <li><code>final</code> is removed; use <code>sealed</code> for non-extendable classes/structs.</li>
-        <li><code>instanceof</code> is removed; use <code>is</code> for type checks.</li>
+        <li>Use <code>namespace</code> instead of <code>package</code>.</li>
+        <li><code>final</code> is removed; use <code>sealed</code> instead.</li>
+        <li><code>instanceof</code> is removed; use <code>is</code> instead.</li>
       </ul>
 
       <h3>1.4 Literals</h3>
       <ul>
-        <li>Integer literals: <code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0XFF</code>, <code>0b1010</code>, <code>0B11</code></li>
-        <li>Floating-point literals: <code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
-        <li>Decimal literals: <code>10.12345678901234567890:d</code>, <code>10.12345678901234567890:D</code></li>
-        <li>Boolean literals: <code>true</code>, <code>false</code></li>
-        <li>String literals: <code>"Hello, World!"</code>, <code>"Aloe language"</code></li>
-        <li>Char literals: <code>'A'</code>, <code>'z'</code>, control characters such as newline</li>
-        <li>Null literal: <code>null</code> (exists as a literal, but cannot be used directly in assignments)</li>
-        <li>Array literal: <code>[1, 2, 3]</code></li>
-        <li>List literal: <code>(1, 2, 3)</code></li>
-        <li>Set literal: <code>{1, 2, 3}</code></li>
-        <li>Map literal: <code>["key1": 10, "key2": 20]</code></li>
-        <li>Enum literal: <code>EnumType.Value1</code></li>
-        <li>Struct literal: <code>Point { x: 0, y: 1 }</code></li>
-        <li>Object creation: <code>new ClassName()</code></li>
+        <li>Integer: <code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code>, etc.</li>
+        <li>Float: <code>10.5</code>, <code>0.0</code>, <code>-3.14</code>.</li>
+        <li>Decimal: <code>10.12345678901234567890:d</code>, etc.</li>
+        <li>Boolean: <code>true</code>, <code>false</code>.</li>
+        <li>String: <code>"Hello, World!"</code>.</li>
+        <li>Char: <code>'A'</code>, <code>'z'</code>, etc.</li>
+        <li>Null literal: <code>null</code> (exists as a literal but is not used in assignments directly).</li>
+        <li>Array literal: <code>[1, 2, 3]</code>.</li>
+        <li>List literal: <code>(1, 2, 3)</code>.</li>
+        <li>Set literal: <code>{1, 2, 3}</code>.</li>
+        <li>Map literal: <code>["key1": 10, "key2": 20]</code>.</li>
+        <li>Enum literal: <code>EnumType.Value1</code>.</li>
+        <li>Struct literal: <code>Point { X: 0, Y: 1 }</code>.</li>
+        <li>Object creation: <code>new ClassName()</code>.</li>
       </ul>
 
-      <h3>1.5 Statement terminator (semicolon)</h3>
+      <h3>1.5 Statement terminator</h3>
+<pre><code>var X = 10;
+X = X + 1;
+Print(X);
+</code></pre>
       <ul>
-        <li><strong>Every statement must end with a semicolon <code>;</code>.</strong></li>
-        <li>No automatic semicolon insertion based on newlines.</li>
-      </ul>
-      <pre><code class="language-aloe">
-var x = 10;
-x = x + 1;
-print(x);
-      </code></pre>
-
-      <h3>1.6 Whitespace</h3>
-      <ul>
-        <li>Spaces, tabs, newlines are all treated as token separators.</li>
-        <li>Multiple consecutive whitespace characters are treated as a single separator.</li>
-        <li>Indentation has no semantic meaning (unlike Python).</li>
+        <li>All statements end with <code>;</code>.</li>
+        <li>No automatic semicolon insertion based on line breaks.</li>
       </ul>
 
-      <h3>1.7 Case sensitivity</h3>
+      <h3>1.6 Whitespace / 1.7 Case sensitivity</h3>
       <ul>
+        <li>Spaces, tabs, and line breaks act as token delimiters.</li>
+        <li>Multiple whitespace characters are treated as a single delimiter.</li>
+        <li>Indentation has no semantic meaning.</li>
         <li>Identifiers and keywords are case-sensitive.</li>
         <li>All keywords are lowercase.</li>
       </ul>
     </section>
 
     <!-- 2. Type System -->
-    <section id="lang-ch2" class="chapter">
+    <section class="chapter" id="ch2">
+      <hr />
       <h2>2. Type System</h2>
 
       <h3>2.1 Primitive types</h3>
       <ul>
-        <li><code>int</code> / <code>integer</code> – integer</li>
-        <li><code>float</code> – floating-point number</li>
-        <li><code>bool</code> / <code>boolean</code> – boolean</li>
-        <li><code>decimal</code> – high-precision decimal (similar precision to C# <code>decimal</code>)</li>
-        <li><code>string</code> – string (internally Unicode)</li>
-        <li><code>char</code> – single character</li>
-        <li><code>byte</code> – integer in range 0–255</li>
-        <li><code>void</code> – no return value (only for method return types)</li>
-        <li><code>null</code> – special literal (not a type)</li>
+        <li><code>int</code> / <code>integer</code></li>
+        <li><code>float</code></li>
+        <li><code>bool</code> / <code>boolean</code></li>
+        <li><code>decimal</code></li>
+        <li><code>string</code></li>
+        <li><code>char</code></li>
+        <li><code>byte</code></li>
+        <li><code>void</code></li>
+        <li><code>null</code> (literal)</li>
       </ul>
-      <div class="note">
-        There is no <code>any</code> type; dynamic typing is not supported.
-      </div>
 
       <h3>2.2 Composite / user-defined types</h3>
       <ul>
-        <li>Array: <code>T[]</code></li>
-        <li>List: <code>T()</code></li>
-        <li>Set: <code>T{}</code></li>
-        <li>Map: <code>map&lt;T&gt;</code> or <code>map&lt;K/V&gt;</code></li>
-        <li>Struct: <code>struct</code></li>
-        <li>Class: <code>class</code></li>
-        <li>Enum: <code>enum</code>, <code>bitfield enum</code></li>
-        <li>Async task: <code>task</code></li>
-        <li>Pipe: <code>pipe&lt;T&gt;</code> (see Chapter 18)</li>
+        <li>Array: <code>T[]</code>.</li>
+        <li>List: <code>T()</code>.</li>
+        <li>Set: <code>T{}</code>.</li>
+        <li>Map: <code>map&lt;T&gt;</code> or <code>map&lt;K/V&gt;</code>.</li>
+        <li><code>struct</code>, <code>class</code>, <code>enum</code>, <code>bitfield enum</code>.</li>
+        <li><code>task</code>, <code>pipe&lt;T&gt;</code>.</li>
       </ul>
 
-      <h3>2.3 Value types / reference types</h3>
+      <h3>2.3 Value vs reference types</h3>
       <ul>
-        <li>Value types:
-          <ul>
-            <li><code>int</code>, <code>float</code>, <code>decimal</code>, <code>bool</code>, <code>byte</code>, <code>char</code></li>
-            <li><code>struct</code> (user-defined structs)</li>
-            <li><code>enum</code>, <code>bitfield enum</code> (represented as int underneath)</li>
-          </ul>
-        </li>
-        <li>Reference types:
-          <ul>
-            <li><code>class</code></li>
-            <li><code>string</code> (implementation-wise, treated as reference type)</li>
-            <li><code>task</code>, <code>pipe&lt;T&gt;</code>, etc.</li>
-          </ul>
-        </li>
+        <li>Value types: primitives + struct + enum/bitfield enum.</li>
+        <li>Reference types: class, string, task, pipe, etc.</li>
       </ul>
-
-      <h4>Struct restrictions and copying</h4>
+      <h4>Struct restrictions</h4>
       <ul>
-        <li>Struct fields may only be <strong>primitive types or other structs</strong>.</li>
-        <li>Struct fields cannot hold references to classes or other reference types.</li>
-        <li>Copying a struct instance is a <strong>value copy</strong> (clone all fields).</li>
-        <li>The language spec does not define maximum struct size and does not emit warnings about it.</li>
-      </ul>
-
-      <h4>Class vs struct</h4>
-      <ul>
-        <li>A class may have struct fields (embedded values).</li>
-        <li>Assigning a class instance to another variable copies the reference, not the object.</li>
+        <li>Struct fields can be only primitives or other structs.</li>
+        <li>Reference-type fields (class, etc.) are not allowed.</li>
+        <li>Struct assignment always copies by value.</li>
       </ul>
     </section>
 
     <!-- 3. Numbers & Conversions -->
-    <section id="lang-ch3" class="chapter">
-      <h2>3. Numbers and Implicit Conversions</h2>
+    <section class="chapter" id="ch3">
+      <hr />
+      <h2>3. Numbers &amp; Conversions</h2>
 
-      <h3>3.1 int and float</h3>
+      <h3>3.1 int / float</h3>
       <ul>
-        <li>When <code>int</code> and <code>float</code> appear in the same arithmetic expression, the result is promoted to <strong><code>float</code></strong>.
-          <ul>
-            <li><code>int + float → float</code></li>
-            <li><code>int - float → float</code></li>
-            <li><code>int * float → float</code></li>
-            <li><code>int / float → float</code></li>
-          </ul>
-        </li>
+        <li>Mixed integer/float expressions are promoted to <code>float</code>.</li>
       </ul>
 
       <h3>3.2 decimal</h3>
       <ul>
-        <li><code>decimal</code> is a high-precision decimal type.</li>
-        <li>Expressions mixing <code>int</code> / <code>float</code> and <code>decimal</code> may promote to <strong><code>decimal</code></strong> if needed.</li>
-        <li>Overflow/underflow or precision issues are reported as <code>OverflowException</code>.</li>
-        <li>Aloe does not use <code>UnderflowException</code>; underflow is folded into <code>OverflowException</code>.</li>
+        <li>High-precision base-10 numeric type.</li>
+        <li>Overflow and underflow are treated as <code>OverflowException</code>.</li>
       </ul>
 
       <h3>3.3 enum and int</h3>
       <ul>
-        <li>Aloe has no explicit cast syntax.</li>
-        <li>Both implicit and explicit conversions between <strong>enum and int</strong> are disallowed.
-          <ul>
-            <li><code>var x: int = SomeEnum.Value;</code> → compile-time error</li>
-            <li><code>var e: SomeEnum = 1;</code> → compile-time error</li>
-          </ul>
-        </li>
-        <li>Any expression mixing enum and numeric types is a compile-time error (except bit operations for <code>bitfield enum</code>).</li>
-        <li>Internally, all enum and bitfield enum values are stored as <strong>int32</strong>.</li>
+        <li>No cast syntax.</li>
+        <li>enum &lt;=&gt; int implicit/explicit conversions are forbidden.</li>
       </ul>
 
-      <h3>3.4 byte and char</h3>
+      <h3>3.4 byte / char</h3>
       <ul>
-        <li><code>byte</code>:
-          <ul>
-            <li>Range 0–255.</li>
-            <li>Arithmetic between <code>byte</code> values is allowed within byte range.</li>
-            <li>Expressions mixing <code>byte</code> and <code>int</code> are promoted to <code>int</code>.</li>
-          </ul>
-        </li>
-        <li><code>char</code>:
-          <ul>
-            <li>No arithmetic on <code>char</code>.</li>
-            <li>Comparisons (<code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&gt;</code>, etc.) are allowed only between <code>char</code> values.</li>
-            <li>No implicit conversion between <code>char</code> and numeric types.</li>
-          </ul>
-        </li>
+        <li><code>byte</code>: 0–255. Mixed with int is promoted to <code>int</code>.</li>
+        <li><code>char</code>: arithmetic is not allowed; comparison is allowed only between chars.</li>
       </ul>
 
       <h3>3.5 NaN / Infinity</h3>
       <ul>
-        <li>For numeric overflow/underflow, Aloe prefers <strong>exceptions</strong> over NaN/Infinity.</li>
-        <li>There are no standard functions like <code>isNaN(x)</code> or <code>isInfinity(x)</code>; users rely on exceptions such as <code>OverflowException</code> and <code>ZeroDivisionException</code>.</li>
-        <li>Division by zero (0 or 0.0) always raises <code>ZeroDivisionException</code>.</li>
+        <li>Overflow/underflow are not represented by NaN/Infinity but by exceptions.</li>
+        <li>Division by zero is represented by <code>ZeroDivisionException</code>.</li>
+        <li>Helpers such as <code>IsNaN</code>, <code>IsInfinity</code> are considered standard-library functions (PascalCase) if provided.</li>
       </ul>
     </section>
 
-    <!-- 4. Blocks & Scope -->
-    <section id="lang-ch4" class="chapter">
-      <h2>4. Blocks and Scope</h2>
+    <!-- 4. Blocks & Scope + with -->
+    <section class="chapter" id="ch4">
+      <hr />
+      <h2>4. Blocks &amp; Scope</h2>
 
-      <p>
-        A block is delimited by <code>{</code> and <code>}</code>. Each block introduces a new scope.
-      </p>
+      <h3>4.1 Static scope and shadowing</h3>
+<pre><code>class Sample {
+    field Value: int = 1;
 
-      <ul>
-        <li><code>main</code> block</li>
-        <li>Class definition blocks</li>
-        <li>Method definition blocks</li>
-        <li>Arbitrary <code>{ ... }</code> blocks</li>
-      </ul>
-
-      <h3>4.1 Static (lexical) scope and shadowing</h3>
+    method Foo(): void {
+        var Value = 2;        // shadows the field
+        Print(Value);         // 2
+        Print(this.Value);    // 1
+    }
+}
+</code></pre>
       <ul>
         <li>Aloe uses static (lexical) scoping.</li>
-        <li>If an inner block declares a variable with the same name as an outer one, the outer variable is shadowed inside the inner block.</li>
-        <li>If a field name and a local variable name conflict, the local variable takes precedence; use <code>this.</code> to refer to the field.</li>
+        <li>A variable declared in an inner block shadows outer ones.</li>
+        <li>When a field name conflicts with a local variable, the local is preferred; the field must be accessed via <code>this.</code>.</li>
       </ul>
-      <pre><code class="language-aloe">
-class Sample {
-    field value: int = 1;
 
-    method foo(): void {
-        var value = 2;        // shadows the field
-        print(value);         // 2
-        print(this.value);    // 1
+      <h3>4.2 with-blocks (member shortcut syntax)</h3>
+      <p>with-blocks provide a concise way to access members of one or more objects.</p>
+<pre><code>with (User) {
+    Name = "Alice";
+    Age  = Age + 1;
+    Print(Name);
+}
+</code></pre>
+      <ul>
+        <li>Syntax: <code>with (Expr1)</code> or <code>with (Expr1), (Expr2), ...</code>.</li>
+        <li>Each Expr is evaluated only once at the start of the block and stored in an internal temporary.</li>
+        <li>Name resolution for a simple identifier inside a with-block:
+          <ol>
+            <li>Locals and parameters declared in that block.</li>
+            <li>Members (fields/properties/methods) of the with-targets (from left to right).</li>
+            <li>Outer scopes (outer blocks, class fields, imported symbols, etc.).</li>
+          </ol>
+        </li>
+        <li>If multiple with-targets have the same member name, it is ambiguous and a compile-time error.</li>
+        <li>A special temporary <code>_</code> refers to the first with-target (<code>Expr1</code>):
+          <ul>
+            <li>You can pass it as <code>Log(_)</code>, etc.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h4>4.2.1 Multiple with-targets</h4>
+<pre><code>with (User), (Profile) {
+    Name = "Alice";          // resolved on User.Name or Profile.Name
+    UpdateProfile();         // resolved on User.UpdateProfile() or Profile.UpdateProfile()
+}
+</code></pre>
+      <ul>
+        <li>Resolution order is from left to right: Expr1, then Expr2, ...</li>
+        <li>If more than one target defines the same member, it is ambiguous and a compile-time error.</li>
+      </ul>
+
+      <h4>4.2.2 Nested with-blocks</h4>
+<pre><code>with (User) {
+    Name = "Alice";
+
+    with (Address) {
+        City = "Tokyo";   // Address.City
+        Print(Name);      // resolved to User.Name or a local Name
     }
 }
-      </code></pre>
+</code></pre>
+      <ul>
+        <li>Inner with-blocks have their own resolution rules.</li>
+        <li>If a name cannot be resolved inside the inner with, lookup falls back to outer scopes, including outer with-blocks.</li>
+      </ul>
 
-      <h3>4.2 with-blocks (member shorthands)</h3>
+      <h4>4.2.3 Type-based with (class / struct / enum)</h4>
       <p>
-        Aloe provides a <code>with</code> block to simplify repetitive member access.
+        If you specify a <strong>type name</strong> instead of an expression in a with-block,
+        you can use it as a shortcut to static members (for classes/structs) or enum constants.
       </p>
-      <pre><code class="language-aloe">
-with (user) {
-    .name = "Alice";
-    .age = .age + 1;
-    print(.name);
+<pre><code>with (AngleUtil) {
+    var Rad  = DegToRad(90.0);   // AngleUtil.DegToRad(90.0)
+    var Rad2 = DegToRad(45.0);
+    Print(Pi);                   // AngleUtil.Pi
 }
-      </code></pre>
+</code></pre>
       <ul>
-        <li>Inside a <code>with (expr) { ... }</code> block:
+        <li>Allowed type targets:
           <ul>
-            <li><code>.</code><em>Member</em> is shorthand for <code>(expr).Member</code>.</li>
-            <li>The special temporary variable <code>_</code> is bound to the <code>with</code> object.
-              <ul>
-                <li>You can pass it to methods: <code>log(_);</code></li>
-              </ul>
-            </li>
+            <li>class types</li>
+            <li>struct types</li>
+            <li>enum / bitfield enum types</li>
           </ul>
         </li>
-        <li>Nesting <code>with</code> blocks:
-          <ul>
-            <li>Inner <code>with</code> shadows outer for <code>.</code>-lookups and for <code>_</code>.</li>
-            <li>You can still refer to outer objects via normal variables.</li>
-          </ul>
+        <li>In a type-based with:
+          <ol>
+            <li>Locals and parameters.</li>
+            <li>Static fields, static methods, and enum constants of the target type(s).</li>
+            <li>Outer scopes.</li>
+          </ol>
         </li>
-        <li>Multiple <code>with</code> on the same block (C# <code>using</code>-like style) is allowed:
-          <pre><code class="language-aloe">
-with (user), (profile) {
-    .name = "Alice";  // resolved against both user and profile
-}
-          </code></pre>
-          <ul>
-            <li>Resolution order is implementation-defined, but <strong>ambiguous matches are compile-time errors</strong>.</li>
-            <li>If <code>name</code> exists on both <code>user</code> and <code>profile</code>, the code is rejected as ambiguous.</li>
-          </ul>
-        </li>
-      </ul>
-      <div class="note">
-        The <code>with</code> feature is syntactic sugar only. Semantically, all member accesses can be rewritten to explicit
-        <code>obj.member</code> calls before type-checking and code generation.
-      </div>
-    </section>
-
-    <!-- 5. Variables & Constants -->
-    <section id="lang-ch5" class="chapter">
-      <h2>5. Variables and Constants</h2>
-
-      <h3>5.1 var (type inference)</h3>
-      <pre><code class="language-aloe">
-var i = 10;
-var f = 10.5;
-var s = "Hello";
-var c = 'A';
-var b = 255;
-var arr = [1, 2, 3];
-var lst = (1, 2, 3);
-var st  = {1, 2, 3};
-var mp  = ["key": 10];
-var fb  = new FizzBuzz();
-      </code></pre>
-      <ul>
-        <li>The type of the variable is inferred from the right-hand side expression.</li>
-        <li><code>var x = 1;</code> always infers <strong><code>int</code></strong>.</li>
-        <li><code>var x = 1.0;</code> is interpreted as <strong><code>float</code></strong> if the value is representable as <code>float</code>; it is not a candidate for <code>decimal</code>.</li>
-        <li><code>var x = null;</code> is a compile-time error (type cannot be inferred).</li>
+        <li>Accessing instance members in a type-based with is a compile-time error.</li>
+        <li>The special <code>_</code> can be treated as a pseudo-object representing the first type target's static context; <code>_.Member</code> is equivalent to simply <code>Member</code>.</li>
       </ul>
 
-      <h3>5.2 let (explicit type)</h3>
-      <pre><code class="language-aloe">
-let i: int = 10;
-let f: float = 10.5;
-let d: decimal = 10.12345678901234567890:d;
-let s: string = "Hello, Aloe!";
-let c: char = 'A';
-let b: byte = 255;
+      <h5>Example: struct / class</h5>
+<pre><code>struct AngleUtil {
+    static field Pi: float = 3.14159;
 
-let arr: int[] = [1, 2, 3];
-let lst: int() = (1, 2, 3);
-let st : int{} = {1, 2, 3};
-let mp : map&lt;string/int&gt; = ["key": 10];
-      </code></pre>
-
-      <h3>5.3 Constants (const)</h3>
-      <pre><code class="language-aloe">
-const MaxCount: int = 100;
-const Pi: float = 3.14159;
-const AppName: string = "Aloe VM";
-      </code></pre>
-      <ul>
-        <li><code>const</code> variables are immutable (no reassignment).</li>
-        <li>Type annotation is mandatory for <code>const</code>.</li>
-      </ul>
-    </section>
-
-    <!-- 6. Fields -->
-    <section id="lang-ch6" class="chapter">
-      <h2>6. Field Declarations (field / readonly field)</h2>
-
-      <p>Fields in classes and structs are declared with the <code>field</code> keyword.</p>
-      <pre><code class="language-aloe">
-class Sample {
-    field count: int = 0;
-    field name: string = "default";
-
-    readonly field id: int;
-
-    construct(id: int) {
-        this.id = id; // OK: inside the constructor
-    }
-
-    method change(): void {
-        this.count = this.count + 1; // OK
-        // this.id = 2; // NG: readonly field cannot be changed outside constructor
+    static method DegToRad(Deg: float): float {
+        return Deg * Pi / 180.0;
     }
 }
-      </code></pre>
-      <ul>
-        <li><code>field</code> … normal field.</li>
-        <li><code>readonly field</code> … writable only inside the constructor; read-only afterwards.</li>
-        <li>Same semantics for struct and class fields.</li>
-      </ul>
-    </section>
 
-    <!-- 7. Class / Struct / Interface / Trait -->
-    <section id="lang-ch7" class="chapter">
-      <h2>7. Class, Struct, Interface, Trait</h2>
-
-      <h3>7.1 class</h3>
-      <pre><code class="language-aloe">
-class FizzBuzz {
-    field _count: int = 0;
-    field name: string = "FizzBuzz";
-
-    construct() {
-    }
-
-    method run(): void {
-        var i = 1;
-        while (i &lt;= 100) {
-            // ...
-            i = i + 1;
-        }
+class MathUtil {
+    static method Max(A: int, B: int): int {
+        if (A > B) return A;
+        return B;
     }
 }
-      </code></pre>
-      <ul>
-        <li>Reference type.</li>
-        <li><code>sealed class</code> cannot be extended with <code>extends</code>.</li>
-        <li>Only single inheritance is supported.</li>
-      </ul>
 
-      <h3>7.2 struct</h3>
-      <pre><code class="language-aloe">
-struct Point {
-    field x: int;
-    field y: int;
+main(Args: string[]) {
+    with (AngleUtil) {
+        var Rad  = DegToRad(90.0);
+        var Rad2 = DegToRad(45.0);
+        Print(Pi);
+    }
 
-    construct(x: int, y: int) {
-        this.x = x;
-        this.y = y;
+    with (MathUtil) {
+        var M = Max(10, 20);
+        Print(M);
     }
 }
-      </code></pre>
-      <ul>
-        <li>Value type.</li>
-        <li>Fields are limited to primitives and other structs (no reference fields).</li>
-        <li>Copying a struct is always by value.</li>
-        <li>Struct inheritance is not supported. <code>sealed struct</code> is allowed but only as a declarative “do not extend” marker.</li>
-      </ul>
+</code></pre>
 
-      <h3>7.3 Inheritance and sealed</h3>
-      <pre><code class="language-aloe">
-class Base {
-    method foo(): void { }
-}
-
-class Derived extends Base {
-    method bar(): void { }
-}
-
-sealed class FinalDerived extends Base {
-    // cannot be extended further
-}
-      </code></pre>
-
-      <h3>7.4 interface</h3>
-      <pre><code class="language-aloe">
-interface ILogger {
-    method log(msg: string): void;
-}
-
-class ConsoleLogger implements ILogger {
-    method log(msg: string): void {
-        print(msg);
-    }
-}
-      </code></pre>
-      <ul>
-        <li>Use <code>implements</code> keyword to implement an interface.</li>
-        <li>Use <code>is</code> to test whether an object implements an interface.</li>
-      </ul>
-
-      <h3>7.5 trait</h3>
-      <pre><code class="language-aloe">
-trait Trait_A {
-    method hello(): void {
-        print("Hello from Trait_A");
-    }
-}
-      </code></pre>
-
-      <h4>Applying traits with with</h4>
-      <pre><code class="language-aloe">
-var obj = new SomeClass() with Trait_A;
-obj.hello(); // method from Trait_A (if no conflicts)
-      </code></pre>
-
-      <h4>Non-destructive add/remove (+ / -)</h4>
-      <pre><code class="language-aloe">
-var obj2 = obj + Trait_A;      // obj unchanged; obj2 has Trait_A
-var obj3 = obj2 - Trait_A;     // obj3 is obj2 without Trait_A
-      </code></pre>
-
-      <h4>Alias with as</h4>
-      <pre><code class="language-aloe">
-var obj2 = obj + Trait_A as a;
-obj2.a.hello(); // OK
-
-// obj2.hello(); // NG: alias only; no direct member flattening
-      </code></pre>
-
-      <h4>Trait conflicts</h4>
-      <ul>
-        <li>If multiple traits define the same field/method name, it is a compile-time error.</li>
-        <li>If a trait is applied with alias (e.g., <code>as a</code>), it does not participate in name conflicts.</li>
-        <li>Conflicts between the class body and trait members are unspecified and should be defined in a future revision.</li>
-      </ul>
-    </section>
-
-    <!-- 8. delete & null -->
-    <section id="lang-ch8" class="chapter">
-      <h2>8. delete and null</h2>
-
-      <pre><code class="language-aloe">
-var obj = new FizzBuzz();
-delete obj;  // equivalent to: obj = null (at VM level)
-      </code></pre>
-      <ul>
-        <li><code>delete obj;</code> is equivalent to internally assigning <code>null</code> to <code>obj</code>.</li>
-        <li>Writing <code>obj = null;</code> directly is not allowed in source code.</li>
-        <li>Reference types may be null internally, but nullness is not tracked by the type system.</li>
-        <li>If a field or local is null (deleted) at runtime and accessed, a <code>NullReferenceException</code> may be thrown.</li>
-      </ul>
-    </section>
-
-    <!-- 9. is operator -->
-    <section id="lang-ch9" class="chapter">
-      <h2>9. is Operator</h2>
-
-      <pre><code class="language-aloe">
-if (obj is FizzBuzz) {
-    // true if runtime type is FizzBuzz or a subclass
-}
-
-if (obj is ILogger) {
-    // true if obj implements ILogger
-}
-
-if (obj is Trait_A) {
-    // true if obj has Trait_A applied (with / +)
-}
-      </code></pre>
-      <ul>
-        <li><code>is</code> performs a runtime type check.</li>
-        <li>Inheritance is taken into account (e.g., <code>Derived</code> is <code>Base</code>).</li>
-        <li><code>is</code> also works with interfaces and traits.</li>
-      </ul>
-    </section>
-
-    <!-- 10. Collections -->
-    <section id="lang-ch10" class="chapter">
-      <h2>10. Arrays, Lists, Sets, Maps</h2>
-
-      <h3>10.1 Arrays (T[])</h3>
-      <pre><code class="language-aloe">
-var arr: int[] = [1, 2, 3];
-var matrix: float[][] = [[1.0, 2.0], [3.0, 4.0]];
-      </code></pre>
-
-      <h3>10.2 Lists (T())</h3>
-      <pre><code class="language-aloe">
-var lst: int() = (1, 2, 3);
-var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
-      </code></pre>
-
-      <h3>10.3 Sets (T{})</h3>
-      <pre><code class="language-aloe">
-var st: int{} = {1, 2, 3};
-var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
-      </code></pre>
-
-      <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
-      <pre><code class="language-aloe">
-var mp: map&lt;int&gt; = ["key1": 10, "key2": 20];          // default key type is string
-var mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
-var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
-      </code></pre>
-    </section>
-
-    <!-- 11. enum / bitfield enum -->
-    <section id="lang-ch11" class="chapter">
-      <h2>11. enum and bitfield enum</h2>
-
-      <h3>11.1 Normal enum</h3>
-      <pre><code class="language-aloe">
-enum Color {
+      <h5>Example: enum</h5>
+<pre><code>enum Color {
     Red,
     Green,
     Blue
 }
-      </code></pre>
+
+main(Args: string[]) {
+    with (Color) {
+        var C1: Color = Red;   // Color.Red
+        var C2: Color = Blue;  // Color.Blue
+        Print(C1);
+        Print(C2);
+    }
+}
+</code></pre>
+
+      <h5>Mixing value-based and type-based with</h5>
+<pre><code>with (User), (Color) {
+    Name = "Alice";      // User.Name
+    var C: Color = Red;  // Color.Red
+}
+</code></pre>
+      <p class="note">
+        Value-based and type-based with-targets form a combined “candidate set” for member resolution.
+        If multiple candidates exist for the same identifier, it is considered ambiguous and a compile-time error.
+      </p>
+    </section>
+
+    <!-- 5. Variables & Constants -->
+    <section class="chapter" id="ch5">
+      <hr />
+      <h2>5. Variables &amp; Constants</h2>
+
+      <h3>5.1 var (type inference)</h3>
+<pre><code>var I   = 10;
+var F   = 10.5;
+var S   = "Hello";
+var C   = 'A';
+var B   = 255;
+var Arr = [1, 2, 3];
+var Lst = (1, 2, 3);
+var St  = {1, 2, 3};
+var Fb  = new FizzBuzz();
+</code></pre>
+
+      <h3>5.2 let (explicit type)</h3>
+<pre><code>let I: int = 10;
+let F: float = 10.5;
+let D: decimal = 10.12345678901234567890:d;
+let S: string = "Hello, Aloe!";
+let C: char = 'A';
+let B: byte = 255;
+
+let Arr: int[] = [1, 2, 3];
+let Lst: int() = (1, 2, 3);
+let St : int{} = {1, 2, 3};
+let Mp : map&lt;string/int&gt; = ["key": 10];
+</code></pre>
+
+      <h3>5.3 const</h3>
+<pre><code>const MaxCount: int = 100;
+const PiConst : float = 3.14159;
+const AppName : string = "Aloe VM";
+</code></pre>
+    </section>
+
+    <!-- 6. Fields -->
+    <section class="chapter" id="ch6">
+      <hr />
+      <h2>6. Fields</h2>
+<pre><code>class Sample {
+    field Count: int = 0;
+    field Name : string = "default";
+
+    readonly field Id: int;
+
+    construct(Id: int) {
+        this.Id = Id; // OK
+    }
+
+    method Change(): void {
+        this.Count = this.Count + 1;
+        // this.Id = 2; // NG (readonly)
+    }
+}
+</code></pre>
+    </section>
+
+    <!-- 7. Class / Struct / Interface / Trait -->
+    <section class="chapter" id="ch7">
+      <hr />
+      <h2>7. Class / Struct / Interface / Trait</h2>
+
+      <h3>7.1 class</h3>
+<pre><code>class FizzBuzz {
+    field _Count: int = 0;
+    field Name : string = "FizzBuzz";
+
+    construct() {
+    }
+
+    method Run(): void {
+        var I = 1;
+        while (I &lt;= 100) {
+            // ...
+            I = I + 1;
+        }
+    }
+}
+</code></pre>
+
+      <h3>7.2 struct</h3>
+<pre><code>struct Point {
+    field X: int;
+    field Y: int;
+
+    construct(X: int, Y: int) {
+        this.X = X;
+        this.Y = Y;
+    }
+}
+</code></pre>
+
+      <h3>7.3 Inheritance / sealed</h3>
+<pre><code>class Base {
+    method Foo(): void { }
+}
+
+class Derived extends Base {
+    method Bar(): void { }
+}
+
+sealed class FinalDerived extends Base {
+}
+</code></pre>
+
+      <h3>7.4 interface</h3>
+<pre><code>interface ILogger {
+    method Log(Msg: string): void;
+}
+
+class ConsoleLogger implements ILogger {
+    method Log(Msg: string): void {
+        Print(Msg);
+    }
+}
+</code></pre>
+
+      <h3>7.5 trait</h3>
+<pre><code>trait Trait_A {
+    method Hello(): void {
+        Print("Hello from Trait_A");
+    }
+}
+</code></pre>
+
+      <h4>Applying traits via with</h4>
+<pre><code>var Obj = new SomeClass() with Trait_A;
+Obj.Hello();
+</code></pre>
+
+      <h4>Non-destructive add/remove</h4>
+<pre><code>var Obj2 = Obj + Trait_A;
+var Obj3 = Obj2 - Trait_A;
+</code></pre>
+
+      <h4>Alias with as</h4>
+<pre><code>var Obj2 = Obj + Trait_A as A;
+Obj2.A.Hello();
+// Obj2.Hello(); // NG: only through alias
+</code></pre>
+    </section>
+
+    <!-- 8. delete & null -->
+    <section class="chapter" id="ch8">
+      <hr />
+      <h2>8. delete and null</h2>
+<pre><code>var Obj = new FizzBuzz();
+delete Obj;   // at VM level, equivalent to Obj = null
+</code></pre>
       <ul>
-        <li>Internally, all enums are represented as <strong>int32</strong>.</li>
-        <li>Generic <code>enum&lt;T&gt;</code> with different underlying types (e.g., <code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code>) is <strong>not allowed</strong>.</li>
+        <li>You cannot write <code>Obj = null;</code> directly in source code.</li>
+        <li>Reference types may be null internally, but the type system does not track nullability.</li>
+        <li>Accessing a null reference may cause a <code>NullReferenceException</code>.</li>
+      </ul>
+    </section>
+
+    <!-- 9. is -->
+    <section class="chapter" id="ch9">
+      <hr />
+      <h2>9. is Operator (type check)</h2>
+<pre><code>if (Obj is FizzBuzz) {
+}
+
+if (Obj is ILogger) {
+}
+
+if (Obj is Trait_A) {
+}
+</code></pre>
+      <ul>
+        <li><code>is</code> checks runtime type.</li>
+        <li>Respects inheritance (derived is also base).</li>
+        <li>Can be used with interfaces and traits.</li>
+      </ul>
+    </section>
+
+    <!-- 10. Collections -->
+    <section class="chapter" id="ch10">
+      <hr />
+      <h2>10. Collections (Array / List / Set / Map)</h2>
+<pre><code>var Arr: int[] = [1, 2, 3];
+var Matrix: float[][] = [[1.0, 2.0], [3.0, 4.0]];
+
+var Lst: int() = (1, 2, 3);
+var ObjLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
+
+var St: int{} = {1, 2, 3};
+var StructSt: Point{} = {Point { X:0, Y:0 }, Point { X:1, Y:1 }};
+
+var Mp: map&lt;int&gt; = ["key1": 10, "key2": 20];
+var Mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
+var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()];
+</code></pre>
+    </section>
+
+    <!-- 11. enum -->
+    <section class="chapter" id="ch11">
+      <hr />
+      <h2>11. enum / bitfield enum</h2>
+
+      <h3>11.1 enum</h3>
+<pre><code>enum Color {
+    Red,
+    Green,
+    Blue
+}
+</code></pre>
+      <ul>
+        <li>Underlying representation is always int32.</li>
+        <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code> etc. are not allowed.</li>
+        <li>Enum types can be used as type-based with targets: <code>with (Color) { Red; }</code> is a shortcut for <code>Color.Red</code>.</li>
       </ul>
 
       <h3>11.2 bitfield enum</h3>
-      <pre><code class="language-aloe">
-bitfield enum LogFlags {
+<pre><code>bitfield enum LogFlags {
     None = 1 &lt;&lt; 0,
     Info = 1 &lt;&lt; 3,
     Warn,
 }
-      </code></pre>
+</code></pre>
 
       <h4>b(n) notation</h4>
-      <pre><code class="language-aloe">
-bitfield enum LogFlags {
+<pre><code>bitfield enum LogFlags {
     None : b(0),
     Info : b(3),
-    Warn,            // largest b(n) so far is 3; Warn becomes b(4) = 1 &lt;&lt; 4
+    Warn,            // Here it becomes b(4)
 }
-      </code></pre>
+</code></pre>
       <ul>
-        <li><code>b(n)</code> means “bit n”, equivalent to <code>1 &lt;&lt; n</code>.</li>
-        <li><code>Name : b(n)</code> assigns bit <code>n</code> to that enum element.</li>
-      </ul>
-
-      <h4>Auto assignment rules</h4>
-      <ul>
-        <li>If both <code>b(n)</code> and explicit numeric values appear:
-          <ul>
-            <li>Let <code>max</code> be the largest <code>b(n)</code> seen so far.</li>
-            <li>Subsequent elements without explicit value get <code>b(max+1)</code>, <code>b(max+2)</code>, etc.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h4>Bit count limit</h4>
-      <ul>
-        <li><code>bitfield enum</code> is limited to <strong>32 bits</strong> (valid <code>n</code> for <code>b(n)</code> is 0–31).</li>
-      </ul>
-
-      <h4>Bit overlap</h4>
-      <ul>
-        <li>If multiple elements end up sharing the same bit (due to explicit values or <code>b(n)</code>), the compiler emits a <strong>warning</strong> but not an error.</li>
-      </ul>
-
-      <h4>Underlying type</h4>
-      <ul>
-        <li><code>bitfield enum&lt;T&gt;</code> is <strong>not</strong> generic; the underlying type is always <code>int32</code>.</li>
-        <li>Declarations like <code>bitfield enum&lt;byte&gt; LogFlags { ... }</code> are compile-time errors.</li>
+        <li><code>b(n)</code> means bit n (i.e. <code>1 &lt;&lt; n</code>).</li>
+        <li><code>Name : b(n)</code> assigns that bit to the enumerator.</li>
+        <li>Usable bits are at most 32 (n = 0–31).</li>
+        <li>Multiple enumerators can share the same bit; this may be a warning but not necessarily an error.</li>
+        <li>Underlying type is always int32; <code>bitfield enum&lt;byte&gt;</code>, etc. are compile-time errors.</li>
       </ul>
     </section>
 
-    <!-- 12. main block -->
-    <section id="lang-ch12" class="chapter">
-      <h2>12. main Block</h2>
+    <!-- 12. main -->
+    <section class="chapter" id="ch12">
+      <hr />
+      <h2>12. main Block (entry point)</h2>
+<pre><code>main(Args: string[]) {
+    var Fb = new FizzBuzz();
+    Fb.Run();
 
-      <pre><code class="language-aloe">
-main(args: string[]) {
-    var fb = new FizzBuzz();
-    fb.run();
-    _ = 0; // exit code (int)
+    _ = 0;   // process exit code
 }
-      </code></pre>
+</code></pre>
       <ul>
-        <li>Program entry point.</li>
-        <li><code>args</code> is an array of strings for command-line arguments.</li>
-        <li>Inside the <code>main</code> block, the temporary variable <code>_</code> is always of type <strong><code>int</code></strong>.
-          <ul>
-            <li>The value assigned to <code>_</code> becomes the process exit code.</li>
-          </ul>
-        </li>
+        <li><code>main</code> is the program entry point.</li>
+        <li><code>Args</code> is the command-line argument array.</li>
+        <li>In <code>main</code>, <code>_</code> is always an <code>int</code> representing the process exit code.</li>
       </ul>
     </section>
 
-    <!-- 13. Temp variable _ -->
-    <section id="lang-ch13" class="chapter">
-      <h2>13. Temporary Variable <code>_</code></h2>
-
-      <pre><code class="language-aloe">
-main(args: string[]) {
-    var x = 10;
-    _ = x + 5;   // _ is int
+    <!-- 13. temp variable _ -->
+    <section class="chapter" id="ch13">
+      <hr />
+      <h2>13. Temp Variable <code>_</code></h2>
+<pre><code>method Foo(): void {
+    var X = 10;
+    _ = X + 5;   // temporary result in this block
 }
-
-method foo(): void {
-    var x = 10;
-    _ = x + 5;   // inferred type for _ in this block
-}
-      </code></pre>
-      <ul>
-        <li><code>_</code> can be used in any block without declaration.</li>
-        <li>In the <code>main</code> block, <code>_</code> is always <code>int</code>.</li>
-        <li>In any other block, the type of <code>_</code> is inferred from the first assignment in that block.</li>
-        <li>Inside a <code>with</code> block, <code>_</code> is additionally bound to the current <code>with</code> object (unless shadowed by an inner block).</li>
-      </ul>
+</code></pre>
+      <p class="note">
+        In <code>main</code>, <code>_</code> is always <code>int</code> (exit code). In other blocks,
+        the type of <code>_</code> is inferred from the first assignment to it.<br />
+        For the special use of <code>_</code> in with-blocks, see section 4.2.
+      </p>
     </section>
 
     <!-- 14. swap -->
-    <section id="lang-ch14" class="chapter">
+    <section class="chapter" id="ch14">
+      <hr />
       <h2>14. swap Keyword</h2>
-
-      <pre><code class="language-aloe">
-var a = 10;
-var b = 20;
-swap (a, b);
-print(a); // 20
-print(b); // 10
-      </code></pre>
+<pre><code>var A = 10;
+var B = 20;
+swap (A, B);
+</code></pre>
       <ul>
-        <li><code>swap (x, y);</code> exchanges the values (or references) of <code>x</code> and <code>y</code>.</li>
-        <li>Type compatibility and swap validity are checked at compile-time.</li>
+        <li><code>swap(A, B)</code> exchanges the values (or references) of <code>A</code> and <code>B</code>.</li>
+        <li>Validity of swap is checked at compile time.</li>
       </ul>
     </section>
 
     <!-- 15. Operators -->
-    <section id="lang-ch15" class="chapter">
-      <h2>15. Operator Precedence and Associativity</h2>
+    <section class="chapter" id="ch15">
+      <hr />
+      <h2>15. Operators</h2>
+      <p>Precedence and associativity follow the original English spec (summarized below).</p>
 
-      <h3>15.1 Precedence (from highest to lowest)</h3>
+      <h3>15.1 Precedence (high to low)</h3>
       <ol>
-        <li>Member / call
-          <ul>
-            <li><code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
-          </ul>
-        </li>
-        <li>Unary
-          <ul>
-            <li><code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
-          </ul>
-        </li>
-        <li>Multiplicative
-          <ul>
-            <li><code>*</code>, <code>/</code>, <code>%</code></li>
-          </ul>
-        </li>
-        <li>Additive
-          <ul>
-            <li><code>+</code>, <code>-</code></li>
-          </ul>
-        </li>
-        <li>Shift
-          <ul>
-            <li><code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
-          </ul>
-        </li>
-        <li>Relational
-          <ul>
-            <li><code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
-          </ul>
-        </li>
-        <li>Equality
-          <ul>
-            <li><code>==</code>, <code>!=</code></li>
-          </ul>
-        </li>
-        <li>Bitwise AND
-          <ul>
-            <li><code>&amp;</code></li>
-          </ul>
-        </li>
-        <li>Bitwise XOR
-          <ul>
-            <li><code>^</code></li>
-          </ul>
-        </li>
-        <li>Bitwise OR
-          <ul>
-            <li><code>|</code></li>
-            <li>Note: in pipeline statements, <code>|</code> has a separate meaning; see Chapter 18.</li>
-          </ul>
-        </li>
-        <li>Logical AND
-          <ul>
-            <li><code>&amp;&amp;</code></li>
-          </ul>
-        </li>
-        <li>Logical OR
-          <ul>
-            <li><code>||</code></li>
-          </ul>
-        </li>
-        <li>Assignment
-          <ul>
-            <li><code>=</code></li>
-          </ul>
-        </li>
+        <li>Member / call: <code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
+        <li>Unary: <code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
+        <li>Multiplicative: <code>*</code>, <code>/</code>, <code>%</code></li>
+        <li>Additive: <code>+</code>, <code>-</code></li>
+        <li>Shift: <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
+        <li>Relational: <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
+        <li>Equality: <code>==</code>, <code>!=</code></li>
+        <li>Bitwise AND: <code>&amp;</code></li>
+        <li>Bitwise XOR: <code>^</code></li>
+        <li>Bitwise OR: <code>|</code> (different meaning from pipeline <code>|</code> in pipe/filter syntax)</li>
+        <li>Logical AND: <code>&amp;&amp;</code></li>
+        <li>Logical OR: <code>||</code></li>
+        <li>Assignment: <code>=</code></li>
       </ol>
-      <p>
-        Compound assignment operators such as <code>+=</code> are not yet specified.
-      </p>
+      <p>Compound assignments like <code>+=</code> are not yet specified.</p>
 
       <h3>15.2 Associativity</h3>
       <ul>
@@ -1091,24 +891,22 @@ print(b); // 10
     </section>
 
     <!-- 16. Exceptions -->
-    <section id="lang-ch16" class="chapter">
-      <h2>16. Exceptions and Error Handling</h2>
-
-      <pre><code class="language-aloe">
-try {
-    // code that may throw
+    <section class="chapter" id="ch16">
+      <hr />
+      <h2>16. Exceptions</h2>
+<pre><code>try {
+    // code that might throw
 }
-catch (e) {
+catch (E) {
     // handle exception
 }
 finally {
-    // cleanup (always executed)
+    // cleanup
 }
-      </code></pre>
+</code></pre>
 
-      <h3>16.1 Standard exception hierarchy (overview)</h3>
-      <pre><code>
-Exception
+      <h3>16.1 Standard exception hierarchy (simplified)</h3>
+<pre><code>Exception
 ├── SystemException
 │   ├── NullReferenceException
 │   ├── IndexOutOfBoundsException
@@ -1125,246 +923,166 @@ Exception
     ├── FileNotFoundException
     ├── EndOfStreamException
     └── IOException (general)
-      </code></pre>
-
+</code></pre>
       <ul>
-        <li><code>OverflowException</code> is used for both numeric overflow and underflow (no separate <code>UnderflowException</code>).</li>
-        <li><code>ZeroDivisionException</code> is thrown for division by zero (0 or 0.0).</li>
-        <li>Parsing/format errors (JSON, text, etc.) use <code>FormatException</code>.</li>
-        <li>VM-level fatal errors (out-of-memory, internal errors) are implementation-defined.</li>
+        <li><code>OverflowException</code> covers both overflow and underflow.</li>
+        <li><code>ZeroDivisionException</code> is thrown for division by zero (including 0.0).</li>
+        <li>Parsing/format issues are represented by <code>FormatException</code>.</li>
+        <li>Other fatal VM-level errors are implementation-dependent.</li>
       </ul>
     </section>
 
-    <!-- 17. Modules / namespace / import -->
-    <section id="lang-ch17" class="chapter">
-      <h2>17. Modules, namespace, import</h2>
-
-      <pre><code class="language-aloe">
-namespace Aloe.Sample {
+    <!-- 17. Modules -->
+    <section class="chapter" id="ch17">
+      <hr />
+      <h2>17. Modules / namespace / import</h2>
+<pre><code>namespace Aloe.Sample {
     import Aloe.Core.Logging;
 
     class App {
-        // ...
     }
 }
-      </code></pre>
+</code></pre>
       <ul>
-        <li><code>namespace</code> defines a logical namespace (module-like grouping).</li>
-        <li><code>import</code> is used to reference other namespaces or symbols.</li>
-        <li>Exact mapping between files and namespaces, and handling of cyclic imports, are left to a later detailed module spec.</li>
+        <li><code>namespace</code> declares logical namespaces.</li>
+        <li><code>import</code> brings names from other namespaces into scope.</li>
+        <li>File layout, circular imports, etc. are defined in a separate module system spec.</li>
       </ul>
     </section>
 
     <!-- 18. Pipes & Filters -->
-    <section id="lang-ch18" class="chapter">
-      <h2>18. Pipes and Filters (pipe / filter)</h2>
+    <section class="chapter" id="ch18">
+      <hr />
+      <h2>18. Pipes &amp; Filters</h2>
 
-      <p>
-        Aloe uses <code>pipe&lt;T&gt;</code> and <code>filter(...)</code> to represent streaming dataflows between tasks and I/O.
-      </p>
-
-      <h3>18.1 pipe&lt;T&gt; basics</h3>
+      <h3>18.1 pipe&lt;T&gt;</h3>
       <ul>
-        <li><code>pipe&lt;T&gt;</code> represents a <strong>stream of values of type T</strong>.
-          <ul>
-            <li><code>pipe&lt;byte&gt;</code> … raw byte stream (OS stdin, sockets, etc.)</li>
-            <li><code>pipe&lt;string&gt;</code> … Unicode string stream</li>
-            <li><code>pipe&lt;DateTime&gt;</code> … stream of date/time values</li>
-          </ul>
-        </li>
-        <li>Pipes are “copy-based”: values are copied through the stream (shared-nothing between tasks).</li>
-        <li>Typical creation:
-          <pre><code class="language-aloe">
-let p: pipe&lt;int&gt; = pipe&lt;int&gt;.create();
-          </code></pre>
-        </li>
-        <li>Conceptual interface:
-          <ul>
-            <li><code>write(value: T): void</code> – append a value.</li>
-            <li><code>close(): void</code> – signal end-of-stream.</li>
-            <li><code>next(): T?</code> – read the next element and advance, returns null-like sentinel at EOF (exact details are VM-level).</li>
-            <li><code>take(count: int): T()</code> – read up to <code>count</code> elements into a list.</li>
-            <li><code>peek(): T?</code> – look at the next element without consuming it.</li>
-          </ul>
-        </li>
+        <li><code>pipe&lt;T&gt;</code> represents a stream of <code>T</code>.</li>
+        <li>Built-in pipes such as <code>stdin</code>, <code>stdout</code>, etc. are assumed.</li>
       </ul>
 
-      <h4>18.1.1 Built-in pipes</h4>
-      <ul>
-        <li>VM provides built-in pipes:
-          <ul>
-            <li><code>stdin : pipe&lt;byte&gt;</code></li>
-            <li><code>stdout : pipe&lt;byte&gt;</code></li>
-            <li><code>stderr : pipe&lt;byte&gt;</code> (optional)</li>
-          </ul>
-        </li>
-        <li>They are connected to the OS standard streams or to host-provided streams.</li>
-      </ul>
-
-      <h3>18.2 filter(...) basics</h3>
-      <p>
-        <code>filter(F)</code> represents an intermediate transformation stage in a pipeline.
-      </p>
-      <ul>
-        <li>Examples: <code>filter(utf8)</code>, <code>filter(json&lt;User&gt;)</code>, <code>filter(lineSplit)</code>.</li>
-        <li>A filter definition specifies what input and output types it supports.</li>
-      </ul>
-
-      <h4>18.2.1 Filter definitions</h4>
-      <pre><code class="language-aloe">
-filter lineSplit {
-    in:  pipe&lt;string&gt;;
+      <h3>18.2 Defining filters</h3>
+<pre><code>filter LineSplit {
+    in : pipe&lt;string&gt;;
     out: pipe&lt;string&gt;;
 
-    bound(input, output) {
-        foreach (chunk in input) {
-            let lines = chunk.split("\n");
-            foreach (line in lines) {
-                output.write(line);
+    bound(Input, Output) {
+        foreach (Chunk in Input) {
+            let Lines = Chunk.Split("\n");
+            foreach (Line in Lines) {
+                Output.Write(Line);
             }
         }
-        output.close();
+        Output.Close();
     }
 }
-      </code></pre>
+</code></pre>
+
+      <h3>18.3 Pipeline statement</h3>
+<pre><code>stdin
+    | filter(Utf8)
+    | filter(Json&lt;User&gt;)
+    | Users;
+</code></pre>
       <ul>
-        <li><code>filter Name { ... }</code> defines a filter.</li>
-        <li><code>in:</code> and <code>out:</code> declare the types of the input and output parameters for <code>bound</code>.
-          <ul>
-            <li>They are not limited to pipes; filters could operate on other types as well.</li>
-          </ul>
-        </li>
-        <li><code>bound(input, output)</code> is the entry method that runs when the filter is connected.</li>
+        <li><code>A | B | C;</code> connects the output of A to the input of B, and B to C.</li>
+        <li>Type checking ensures compatibility of input/output types between stages.</li>
+        <li>A pipeline statement itself does not return a value; it only establishes connections.</li>
       </ul>
 
-      <h4>18.2.2 Filter options</h4>
-      <p>
-        Some filters accept option flags, for example:
-      </p>
-      <pre><code class="language-aloe">
-filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
-      </code></pre>
-      <ul>
-        <li>Options are specified after <code>:</code> and combined with bitwise OR (<code>|</code>).</li>
-        <li>Each filter defines its own option type, typically a bitfield enum such as <code>JsonOptions</code>.</li>
-        <li>If options are omitted, the filter’s default option set is used.</li>
-      </ul>
-      <div class="note">
-        Details of individual standard filters (e.g., <code>utf8</code>, <code>json&lt;T&gt;</code>, <code>lineSplit</code>) and their option enums
-        are <strong>not part of the language spec</strong>. They are documented separately in the “Standard Filter Library” specification.
-      </div>
-
-      <h3>18.3 Pipeline statements and <code>|</code></h3>
-      <p>
-        A pipeline statement connects pipes and filters using <code>|</code>.
-      </p>
-      <pre><code class="language-aloe">
-stdin
-    | filter(utf8)
-    | filter(json&lt;DateTime&gt;)
-    | dates;
-      </code></pre>
-      <ul>
-        <li>Grammar (informal):
-          <pre><code>
-pipeline_stmt: pipe_term ('|' pipe_term)+ ';'
-          </code></pre>
-        </li>
-        <li><code>pipe_term</code> can be:
-          <ul>
-            <li>A variable of type <code>pipe&lt;T&gt;</code> (<code>stdin</code>, <code>stdout</code>, user-defined pipes, etc.)</li>
-            <li>A <code>filter(...)</code> expression</li>
-          </ul>
-        </li>
-        <li>Pipeline statements are statements only; in expression context, <code>|</code> is always the bitwise OR operator.</li>
-      </ul>
-
-      <h4>18.3.1 Connection semantics</h4>
-      <pre><code class="language-aloe">
-A | B | C;
-      </code></pre>
-      <p>is interpreted as:</p>
-      <ul>
-        <li>The output of <code>A</code> is connected to the input of <code>B</code>.</li>
-        <li>The output of <code>B</code> is connected to the input of <code>C</code>.</li>
-        <li>Type checking ensures that each stage’s output type matches the next stage’s input type.</li>
-      </ul>
-      <p>
-        The result of a pipeline statement is the side effect of establishing connections. It does not yield a value in expression form.
-      </p>
-
-      <h3>18.4 foreach and pipes</h3>
-      <p><code>pipe&lt;T&gt;</code> supports iteration with <code>foreach</code>.</p>
-      <pre><code class="language-aloe">
-foreach (line in lines) {
-    print("Input: " + line);
+      <h3>18.4 foreach / EOF</h3>
+<pre><code>foreach (Line in Lines) {
+    Print(Line);
 }
-      </code></pre>
+</code></pre>
       <ul>
-        <li><code>foreach (x in p)</code> internally calls <code>p.next()</code> until EOF.</li>
-        <li>When the writing side calls <code>close()</code>, the reader eventually observes EOF and the loop ends.</li>
+        <li><code>foreach (X in P)</code> repeatedly calls <code>P.Next()</code> until EOF.</li>
+        <li>When the writer calls <code>Close()</code>, the reader sees EOF and stops the loop.</li>
       </ul>
 
-      <h4>18.4.1 next / take / peek</h4>
+      <h3>18.5 close and EOF propagation</h3>
       <ul>
-        <li><code>next()</code> – retrieves the next element and advances the read position.</li>
-        <li><code>take(n)</code> – retrieves up to <code>n</code> elements as a list without needing a loop.</li>
-        <li><code>peek()</code> – looks at the next element without consuming it.</li>
-        <li>These are built-in methods of <code>pipe&lt;T&gt;</code>.</li>
-      </ul>
-
-      <h3>18.5 Close and EOF propagation</h3>
-      <ul>
-        <li>Once <code>p.close()</code> is called, further <code>write()</code> calls are invalid (may raise an error at runtime).</li>
-        <li>A filter that detects EOF on its input should close its output as well.</li>
-        <li>In a chain of filters, EOF propagates from upstream to downstream, eventually ending the final <code>foreach</code> loop or <code>next()</code> calls.</li>
+        <li>Calling <code>Write()</code> on a closed pipe is invalid and may cause an error.</li>
+        <li>Filters should close their output pipe when they detect EOF on their input.</li>
       </ul>
 
       <h3>18.6 Concurrency model with pipes</h3>
       <ul>
-        <li>Tasks communicate primarily through <code>pipe&lt;T&gt;</code>.</li>
-        <li>The language is designed so that tasks do not share mutable data structures directly (shared-nothing model).</li>
-        <li>Each <code>pipe&lt;T&gt;</code> is conceptually built for “1 producer / 1 consumer”.
-          <ul>
-            <li>Multiple producers/consumers are either undefined or implementation-specific.</li>
-          </ul>
-        </li>
+        <li><code>pipe&lt;T&gt;</code> is the primary communication mechanism between tasks.</li>
+        <li>Aloe encourages a “shared-nothing” model; shared mutable data structures are discouraged.</li>
       </ul>
 
-      <h3>18.7 Example: simple REST-style pipeline</h3>
-      <pre><code class="language-aloe">
-class User {
-    field id: int;
-    field name: string;
+      <h3>18.7 Example: simple REST-ish pipeline</h3>
+<pre><code>class User {
+    field Id  : int;
+    field Name: string;
 }
 
-main(args: string[]) {
-    let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.create();
-    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
+main(Args: string[]) {
+    let Req  : pipe&lt;byte&gt; = pipe&lt;byte&gt;.Create();
+    let Users: pipe&lt;User&gt; = pipe&lt;User&gt;.Create();
 
-    // Build pipeline from stdin (as an example) to users
     stdin
-        | filter(utf8)              // Standard filter library (UTF-8)
-        | filter(json&lt;User&gt;)       // Standard filter library (JSON &lt;-&gt; User)
-        | users;
+        | filter(Utf8)
+        | filter(Json&lt;User&gt;)
+        | Users;
 
-    // Get the first user from the pipeline
-    let u: User? = users.next();
-    if (u is User) {
-        print("User: " + u.name);
+    let U: User? = Users.Next();
+    if (U is User) {
+        Print("User: " + U.Name);
     }
 
     _ = 0;
 }
-      </code></pre>
-      <div class="note">
-        Concrete behavior and options of filters like <code>utf8</code> and <code>json&lt;T&gt;</code> are defined in the separate
-        “Standard Filter Library” document, not in this core language specification.
-      </div>
+</code></pre>
+
+      <p class="note">
+        Details of standard filters such as <code>Utf8</code> and <code>Json&lt;T&gt;</code> belong to a separate “standard filter library” spec, not the core language spec.
+      </p>
+
+      <hr />
+      <p class="note">
+        This completes the English version of the Aloe language specification, based on the original English spec,
+        with the extended <strong>with-block</strong> design (dot-less, value- and type-based)
+        and the current PascalCase naming guideline for methods/properties/fields.
+        Save this file and open it in a browser to use the left navigation menu to switch chapters.
+      </p>
     </section>
 
   </main>
 </div>
+
+<script>
+  (function() {
+    var links = document.querySelectorAll('.nav-link');
+    var chapters = document.querySelectorAll('.chapter');
+
+    function showChapter(id) {
+      chapters.forEach(function(ch) {
+        ch.classList.toggle('active', ch.id === id);
+      });
+      links.forEach(function(a) {
+        a.classList.toggle('active', a.getAttribute('data-target') === id);
+      });
+    }
+
+    links.forEach(function(link) {
+      link.addEventListener('click', function(e) {
+        e.preventDefault();
+        var target = this.getAttribute('data-target');
+        if (!target) return;
+        showChapter(target);
+        if (history.replaceState) {
+          history.replaceState(null, '', '#' + target);
+        }
+      });
+    });
+
+    var hash = window.location.hash.replace('#', '');
+    if (hash && document.getElementById(hash)) {
+      showChapter(hash);
+    }
+  })();
+</script>
 </body>
 </html>
-```
