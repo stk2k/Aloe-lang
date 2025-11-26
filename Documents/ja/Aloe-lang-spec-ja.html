@@ -526,6 +526,13 @@ print(x);
                 <li><code>log(_);</code> のように渡すことができる。</li>
               </ul>
             </li>
+            <li>プレフィックスのない <code>Member</code> という識別子は、
+              通常どおりローカル変数・引数・外側スコープを優先して解決される。
+              <ul>
+                <li>つまり <code>with</code> によって「裸の識別子の意味」が変わることはない。</li>
+                <li><code>with</code> が影響するのは <code>.Member</code> だけ。</li>
+              </ul>
+            </li>
           </ul>
         </li>
         <li>ネストした <code>with</code> ブロック：
@@ -537,7 +544,8 @@ print(x);
         <li>同じブロックに複数の <code>with</code> を並べられる：</li>
       </ul>
 <pre><code>with (user), (profile) {
-    .name = "Alice";  // resolved against both user and profile
+    .name = "Alice";          // user.name または profile.name（曖昧ならコンパイルエラー）
+    .updateProfile();         // user.updateProfile() または profile.updateProfile()
 }
 </code></pre>
       <ul>
@@ -597,7 +605,8 @@ print(x);
       </ul>
       <p>
         なお、型ベース with でもローカル変数や外側スコープの変数が同名で存在すればそちらが優先される。
-        列挙子や static メンバーを明示したいときは <code>TypeName.Member</code> または <code>.Member</code> / <code>_.Member</code> を用いる。
+        列挙子や static メンバーを明示したいときは <code>TypeName.Member</code> または
+        <code>.Member</code> / <code>_.Member</code> を用いる。
       </p>
 
       <h5>例：class / struct の static アクセス</h5>
@@ -618,12 +627,13 @@ class MathUtil {
 
 main(args: string[]) {
     with (AngleUtil) {
-        var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
-        print(.Pi);                // AngleUtil.Pi
+        var rad = degToRad(90.0);   // 通常の名前解決（別にローカル関数でもよい）
+        var rad2 = .degToRad(90.0); // AngleUtil.degToRad(90.0) の糖衣構文
+        print(.Pi);                 // AngleUtil.Pi
     }
 
     with (MathUtil) {
-        var m = max(10, 20);       // MathUtil.max(10, 20)
+        var m = .max(10, 20);       // MathUtil.max(10, 20)
         print(m);
     }
 }
@@ -638,8 +648,8 @@ main(args: string[]) {
 
 main(args: string[]) {
     with (Color) {
-        var c1: Color = Red;   // Color.Red
-        var c2: Color = Blue;  // Color.Blue
+        var c1: Color = .Red;   // Color.Red
+        var c2: Color = .Blue;  // Color.Blue
         print(c1);
         print(c2);
     }
@@ -649,8 +659,8 @@ main(args: string[]) {
         型ベース <code>with</code> も複数ターゲット構文に混在させられる：
       </p>
 <pre><code>with (user), (Color) {
-    .name = "Alice"; // user.name
-    var c: Color = Red; // Color.Red
+    .name = "Alice";      // user.name
+    var c: Color = .Red;  // Color.Red
 }
 </code></pre>
       <p>
@@ -923,7 +933,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
       <ul>
         <li>内部表現は常に int32。</li>
         <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code> のような基礎型の変更は許可されない。</li>
-        <li>enum 型も型ベース with の対象となり、<code>with (Color) { Red; }</code> などで列挙子に短縮アクセスできる。</li>
+        <li>enum 型も型ベース with の対象となり、<code>with (Color) { .Red; }</code> などで列挙子に短縮アクセスできる。</li>
       </ul>
 
       <h3>11.2 bitfield enum</h3>
