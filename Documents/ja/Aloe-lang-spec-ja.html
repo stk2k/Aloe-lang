@@ -1,3 +1,9 @@
+了解、そのルールを言語仕様に反映します。
+**「メソッド名とプロパティ名は必ず先頭大文字のパスカルケース」**という仕様を追加し、サンプルコードのメソッド名も PascalCase に直しました（run → Run, foo → Foo, degToRad → DegToRad, log → Log, hello → Hello など）。
+フィールド名やローカル変数名は従来どおり小文字始まりのままです。
+
+更新済みの HTML 全文はこちらです：
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -19,7 +25,7 @@
       min-height: 100vh;
     }
     .sidebar {
-      width: 380px; /* ← 幅を少し広めに */
+      width: 380px;
       background: #111827;
       color: #e5e7eb;
       padding: 1.5rem 1.25rem;
@@ -329,7 +335,7 @@ yield
       <h3>1.5 Statement terminator（文の終端）</h3>
 <pre><code>var x = 10;
 x = x + 1;
-print(x);
+Print(x);
 </code></pre>
       <ul>
         <li>すべての文はセミコロン <code>;</code> で終わる。</li>
@@ -347,6 +353,26 @@ print(x);
       <ul>
         <li>識別子とキーワードは大文字小文字を区別する。</li>
         <li>キーワードはすべて小文字。</li>
+      </ul>
+
+      <h3>1.8 Naming rules（命名規則）</h3>
+      <ul>
+        <li>ローカル変数 / フィールド名は、小文字始まりのキャメルケースを推奨：
+          <ul>
+            <li><code>count</code>, <code>userName</code>, <code>totalPrice</code> など</li>
+          </ul>
+        </li>
+        <li><strong>メソッド名とプロパティ名は必ず先頭大文字のパスカルケース</strong> とする：
+          <ul>
+            <li><code>Run</code>, <code>Foo</code>, <code>GetUser</code>, <code>ToString</code>, <code>DegToRad</code> など</li>
+          </ul>
+        </li>
+        <li>enum の型名もパスカルケースとする：
+          <ul>
+            <li><code>Color</code>, <code>LogFlags</code> など</li>
+          </ul>
+        </li>
+        <li>この仕様書のサンプルコードは、上記の命名規則に従う形に整理されている。</li>
       </ul>
     </section>
 
@@ -490,10 +516,10 @@ print(x);
       <h3>4.1 Static (lexical) scope and shadowing（静的スコープとシャドウイング）</h3>
 <pre><code>class Sample {
     field value: int = 1;
-    method foo(): void {
+    method Foo(): void {
         var value = 2;        // shadows the field
-        print(value);         // 2
-        print(this.value);    // 1
+        Print(value);         // 2
+        Print(this.value);    // 1
     }
 }
 </code></pre>
@@ -512,7 +538,7 @@ print(x);
 <pre><code>with (user) {
     name = "Alice";
     age = age + 1;
-    print(name);
+    Print(name);
 }
 </code></pre>
       <ul>
@@ -537,7 +563,7 @@ print(x);
         </li>
         <li>特別な一時変数 <code>_</code> は「最初の with 対象（expr1）」を指す。
           <ul>
-            <li><code>log(_);</code> のように渡すことができる。</li>
+            <li><code>Log(_);</code> のように渡すことができる。</li>
             <li>複数ターゲットのときも、<code>_</code> は常に expr1 に対応する。</li>
           </ul>
         </li>
@@ -546,7 +572,7 @@ print(x);
       <h4>4.2.1 複数ターゲット with</h4>
 <pre><code>with (user), (profile) {
     name = "Alice";        // user.name または profile.name に解決を試みる
-    updateProfile();       // user.updateProfile() または profile.updateProfile()
+    UpdateProfile();       // user.UpdateProfile() または profile.UpdateProfile()
 }
 </code></pre>
       <ul>
@@ -561,7 +587,7 @@ print(x);
 
     with (address) {
         city = "Tokyo";     // address.city
-        print(name);        // ここでは user.name かローカル name か、通常の解決順に従う
+        Print(name);        // ここでは user.name かローカル name か、通常の解決順に従う
     }
 }
 </code></pre>
@@ -575,7 +601,7 @@ print(x);
         <code>with</code> はあくまで構文糖衣であり、意味的には
         <strong>「ローカル変数／パラメータ → with 対象 → 外側スコープ」</strong>
         という名前解決ルールを追加した上で、
-        明示的な <code>obj.member</code> 呼び出しに近い形へと解釈できる。
+        明示的な <code>obj.Member</code> 呼び出しに近い形へと解釈できる。
       </p>
 
       <h4>4.2.3 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
@@ -631,13 +657,13 @@ print(x);
 <pre><code>struct AngleUtil {
     static field Pi: float = 3.14159;
 
-    static method degToRad(deg: float): float {
+    static method DegToRad(deg: float): float {
         return deg * Pi / 180.0;
     }
 }
 
 class MathUtil {
-    static method max(a: int, b: int): int {
+    static method Max(a: int, b: int): int {
         if (a > b) return a;
         return b;
     }
@@ -645,14 +671,14 @@ class MathUtil {
 
 main(args: string[]) {
     with (AngleUtil) {
-        var rad  = degToRad(90.0);  // AngleUtil.degToRad(90.0)
-        var rad2 = degToRad(45.0);
-        print(Pi);                  // AngleUtil.Pi
+        var rad  = DegToRad(90.0);  // AngleUtil.DegToRad(90.0)
+        var rad2 = DegToRad(45.0);
+        Print(Pi);                  // AngleUtil.Pi
     }
 
     with (MathUtil) {
-        var m = max(10, 20);        // MathUtil.max(10, 20)
-        print(m);
+        var m = Max(10, 20);        // MathUtil.Max(10, 20)
+        Print(m);
     }
 }
 </code></pre>
@@ -668,8 +694,8 @@ main(args: string[]) {
     with (Color) {
         var c1: Color = Red;   // Color.Red
         var c2: Color = Blue;  // Color.Blue
-        print(c1);
-        print(c2);
+        Print(c1);
+        Print(c2);
     }
 }
 </code></pre>
@@ -726,7 +752,7 @@ let mp : map&lt;string/int&gt; = ["key": 10];
 
       <h3>5.3 Constants（const）</h3>
 <pre><code>const MaxCount: int = 100;
-const Pi: float = 3.14159;
+const PiConst: float = 3.14159;
 const AppName: string = "Aloe VM";
 </code></pre>
       <ul>
@@ -749,7 +775,7 @@ const AppName: string = "Aloe VM";
     construct(id: int) {
         this.id = id; // OK: inside the constructor
     }
-    method change(): void {
+    method Change(): void {
         this.count = this.count + 1; // OK
         // this.id = 2; // NG: readonly field cannot be changed outside constructor
     }
@@ -775,7 +801,7 @@ const AppName: string = "Aloe VM";
     construct() {
     }
 
-    method run(): void {
+    method Run(): void {
         var i = 1;
         while (i &lt;= 100) {
             // ...
@@ -810,11 +836,11 @@ const AppName: string = "Aloe VM";
 
       <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
-    method foo(): void { }
+    method Foo(): void { }
 }
 
 class Derived extends Base {
-    method bar(): void { }
+    method Bar(): void { }
 }
 
 sealed class FinalDerived extends Base {
@@ -824,12 +850,12 @@ sealed class FinalDerived extends Base {
 
       <h3>7.4 interface</h3>
 <pre><code>interface ILogger {
-    method log(msg: string): void;
+    method Log(msg: string): void;
 }
 
 class ConsoleLogger implements ILogger {
-    method log(msg: string): void {
-        print(msg);
+    method Log(msg: string): void {
+        Print(msg);
     }
 }
 </code></pre>
@@ -840,15 +866,15 @@ class ConsoleLogger implements ILogger {
 
       <h3>7.5 trait</h3>
 <pre><code>trait Trait_A {
-    method hello(): void {
-        print("Hello from Trait_A");
+    method Hello(): void {
+        Print("Hello from Trait_A");
     }
 }
 </code></pre>
 
       <h4>Applying traits with with</h4>
 <pre><code>var obj = new SomeClass() with Trait_A;
-obj.hello(); // method from Trait_A (if no conflicts)
+obj.Hello(); // method from Trait_A (if no conflicts)
 </code></pre>
 
       <h4>Non-destructive add/remove（+ / -）</h4>
@@ -858,9 +884,9 @@ var obj3 = obj2 - Trait_A;     // obj3 is obj2 without Trait_A
 
       <h4>Alias with as</h4>
 <pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.hello(); // OK
+obj2.a.Hello(); // OK
 
-// obj2.hello(); // NG: alias only; no direct member flattening
+// obj2.Hello(); // NG: alias only; no direct member flattening
 </code></pre>
 
       <h4>Trait conflicts</h4>
@@ -984,7 +1010,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
       <h2>12. main Block（エントリポイント）</h2>
 <pre><code>main(args: string[]) {
     var fb = new FizzBuzz();
-    fb.run();
+    fb.Run();
     _ = 0; // process exit code (int)
 }
 </code></pre>
@@ -1004,7 +1030,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     _ = x + 5;   // _ is int (exit code)
 }
 
-method foo(): void {
+method Foo(): void {
     var x = 10;
     _ = x + 5;   // type of _ is inferred in this block
 }
@@ -1026,8 +1052,8 @@ method foo(): void {
 <pre><code>var a = 10;
 var b = 20;
 swap (a, b);
-print(a); // 20
-print(b); // 10
+Print(a); // 20
+Print(b); // 10
 </code></pre>
       <ul>
         <li><code>swap (x, y);</code> は x と y の値（または参照）を入れ替える。</li>
@@ -1162,12 +1188,12 @@ finally {
 
     bound(input, output) {
         foreach (chunk in input) {
-            let lines = chunk.split("\n");
+            let lines = chunk.Split("\n");
             foreach (line in lines) {
-                output.write(line);
+                output.Write(line);
             }
         }
-        output.close();
+        output.Close();
     }
 }
 </code></pre>
@@ -1194,18 +1220,18 @@ finally {
 
       <h3>18.4 foreach と pipe</h3>
 <pre><code>foreach (line in lines) {
-    print("Input: " + line);
+    Print("Input: " + line);
 }
 </code></pre>
       <ul>
-        <li><code>foreach (x in p)</code> は内部的に <code>p.next()</code> を EOF まで呼ぶ。</li>
-        <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
+        <li><code>foreach (x in p)</code> は内部的に <code>p.Next()</code> を EOF まで呼ぶ。</li>
+        <li>書き込み側が <code>Close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
       </ul>
 
       <h3>18.5 close と EOF 伝播</h3>
       <ul>
-        <li><code>p.close()</code> 後の <code>write()</code> は無効（エラーになり得る）。</li>
-        <li>フィルタは入力 EOF を検知したら出力側も <code>close()</code> すべき。</li>
+        <li><code>p.Close()</code> 後の <code>Write()</code> は無効（エラーになり得る）。</li>
+        <li>フィルタは入力 EOF を検知したら出力側も <code>Close()</code> すべき。</li>
       </ul>
 
       <h3>18.6 pipe を使った並行モデル</h3>
@@ -1221,17 +1247,17 @@ finally {
 }
 
 main(args: string[]) {
-    let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.create();
-    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
+    let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.Create();
+    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.Create();
 
     stdin
         | filter(utf8)
         | filter(json&lt;User&gt;)
         | users;
 
-    let u: User? = users.next();
+    let u: User? = users.Next();
     if (u is User) {
-        print("User: " + u.name);
+        Print("User: " + u.name);
     }
 
     _ = 0;
@@ -1245,7 +1271,8 @@ main(args: string[]) {
       <hr />
       <p class="note">
         以上が、元の英語仕様に基づき、
-        <strong>with ブロックの「ドットなし」拡張（値 / 型ターゲット両対応）を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+        <strong>with ブロックの「ドットなし」拡張（値 / 型ターゲット両対応）と、
+        メソッド／プロパティ名のパスカルケース規則を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
       </p>
     </section>
 
