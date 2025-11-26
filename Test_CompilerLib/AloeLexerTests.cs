@@ -1,8 +1,8 @@
 using Aloe.CompilerLib.Lexer;
-using Microsoft.VisualStudio.TestPlatform.Utilities;
-using Newtonsoft.Json.Linq;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Aloe.CompilerLib.Tests
@@ -10,149 +10,289 @@ namespace Aloe.CompilerLib.Tests
     [TestFixture]
     public class AloeLexerTests
     {
-        /// <summary>
-        /// tokens 内に (kind, lexeme) の並びが連続して現れることを検証するヘルパー
-        /// </summary>
-        private static void AssertContainsSequence(
-            Token[] tokens,
-            (TokenKind kind, string lexeme)[] pattern,
-            string? message = null)
-        {
-            for (int i = 0; i <= tokens.Length - pattern.Length; i++)
-            {
-                bool ok = true;
-                for (int j = 0; j < pattern.Length; j++)
-                {
-                    if (tokens[i + j].Kind != pattern[j].kind ||
-                        tokens[i + j].Lexeme != pattern[j].lexeme)
-                    {
-                        ok = false;
-                        break;
-                    }
-                }
+        // ----------------------------------------
+        // ヘルパ
+        // ----------------------------------------
 
-                if (ok)
-                    return; // 見つかった
-            }
+        private static List<AloeToken> Lex(string src)
+            => AloeLexer.Parse(src);
 
-            Assert.Fail(message ?? $"Token sequence not found: {string.Join(" ", pattern.Select(p => $"{p.kind} \"{p.lexeme}\""))}");
-        }
+        private static string[] Kinds(List<AloeToken> tokens)
+            => tokens.Select(t => t.Kind.ToString()).ToArray();
 
-        private static void AssertToken(
-            Token token,
-            TokenKind kind,
-            string lexeme)
-        {
-            Assert.That(token.Kind, Is.EqualTo(kind), $"Kind mismatch for lexeme '{token.Lexeme}'");
-            Assert.That(token.Lexeme, Is.EqualTo(lexeme), $"Lexeme mismatch for kind '{kind}'");
-        }
+        private static string[] LexemesOfKind(List<AloeToken> tokens, TokenKind kind)
+            => tokens.Where(t => t.Kind == kind).Select(t => t.Lexeme).ToArray();
 
-        // 必要なら行・列もチェックする版
-        private static void AssertToken(
-            Token token,
-            TokenKind kind,
-            string lexeme,
-            int line,
-            int column)
-        {
-            Assert.That(token.Kind, Is.EqualTo(kind), "Kind mismatch");
-            Assert.That(token.Lexeme, Is.EqualTo(lexeme), "Lexeme mismatch");
-            Assert.That(token.Line, Is.EqualTo(line), "Line mismatch");
-            Assert.That(token.Column, Is.EqualTo(column), "Column mismatch");
-        }
+        private static AloeToken[] NonEof(List<AloeToken> tokens)
+            => tokens.Where(t => t.Kind != TokenKind.EndOfFile).ToArray();
+
+        // ----------------------------------------
+        // 予約語・識別子
+        // ----------------------------------------
 
         [Test]
-        public void KeywordAndIdentifier_AreTokenizedCorrectly()
+        public void Keywords_AreRecognized()
         {
-            // class FizzBuzz {}
-            var source = "class FizzBuzz {}";
-
-            var tokens = AloeLexer.Parse(source).ToArray();
-
-            Assert.That(tokens.Length, Is.EqualTo(5)); // class, FizzBuzz, {, }, EOF
-
-            AssertToken(tokens[0], TokenKind.Keyword, "class");
-            AssertToken(tokens[1], TokenKind.Identifier, "FizzBuzz");
-            AssertToken(tokens[2], TokenKind.LeftBrace, "{");
-            AssertToken(tokens[3], TokenKind.RightBrace, "}");
-            AssertToken(tokens[4], TokenKind.EndOfFile, "");
-        }
-
-        [Test]
-        public void BoolAndNullKeywords_BecomeLiteralTokens()
-        {
-            var source = "true false null";
-            var tokens = AloeLexer.Parse(source).Where(t => t.Kind != TokenKind.EndOfFile).ToArray();
-
-            Assert.That(tokens.Length, Is.EqualTo(3));
-
-            AssertToken(tokens[0], TokenKind.BoolLiteral, "true");
-            Assert.That(tokens[0].LiteralValue, Is.EqualTo(true));
-
-            AssertToken(tokens[1], TokenKind.BoolLiteral, "false");
-            Assert.That(tokens[1].LiteralValue, Is.EqualTo(false));
-
-            AssertToken(tokens[2], TokenKind.NullLiteral, "null");
-            Assert.That(tokens[2].LiteralValue, Is.Null);
-        }
-
-        [Test]
-        public void IntegerFloatDecimalAndRadixLiterals_AreParsed()
-        {
-            var source = @"
-                var a = 10;
-                var b = 10.5;
-                var c = 10.25:d;
-                var d = 0b1010;
-                var e = 0x1F;
+            var src = @"
+                class struct trait interface namespace field readonly bitfield is delete main
+                var let const async sealed extends implements import
             ";
 
-            var tokens = AloeLexer.Parse(source)
-                .Where(t => t.Kind == TokenKind.IntegerLiteral
-                         || t.Kind == TokenKind.FloatLiteral
-                         || t.Kind == TokenKind.DecimalLiteral)
+            var tokens = Lex(src);
+            var keywords = LexemesOfKind(tokens, TokenKind.Keyword);
+
+            string[] expected =
+            {
+                "class", "struct", "trait", "interface", "namespace",
+                "field", "readonly", "bitfield", "is", "delete",
+                "main", "var", "let", "const", "async", "sealed",
+                "extends", "implements", "import"
+            };
+
+            CollectionAssert.IsSubsetOf(expected, keywords);
+        }
+
+        [Test]
+        public void Identifiers_And_Keywords_AreSeparated()
+        {
+            var src = @"var fb = new FizzBuzz;";
+            var tokens = NonEof(Lex(src));
+
+            Assert.That(tokens.Select(t => t.Kind).ToArray(), Is.EqualTo(new[]
+            {
+                TokenKind.Keyword,     // var
+                TokenKind.Identifier,  // fb
+                TokenKind.Assign,      // =
+                TokenKind.Keyword,     // new
+                TokenKind.Identifier,  // FizzBuzz
+                TokenKind.Semicolon    // ;
+            }));
+
+            Assert.That(tokens[0].Lexeme, Is.EqualTo("var"));
+            Assert.That(tokens[1].Lexeme, Is.EqualTo("fb"));
+            Assert.That(tokens[3].Lexeme, Is.EqualTo("new"));
+            Assert.That(tokens[4].Lexeme, Is.EqualTo("FizzBuzz"));
+        }
+
+        // ----------------------------------------
+        // 数値リテラル
+        // ----------------------------------------
+
+        [Test]
+        public void Integer_Hex_Binary_Literals_AreRecognized()
+        {
+            var src = @"0 10 -5 0x1A 0XFF 0b1010 0B11;";
+            var tokens = NonEof(Lex(src));
+
+            var integerLexemes = tokens
+                .Where(t => t.Kind == TokenKind.IntegerLiteral)
+                .Select(t => t.Lexeme)
                 .ToArray();
 
-            // 10, 10.5, 10.25:d, 0b1010, 0x1F の 5 つ
-            Assert.That(tokens.Length, Is.EqualTo(5));
+            string[] expected =
+            {
+                "0",
+                "10",
+                "-5",
+                "0x1A",
+                "0XFF",
+                "0b1010",
+                "0B11",
+            };
 
-            AssertToken(tokens[0], TokenKind.IntegerLiteral, "10");
-            Assert.That(tokens[0].LiteralValue, Is.EqualTo(10L));
-
-            AssertToken(tokens[1], TokenKind.FloatLiteral, "10.5");
-            Assert.That(tokens[1].LiteralValue, Is.EqualTo(10.5d));
-
-            AssertToken(tokens[2], TokenKind.DecimalLiteral, "10.25:d");
-            Assert.That(tokens[2].LiteralValue, Is.TypeOf<decimal>());
-
-            AssertToken(tokens[3], TokenKind.IntegerLiteral, "0b1010");
-            Assert.That(tokens[3].LiteralValue, Is.EqualTo(10L));  // 2進 1010 → 10
-
-            AssertToken(tokens[4], TokenKind.IntegerLiteral, "0x1F");
-            Assert.That(tokens[4].LiteralValue, Is.EqualTo(31L));  // 16進 1F → 31
+            Assert.That(integerLexemes, Is.EqualTo(expected),
+                "整数リテラルの字句解析が想定と異なります");
         }
 
         [Test]
-        public void StringAndCharLiterals_AreParsedWithEscapes()
+        public void Negative_Integer_In_Expression_IsSingleToken()
         {
-            var source = @"var s = ""Hi\n""; var c = '\n';";
-            var tokens = AloeLexer.Parse(source).ToArray();
+            var src = @"var x = -5;";
+            var tokens = NonEof(Lex(src));
 
-            // string / char だけ抜き出して検証
-            var stringToken = tokens.First(t => t.Kind == TokenKind.StringLiteral);
-            var charToken = tokens.First(t => t.Kind == TokenKind.CharLiteral);
+            Assert.That(tokens.Select(t => t.Kind).ToArray(), Is.EqualTo(new[]
+            {
+                TokenKind.Keyword,        // var
+                TokenKind.Identifier,     // x
+                TokenKind.Assign,         // =
+                TokenKind.IntegerLiteral, // -5
+                TokenKind.Semicolon       // ;
+            }));
 
-            AssertToken(stringToken, TokenKind.StringLiteral, "\"Hi\\n\"");
-            Assert.That(stringToken.LiteralValue, Is.EqualTo("Hi\n"));
-
-            AssertToken(charToken, TokenKind.CharLiteral, "'\\n'");
-            Assert.That(charToken.LiteralValue, Is.EqualTo('\n'));
+            Assert.That(tokens[3].Lexeme, Is.EqualTo("-5"));
         }
 
         [Test]
-        public void FizzBuzzSample_StartsAndEndsWithExpectedTokens()
+        public void Float_And_Decimal_Literals_AreRecognized()
         {
-            var source = @"
+            var src = @"10.5 0.0 -3.14 10.12345678901234567890:d 1.0:D;";
+            var tokens = NonEof(Lex(src));
+
+            var floats = tokens
+                .Where(t => t.Kind == TokenKind.FloatLiteral)
+                .Select(t => t.Lexeme)
+                .ToArray();
+
+            var decimals = tokens
+                .Where(t => t.Kind == TokenKind.DecimalLiteral)
+                .Select(t => t.Lexeme)
+                .ToArray();
+
+            CollectionAssert.AreEquivalent(
+                new[] { "10.5", "0.0", "-3.14" },
+                floats);
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "10.12345678901234567890:d",
+                    "1.0:D"
+                },
+                decimals);
+        }
+
+        // ----------------------------------------
+        // 文字列・文字リテラル
+        // ----------------------------------------
+
+        [Test]
+        public void StringLiteral_WithEscapes_IsRecognized()
+        {
+            var src = "\"Hello, Aloe!\" \"line\\nnext\";";
+            var tokens = NonEof(Lex(src));
+
+            var strings = tokens.Where(t => t.Kind == TokenKind.StringLiteral).ToArray();
+            Assert.That(strings.Length, Is.EqualTo(2));
+
+            Assert.That(strings[0].Lexeme, Is.EqualTo("\"Hello, Aloe!\""));
+            Assert.That(strings[1].Lexeme, Is.EqualTo("\"line\\nnext\""));
+        }
+
+        [Test]
+        public void CharLiteral_WithAndWithoutEscape_IsRecognized()
+        {
+            var src = "'A' '\\n';";
+            var tokens = NonEof(Lex(src));
+
+            var chars = tokens.Where(t => t.Kind == TokenKind.CharLiteral).ToArray();
+            Assert.That(chars.Length, Is.EqualTo(2));
+
+            Assert.That(chars[0].Lexeme, Is.EqualTo("'A'"));
+            Assert.That(chars[1].Lexeme, Is.EqualTo("'\\n'"));
+        }
+
+        // ----------------------------------------
+        // コメント
+        // ----------------------------------------
+
+        [Test]
+        public void Comments_AreSkipped()
+        {
+            var src = @"
+// line comment
+var x = 10; /* block
+comment */
+var y = x;";
+            var tokens = NonEof(Lex(src));
+
+            var hasCommentLookalike = tokens.Any(t =>
+                t.Lexeme.StartsWith("//", StringComparison.Ordinal) ||
+                t.Lexeme.StartsWith("/*", StringComparison.Ordinal));
+
+            // コメントトークンが生成されていないこと
+            Assert.That(hasCommentLookalike, Is.False);
+
+            // ざっくり個数チェック（var x = 10 ; var y = x ;)
+            // var(1) x(2) =(3) 10(4) ;(5) var(6) y(7) =(8) x(9) ;(10)
+            Assert.That(tokens.Length, Is.EqualTo(10));
+        }
+
+        // ----------------------------------------
+        // trait / is / as / delete
+        // ----------------------------------------
+
+        [Test]
+        public void Trait_Add_With_Alias_UsesKeywordsAndPlus()
+        {
+            var src = @"var obj2 = obj + Trait_A as a;";
+            var tokens = NonEof(Lex(src));
+
+            Assert.That(tokens.Select(t => t.Kind).ToArray(), Is.EqualTo(new[]
+            {
+                TokenKind.Keyword,     // var
+                TokenKind.Identifier,  // obj2
+                TokenKind.Assign,      // =
+                TokenKind.Identifier,  // obj
+                TokenKind.Plus,        // +
+                TokenKind.Identifier,  // Trait_A
+                TokenKind.Keyword,     // as
+                TokenKind.Identifier,  // a
+                TokenKind.Semicolon    // ;
+            }));
+
+            Assert.That(tokens[0].Lexeme, Is.EqualTo("var"));
+            Assert.That(tokens[6].Lexeme, Is.EqualTo("as"));
+        }
+
+        [Test]
+        public void Is_Keyword_IsRecognized()
+        {
+            var src = @"if (obj is FizzBuzz) { }";
+            var tokens = NonEof(Lex(src));
+
+            Assert.That(
+                tokens.Any(t => t.Kind == TokenKind.Keyword && t.Lexeme == "is"),
+                "is キーワードが認識されていません。");
+        }
+
+        [Test]
+        public void Delete_Keyword_IsRecognized()
+        {
+            var src = @"delete obj;";
+            var tokens = NonEof(Lex(src));
+
+            Assert.That(tokens.Select(t => t.Kind).ToArray(), Is.EqualTo(new[]
+            {
+                TokenKind.Keyword,     // delete
+                TokenKind.Identifier,  // obj
+                TokenKind.Semicolon    // ;
+            }));
+
+            Assert.That(tokens[0].Lexeme, Is.EqualTo("delete"));
+        }
+
+        // ----------------------------------------
+        // bitfield enum ヘッダ部だけざっくり
+        // ----------------------------------------
+
+        [Test]
+        public void BitfieldEnum_Header_IsLexedCorrectly()
+        {
+            var src = @"
+bitfield enum LogFlags {
+    None : b(0),
+    Info : b(3),
+    Warn,
+}";
+            var tokens = NonEof(Lex(src));
+
+            Assert.That(tokens[0].Kind, Is.EqualTo(TokenKind.Keyword));
+            Assert.That(tokens[0].Lexeme, Is.EqualTo("bitfield"));
+
+            Assert.That(tokens[1].Kind, Is.EqualTo(TokenKind.Keyword));
+            Assert.That(tokens[1].Lexeme, Is.EqualTo("enum"));
+
+            Assert.That(tokens[2].Kind, Is.EqualTo(TokenKind.Identifier));
+            Assert.That(tokens[2].Lexeme, Is.EqualTo("LogFlags"));
+
+            Assert.That(tokens[3].Kind, Is.EqualTo(TokenKind.LBrace)); // {
+        }
+
+        // ----------------------------------------
+        // FizzBuzz + main サンプルのざっくり検証
+        // ----------------------------------------
+
+        private const string FizzBuzzSample = @"
 class FizzBuzz {
     construct() {
     }
@@ -184,67 +324,43 @@ class FizzBuzz {
     }
 }
 
-// mainブロック想定
-var fb = new FizzBuzz();
-fb.run();
+main(args: string[]) {
+    var fb = new FizzBuzz();
+    fb.run();
+}
 ";
 
-            var tokens = AloeLexer.Parse(source).ToArray();
+        [Test]
+        public void FizzBuzzSample_StartsAndEndsWithExpectedTokens()
+        {
+            var tokens = AloeLexer.Parse(FizzBuzzSample);
+            var nonEof = NonEof(tokens);
 
-            // 1. 先頭付近: class FizzBuzz {
-            AssertToken(tokens[0], TokenKind.Keyword, "class");
-            AssertToken(tokens[1], TokenKind.Identifier, "FizzBuzz");
-            AssertToken(tokens[2], TokenKind.LeftBrace, "{");
+            // 先頭数トークン: class FizzBuzz {
+            Assert.That(nonEof[0].Kind, Is.EqualTo(TokenKind.Keyword));
+            Assert.That(nonEof[0].Lexeme, Is.EqualTo("class"));
 
-            // 2. 中盤: method run(): void {
-            AssertContainsSequence(
-                tokens,
-                new (TokenKind, string)[]
-                {
-                    (TokenKind.Keyword,    "method"),
-                    (TokenKind.Identifier, "run"),
-                    (TokenKind.LeftParen,  "("),
-                    (TokenKind.RightParen, ")"),
-                    (TokenKind.Colon,      ":"),
-                    (TokenKind.Keyword,    "void"),
-                    (TokenKind.LeftBrace,  "{"),
-                },
-                "method run(): void { のトークン列が見つからない"
-            );
+            Assert.That(nonEof[1].Kind, Is.EqualTo(TokenKind.Identifier));
+            Assert.That(nonEof[1].Lexeme, Is.EqualTo("FizzBuzz"));
 
-            // 3. 末尾1: var fb = new FizzBuzz();
-            AssertContainsSequence(
-                tokens,
-                new (TokenKind, string)[]
-                {
-                    (TokenKind.Keyword,    "var"),
-                    (TokenKind.Identifier, "fb"),
-                    (TokenKind.Equals,     "="),
-                    (TokenKind.Keyword,    "new"),
-                    (TokenKind.Identifier, "FizzBuzz"),
-                    (TokenKind.LeftParen,  "("),
-                    (TokenKind.RightParen, ")"),
-                    (TokenKind.Semicolon,  ";"),
-                },
-                "var fb = new FizzBuzz(); のトークン列が見つからない"
-            );
+            Assert.That(nonEof[2].Kind, Is.EqualTo(TokenKind.LBrace));
 
-            // 4. 末尾2: fb.run();
-            AssertContainsSequence(
-                tokens,
-                new (TokenKind, string)[]
-                {
-                    (TokenKind.Identifier, "fb"),
-                    (TokenKind.Dot,        "."),
-                    (TokenKind.Identifier, "run"),
-                    (TokenKind.LeftParen,  "("),
-                    (TokenKind.RightParen, ")"),
-                    (TokenKind.Semicolon,  ";"),
-                },
-                "fb.run(); のトークン列が見つからない"
-            );
+            // main ブロック開始付近が含まれているか
+            var mainIndex = Array.FindIndex(nonEof, t =>
+                t.Kind == TokenKind.Keyword && t.Lexeme == "main");
+            Assert.That(mainIndex, Is.GreaterThan(0), "main キーワードが見つかりません。");
 
-            // 5. 最後は必ず EOF
+            // main(args: string[]) の形をざっくり確認
+            Assert.That(nonEof[mainIndex + 1].Kind, Is.EqualTo(TokenKind.LParen));
+            Assert.That(nonEof[mainIndex + 2].Kind, Is.EqualTo(TokenKind.Identifier)); // args
+            Assert.That(nonEof[mainIndex + 3].Kind, Is.EqualTo(TokenKind.Colon));
+            Assert.That(nonEof[mainIndex + 4].Kind, Is.EqualTo(TokenKind.Identifier)); // string
+            Assert.That(nonEof[mainIndex + 5].Kind, Is.EqualTo(TokenKind.LBracket));
+            Assert.That(nonEof[mainIndex + 6].Kind, Is.EqualTo(TokenKind.RBracket));
+            Assert.That(nonEof[mainIndex + 7].Kind, Is.EqualTo(TokenKind.RParen));
+            Assert.That(nonEof[mainIndex + 8].Kind, Is.EqualTo(TokenKind.LBrace));
+
+            // 最後のトークンは必ず EndOfFile
             Assert.That(tokens.Last().Kind, Is.EqualTo(TokenKind.EndOfFile));
         }
     }

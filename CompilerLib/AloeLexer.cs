@@ -1,21 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Text;
 
 namespace Aloe.CompilerLib.Lexer
 {
     /// <summary>
-    /// Aloe 言語のトークン種別
+    /// トークン種別
     /// </summary>
     public enum TokenKind
     {
-        Unknown = 0,
-        EndOfFile,
-
+        // 基本
         Identifier,
         Keyword,
 
+        // リテラル
         IntegerLiteral,
         FloatLiteral,
         DecimalLiteral,
@@ -25,349 +23,248 @@ namespace Aloe.CompilerLib.Lexer
         NullLiteral,
 
         // 記号・演算子
-        Plus,               // +
-        Minus,              // -
-        Star,               // *
-        Slash,              // /
-        Percent,            // %
+        LParen,         // (
+        RParen,         // )
+        LBrace,         // {
+        RBrace,         // }
+        LBracket,       // [
+        RBracket,       // ]
+        Comma,          // ,
+        Dot,            // .
+        Semicolon,      // ;
+        Colon,          // :
+        Question,       // ?
+        Plus,           // +
+        Minus,          // -
+        Star,           // *
+        Slash,          // /
+        Percent,        // %
+        Assign,         // =
+        EqualEqual,     // ==
+        Bang,           // !
+        BangEqual,      // !=
+        Less,           // <
+        LessEqual,      // <=
+        Greater,        // >
+        GreaterEqual,   // >=
+        Ampersand,      // &
+        AmpAmp,         // &&
+        Pipe,           // |
+        PipePipe,       // ||
+        Caret,          // ^
+        ShiftLeft,      // <<
+        ShiftRight,     // >>
+        Tilde,          // ~
 
-        Equals,             // =
-        EqualsEquals,       // ==
-        Not,                // !
-        NotEquals,          // !=
-        Less,               // <
-        LessOrEqual,        // <=
-        Greater,            // >
-        GreaterOrEqual,     // >=
-
-        LogicalAnd,         // &&
-        LogicalOr,          // ||
-
-        Dot,                // .
-        Comma,              // ,
-        Colon,              // :
-        Semicolon,          // ;
-
-        LeftParen,          // (
-        RightParen,         // )
-        LeftBrace,          // {
-        RightBrace,         // }
-        LeftBracket,        // [
-        RightBracket,       // ]
-
-        Question,           // ?
+        EndOfFile
     }
 
     /// <summary>
-    /// 1 個のトークン
+    /// 1 トークン
     /// </summary>
-    public sealed class Token
+    public sealed class AloeToken
     {
         public TokenKind Kind { get; }
         public string Lexeme { get; }
+        public int Position { get; }
         public int Line { get; }
         public int Column { get; }
-        public object? LiteralValue { get; }
 
-        public Token(TokenKind kind, string lexeme, int line, int column, object? literalValue = null)
+        public AloeToken(TokenKind kind, string lexeme, int position, int line, int column)
         {
             Kind = kind;
             Lexeme = lexeme;
+            Position = position;
             Line = line;
             Column = column;
-            LiteralValue = literalValue;
         }
 
         public override string ToString()
-            => $"{Kind} \"{Lexeme}\" (L{Line},C{Column})";
+            => $"{Kind} \"{Lexeme}\" (line {Line}, col {Column})";
     }
 
     /// <summary>
-    /// Aloe 言語の字句解析（static API）
+    /// Aloe 言語の字句解析器（static Parse）。
     /// </summary>
     public static class AloeLexer
     {
-        /// <summary>
-        /// ソース全体を字句解析してトークン一覧を返す（AloeLexer は new しない）
-        /// </summary>
-        public static IReadOnlyList<Token> Parse(string? source)
+        private static readonly HashSet<string> _keywords = new(StringComparer.Ordinal)
         {
-            var impl = new LexerImpl(source ?? string.Empty);
-            return impl.Parse();
-        }
+            "abstract",
+            "as",
+            "async",
+            "bitfield",
+            "break",
+            "case",
+            "catch",
+            "class",
+            "const",
+            "construct",
+            "continue",
+            "delete",
+            "do",
+            "else",
+            "enum",
+            "extends",
+            "false",
+            "field",
+            "finally",
+            "for",
+            "if",
+            "import",
+            "implements",
+            "in",
+            "interface",
+            "is",
+            "let",
+            "main",
+            "method",
+            "namespace",
+            "new",
+            "null",
+            "private",
+            "protected",
+            "public",
+            "readonly",
+            "return",
+            "sealed",
+            "static",
+            "struct",
+            "super",
+            "switch",
+            "swap",
+            "this",
+            "throw",
+            "throws",
+            "trait",
+            "true",
+            "try",
+            "var",
+            "void",
+            "while",
+            "with",
+            "yield",
+        };
 
         /// <summary>
-        /// 内部実装用レキサ（状態を持つ）
+        /// 与えられたソースコードを字句解析し、トークン列を返す。
+        /// 最後に EndOfFile トークンを含む。
         /// </summary>
-        private sealed class LexerImpl
+        public static List<AloeToken> Parse(string source)
+        {
+            if (source == null) throw new ArgumentNullException(nameof(source));
+
+            var state = new LexerState(source);
+            var tokens = new List<AloeToken>();
+
+            AloeToken token;
+            do
+            {
+                token = state.NextToken();
+                tokens.Add(token);
+            } while (token.Kind != TokenKind.EndOfFile);
+
+            return tokens;
+        }
+
+        // ---------------- LexerState 本体 ----------------
+
+        private sealed class LexerState
         {
             private readonly string _text;
-            private int _position;
+            private readonly int _length;
+
+            private int _pos;
             private int _line;
             private int _column;
 
-            private static readonly HashSet<string> s_keywords = new(StringComparer.Ordinal)
-            {
-                "abstract",
-                "as",
-                "break",
-                "case",
-                "catch",
-                "class",
-                "const",
-                "construct",
-                "continue",
-                "default",
-                "do",
-                "else",
-                "enum",
-                "extends",
-                "false",
-                "final",
-                "finally",
-                "for",
-                "if",
-                "import",
-                "in",
-                "instanceof",
-                "interface",
-                "let",
-                "method",
-                "new",
-                "null",
-                "package",
-                "private",
-                "protected",
-                "public",
-                "return",
-                "static",
-                "super",
-                "switch",
-                "this",
-                "throw",
-                "throws",
-                "true",
-                "try",
-                "var",
-                "void",
-                "while",
-                "trait",
-                "with",
-                "yield",
-            };
-
-            public LexerImpl(string text)
+            public LexerState(string text)
             {
                 _text = text;
-                Reset();
-            }
-
-            private void Reset()
-            {
-                _position = 0;
+                _length = text.Length;
+                _pos = 0;
                 _line = 1;
                 _column = 1;
             }
 
-            public IReadOnlyList<Token> Parse()
-            {
-                Reset();
-
-                var list = new List<Token>();
-                Token t;
-                do
-                {
-                    t = NextToken();
-                    list.Add(t);
-                } while (t.Kind != TokenKind.EndOfFile);
-
-                return list;
-            }
-
-            private Token NextToken()
+            public AloeToken NextToken()
             {
                 SkipWhitespaceAndComments();
 
+                if (IsAtEnd())
+                {
+                    // EOF トークンはここで直接生成
+                    return new AloeToken(TokenKind.EndOfFile, string.Empty, _pos, _line, _column);
+                }
+
+                int startPos = _pos;
                 int startLine = _line;
                 int startColumn = _column;
-                int startPos = _position;
+                char c = Peek();
 
-                char c = Current;
-
-                if (c == '\0')
-                {
-                    return new Token(TokenKind.EndOfFile, string.Empty, startLine, startColumn);
-                }
-
-                // 識別子 / 予約語 / true / false / null
+                // 識別子 or キーワード
                 if (IsIdentifierStart(c))
                 {
-                    return LexIdentifierOrKeyword(startLine, startColumn, startPos);
+                    return ReadIdentifierOrKeyword(startPos, startLine, startColumn);
                 }
 
-                // 数値リテラル
-                if (char.IsDigit(c))
+                // 数値（負数もここでまとめて扱う: -5, -0xFF など）
+                if (char.IsDigit(c) || (c == '-' && IsStartOfNumber()))
                 {
-                    return LexNumber(startLine, startColumn, startPos);
+                    return ReadNumber(startPos, startLine, startColumn);
                 }
 
-                // 文字列リテラル
+                // 文字列
                 if (c == '"')
                 {
-                    return LexString(startLine, startColumn, startPos);
+                    return ReadStringLiteral(startPos, startLine, startColumn);
                 }
 
-                // 文字リテラル
+                // 文字
                 if (c == '\'')
                 {
-                    return LexChar(startLine, startColumn, startPos);
+                    return ReadCharLiteral(startPos, startLine, startColumn);
                 }
 
                 // 記号・演算子
-                switch (c)
+                return ReadSymbol(startPos, startLine, startColumn);
+            }
+
+            // ---------- 基本ヘルパ ----------
+
+            private bool IsAtEnd() => _pos >= _length;
+
+            private char Peek(int offset = 0)
+            {
+                int index = _pos + offset;
+                return index < _length ? _text[index] : '\0';
+            }
+
+            private char Advance()
+            {
+                char c = _pos < _length ? _text[_pos] : '\0';
+                _pos++;
+
+                if (c == '\n')
                 {
-                    case '+':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Plus, startLine, startColumn, startPos, 1);
-
-                    case '-':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Minus, startLine, startColumn, startPos, 1);
-
-                    case '*':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Star, startLine, startColumn, startPos, 1);
-
-                    case '/':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Slash, startLine, startColumn, startPos, 1);
-
-                    case '%':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Percent, startLine, startColumn, startPos, 1);
-
-                    case '=':
-                        if (Peek(1) == '=')
-                        {
-                            Advance(2);
-                            return MakeSimpleToken(TokenKind.EqualsEquals, startLine, startColumn, startPos, 2);
-                        }
-                        else
-                        {
-                            Advance();
-                            return MakeSimpleToken(TokenKind.Equals, startLine, startColumn, startPos, 1);
-                        }
-
-                    case '!':
-                        if (Peek(1) == '=')
-                        {
-                            Advance(2);
-                            return MakeSimpleToken(TokenKind.NotEquals, startLine, startColumn, startPos, 2);
-                        }
-                        else
-                        {
-                            Advance();
-                            return MakeSimpleToken(TokenKind.Not, startLine, startColumn, startPos, 1);
-                        }
-
-                    case '<':
-                        if (Peek(1) == '=')
-                        {
-                            Advance(2);
-                            return MakeSimpleToken(TokenKind.LessOrEqual, startLine, startColumn, startPos, 2);
-                        }
-                        else
-                        {
-                            Advance();
-                            return MakeSimpleToken(TokenKind.Less, startLine, startColumn, startPos, 1);
-                        }
-
-                    case '>':
-                        if (Peek(1) == '=')
-                        {
-                            Advance(2);
-                            return MakeSimpleToken(TokenKind.GreaterOrEqual, startLine, startColumn, startPos, 2);
-                        }
-                        else
-                        {
-                            Advance();
-                            return MakeSimpleToken(TokenKind.Greater, startLine, startColumn, startPos, 1);
-                        }
-
-                    case '&':
-                        if (Peek(1) == '&')
-                        {
-                            Advance(2);
-                            return MakeSimpleToken(TokenKind.LogicalAnd, startLine, startColumn, startPos, 2);
-                        }
-                        break;
-
-                    case '|':
-                        if (Peek(1) == '|')
-                        {
-                            Advance(2);
-                            return MakeSimpleToken(TokenKind.LogicalOr, startLine, startColumn, startPos, 2);
-                        }
-                        break;
-
-                    case '.':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Dot, startLine, startColumn, startPos, 1);
-
-                    case ',':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Comma, startLine, startColumn, startPos, 1);
-
-                    case ':':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Colon, startLine, startColumn, startPos, 1);
-
-                    case ';':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Semicolon, startLine, startColumn, startPos, 1);
-
-                    case '(':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.LeftParen, startLine, startColumn, startPos, 1);
-
-                    case ')':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.RightParen, startLine, startColumn, startPos, 1);
-
-                    case '{':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.LeftBrace, startLine, startColumn, startPos, 1);
-
-                    case '}':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.RightBrace, startLine, startColumn, startPos, 1);
-
-                    case '[':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.LeftBracket, startLine, startColumn, startPos, 1);
-
-                    case ']':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.RightBracket, startLine, startColumn, startPos, 1);
-
-                    case '?':
-                        Advance();
-                        return MakeSimpleToken(TokenKind.Question, startLine, startColumn, startPos, 1);
+                    _line++;
+                    _column = 1;
+                }
+                else
+                {
+                    _column++;
                 }
 
-                // 未知の文字
-                Advance();
-                string lexUnknown = _text.Substring(startPos, _position - startPos);
-                return new Token(TokenKind.Unknown, lexUnknown, startLine, startColumn);
+                return c;
             }
 
             private void SkipWhitespaceAndComments()
             {
-                while (true)
+                while (!IsAtEnd())
                 {
-                    char c = Current;
+                    char c = Peek();
 
-                    // 空白
+                    // 空白類
                     if (char.IsWhiteSpace(c))
                     {
                         Advance();
@@ -378,30 +275,32 @@ namespace Aloe.CompilerLib.Lexer
                     if (c == '/')
                     {
                         char n = Peek(1);
-                        // 行コメント: //
+
+                        // 行コメント //
                         if (n == '/')
                         {
-                            Advance(2);
-                            while (Current != '\n' && Current != '\0')
+                            Advance(); // '/'
+                            Advance(); // '/'
+                            while (!IsAtEnd() && Peek() != '\n')
+                            {
                                 Advance();
+                            }
                             continue;
                         }
-                        // 複数行コメント: /* ... */
+
+                        // ブロックコメント /* ... */
                         if (n == '*')
                         {
-                            Advance(2);
-                            while (true)
+                            Advance(); // '/'
+                            Advance(); // '*'
+                            while (!IsAtEnd())
                             {
-                                if (Current == '\0')
-                                    return; // EOF
-
-                                if (Current == '*' && Peek(1) == '/')
+                                char ch = Advance();
+                                if (ch == '*' && Peek() == '/')
                                 {
-                                    Advance(2);
+                                    Advance(); // '/'
                                     break;
                                 }
-
-                                Advance();
                             }
                             continue;
                         }
@@ -411,301 +310,357 @@ namespace Aloe.CompilerLib.Lexer
                 }
             }
 
-            private Token LexIdentifierOrKeyword(int startLine, int startColumn, int startPos)
+            private AloeToken MakeToken(TokenKind kind, string lexeme, int startPos, int line, int column)
+            {
+                return new AloeToken(kind, lexeme, startPos, line, column);
+            }
+
+            // ---------- 識別子 / キーワード ----------
+
+            private static bool IsIdentifierStart(char c)
+            {
+                return char.IsLetter(c) || c == '_';
+            }
+
+            private static bool IsIdentifierPart(char c)
+            {
+                return char.IsLetterOrDigit(c) || c == '_';
+            }
+
+            private AloeToken ReadIdentifierOrKeyword(int startPos, int startLine, int startColumn)
             {
                 var sb = new StringBuilder();
-                while (IsIdentifierPart(Current))
+                sb.Append(Advance()); // 先頭
+
+                while (!IsAtEnd() && IsIdentifierPart(Peek()))
                 {
-                    sb.Append(Current);
-                    Advance();
+                    sb.Append(Advance());
                 }
 
                 string lexeme = sb.ToString();
 
-                if (s_keywords.Contains(lexeme))
+                // true/false/null は専用のリテラル種別
+                if (lexeme == "true" || lexeme == "false")
                 {
-                    if (lexeme == "true")
-                        return new Token(TokenKind.BoolLiteral, lexeme, startLine, startColumn, true);
-                    if (lexeme == "false")
-                        return new Token(TokenKind.BoolLiteral, lexeme, startLine, startColumn, false);
-                    if (lexeme == "null")
-                        return new Token(TokenKind.NullLiteral, lexeme, startLine, startColumn, null);
-
-                    return new Token(TokenKind.Keyword, lexeme, startLine, startColumn);
+                    return MakeToken(TokenKind.BoolLiteral, lexeme, startPos, startLine, startColumn);
+                }
+                if (lexeme == "null")
+                {
+                    return MakeToken(TokenKind.NullLiteral, lexeme, startPos, startLine, startColumn);
                 }
 
-                return new Token(TokenKind.Identifier, lexeme, startLine, startColumn);
+                if (_keywords.Contains(lexeme))
+                {
+                    return MakeToken(TokenKind.Keyword, lexeme, startPos, startLine, startColumn);
+                }
+
+                return MakeToken(TokenKind.Identifier, lexeme, startPos, startLine, startColumn);
             }
 
-            private Token LexNumber(int startLine, int startColumn, int startPos)
+            // ---------- 数値 ----------
+
+            /// <summary>
+            /// 現在位置が '-' で、直後が数字(or 0x/0b) の場合に true。
+            /// 「-5」「-0xFF」のような負のリテラルを 1 トークンとして扱うため。
+            /// </summary>
+            private bool IsStartOfNumber()
             {
-                bool isHex = false;
-                bool isBin = false;
-                bool isFloat = false;
+                if (Peek() != '-') return false;
 
-                if (Current == '0' && (Peek(1) == 'x' || Peek(1) == 'X'))
-                {
-                    isHex = true;
-                    Advance(2); // "0x"
-                    while (IsHexDigit(Current))
-                        Advance();
-                }
-                else if (Current == '0' && (Peek(1) == 'b' || Peek(1) == 'B'))
-                {
-                    isBin = true;
-                    Advance(2); // "0b"
-                    while (Current == '0' || Current == '1')
-                        Advance();
-                }
-                else
-                {
-                    while (char.IsDigit(Current))
-                        Advance();
+                char next = Peek(1);
+                if (char.IsDigit(next)) return true;
 
-                    if (Current == '.' && char.IsDigit(Peek(1)))
+                // -0xFF / -0b1010 など
+                if (next == '0')
+                {
+                    char n2 = Peek(2);
+                    if (n2 == 'x' || n2 == 'X' || n2 == 'b' || n2 == 'B')
                     {
-                        isFloat = true;
-                        Advance(); // '.'
-                        while (char.IsDigit(Current))
-                            Advance();
+                        return true;
                     }
                 }
 
-                int valueEndPos = _position;
-
-                char suffix = '\0';
-                if (Current == ':' && IsLiteralSuffix(Peek(1)))
-                {
-                    suffix = Peek(1);
-                    Advance(2); // ':' + suffix
-                }
-
-                int endPos = _position;
-                string lexeme = _text.Substring(startPos, endPos - startPos);
-
-                TokenKind kind;
-                object? literalValue = null;
-
-                if (suffix == 'd' || suffix == 'D')
-                {
-                    kind = TokenKind.DecimalLiteral;
-                    if (!isHex && !isBin)
-                    {
-                        string numericText = _text.Substring(startPos, valueEndPos - startPos);
-                        if (decimal.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var dec))
-                            literalValue = dec;
-                    }
-                }
-                else if (isFloat || suffix == 'f' || suffix == 'F')
-                {
-                    kind = TokenKind.FloatLiteral;
-                    if (!isHex && !isBin)
-                    {
-                        string numericText = _text.Substring(startPos, valueEndPos - startPos);
-                        if (double.TryParse(numericText, NumberStyles.Float, CultureInfo.InvariantCulture, out var d))
-                            literalValue = d;
-                    }
-                }
-                else
-                {
-                    kind = TokenKind.IntegerLiteral;
-                    string numericText = _text.Substring(startPos, valueEndPos - startPos);
-
-                    if (isHex)
-                        literalValue = ParseHexInteger(numericText);
-                    else if (isBin)
-                        literalValue = ParseBinaryInteger(numericText);
-                    else if (long.TryParse(numericText, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l))
-                        literalValue = l;
-                }
-
-                return new Token(kind, lexeme, startLine, startColumn, literalValue);
+                return false;
             }
 
-            private Token LexString(int startLine, int startColumn, int startPos)
+            private AloeToken ReadNumber(int startPos, int startLine, int startColumn)
             {
-                Advance(); // 開き "
-
                 var sb = new StringBuilder();
 
-                while (true)
+                // 符号（-のみ想定、+ は現状リテラルとして使わない）
+                if (Peek() == '-')
                 {
-                    char c = Current;
-                    if (c == '\0')
-                        break;
+                    sb.Append(Advance());
+                }
 
-                    if (c == '"')
+                // 16進・2進チェック
+                if (Peek() == '0' && (Peek(1) == 'x' || Peek(1) == 'X' || Peek(1) == 'b' || Peek(1) == 'B'))
+                {
+                    sb.Append(Advance()); // '0'
+                    char baseChar = Advance();
+                    sb.Append(baseChar);
+
+                    bool isHex = baseChar == 'x' || baseChar == 'X';
+                    bool isBin = baseChar == 'b' || baseChar == 'B';
+
+                    if (isHex)
                     {
-                        Advance();
-                        break;
+                        while (IsHexDigit(Peek()))
+                        {
+                            sb.Append(Advance());
+                        }
                     }
+                    else if (isBin)
+                    {
+                        while (Peek() == '0' || Peek() == '1')
+                        {
+                            sb.Append(Advance());
+                        }
+                    }
+
+                    string lexemeHexBin = sb.ToString();
+                    return MakeToken(TokenKind.IntegerLiteral, lexemeHexBin, startPos, startLine, startColumn);
+                }
+
+                // 10進数 or 小数 or decimal
+                bool hasDot = false;
+
+                // 整数部
+                while (char.IsDigit(Peek()))
+                {
+                    sb.Append(Advance());
+                }
+
+                // 小数点
+                if (Peek() == '.' && char.IsDigit(Peek(1)))
+                {
+                    hasDot = true;
+                    sb.Append(Advance()); // '.'
+                    while (char.IsDigit(Peek()))
+                    {
+                        sb.Append(Advance());
+                    }
+                }
+
+                // decimal サフィックス (:d / :D)
+                if (Peek() == ':' && (Peek(1) == 'd' || Peek(1) == 'D'))
+                {
+                    sb.Append(Advance()); // ':'
+                    sb.Append(Advance()); // 'd' or 'D'
+                    string lexemeDec = sb.ToString();
+                    return MakeToken(TokenKind.DecimalLiteral, lexemeDec, startPos, startLine, startColumn);
+                }
+
+                string lexeme = sb.ToString();
+                if (hasDot)
+                {
+                    return MakeToken(TokenKind.FloatLiteral, lexeme, startPos, startLine, startColumn);
+                }
+                else
+                {
+                    return MakeToken(TokenKind.IntegerLiteral, lexeme, startPos, startLine, startColumn);
+                }
+            }
+
+            private static bool IsHexDigit(char c)
+            {
+                return char.IsDigit(c)
+                       || (c >= 'a' && c <= 'f')
+                       || (c >= 'A' && c <= 'F');
+            }
+
+            // ---------- 文字列 / 文字 ----------
+
+            private AloeToken ReadStringLiteral(int startPos, int startLine, int startColumn)
+            {
+                var sb = new StringBuilder();
+                char quote = Advance(); // '"'
+                sb.Append(quote);
+
+                bool terminated = false;
+
+                while (!IsAtEnd())
+                {
+                    char c = Advance();
+                    sb.Append(c);
 
                     if (c == '\\')
                     {
-                        char n = Peek(1);
-                        Advance(2);
-
-                        sb.Append(n switch
+                        // エスケープ: 次の 1 文字をそのまま取り込む
+                        if (!IsAtEnd())
                         {
-                            'n' => '\n',
-                            'r' => '\r',
-                            't' => '\t',
-                            '\\' => '\\',
-                            '"' => '"',
-                            '\'' => '\'',
-                            '0' => '\0',
-                            _ => n,
-                        });
+                            char esc = Advance();
+                            sb.Append(esc);
+                        }
+                        continue;
                     }
-                    else
+
+                    if (c == quote)
                     {
-                        sb.Append(c);
-                        Advance();
+                        terminated = true;
+                        break;
                     }
-                }
 
-                int endPos = _position;
-                string lexeme = _text.Substring(startPos, endPos - startPos);
-                string value = sb.ToString();
-
-                return new Token(TokenKind.StringLiteral, lexeme, startLine, startColumn, value);
-            }
-
-            private Token LexChar(int startLine, int startColumn, int startPos)
-            {
-                Advance(); // 開き '
-
-                char value = '\0';
-                bool hasValue = false;
-
-                if (Current == '\\')
-                {
-                    char n = Peek(1);
-                    Advance(2);
-                    value = n switch
-                    {
-                        'n' => '\n',
-                        'r' => '\r',
-                        't' => '\t',
-                        '\\' => '\\',
-                        '"' => '"',
-                        '\'' => '\'',
-                        '0' => '\0',
-                        _ => n,
-                    };
-                    hasValue = true;
-                }
-                else if (Current != '\0' && Current != '\'' && Current != '\n')
-                {
-                    value = Current;
-                    Advance();
-                    hasValue = true;
-                }
-
-                if (Current == '\'')
-                    Advance();
-
-                int endPos = _position;
-                string lexeme = _text.Substring(startPos, endPos - startPos);
-
-                if (!hasValue)
-                    return new Token(TokenKind.Unknown, lexeme, startLine, startColumn);
-
-                return new Token(TokenKind.CharLiteral, lexeme, startLine, startColumn, value);
-            }
-
-            // ===== ヘルパ =====
-
-            private bool IsIdentifierStart(char c)
-                => c == '_' || char.IsLetter(c);
-
-            private bool IsIdentifierPart(char c)
-                => c == '_' || char.IsLetterOrDigit(c);
-
-            private static bool IsHexDigit(char c)
-                => char.IsDigit(c)
-                   || (c >= 'a' && c <= 'f')
-                   || (c >= 'A' && c <= 'F');
-
-            private static bool IsLiteralSuffix(char c)
-                => c is 'i' or 'I' or 'f' or 'F' or 'd' or 'D';
-
-            private long? ParseHexInteger(string text)
-            {
-                if (!text.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
-                    return null;
-
-                long value = 0;
-                for (int i = 2; i < text.Length; i++)
-                {
-                    char c = text[i];
-                    int digit;
-                    if (c >= '0' && c <= '9')
-                        digit = c - '0';
-                    else if (c >= 'a' && c <= 'f')
-                        digit = 10 + (c - 'a');
-                    else if (c >= 'A' && c <= 'F')
-                        digit = 10 + (c - 'A');
-                    else
-                        return null;
-
-                    value = (value << 4) + digit;
-                }
-
-                return value;
-            }
-
-            private long? ParseBinaryInteger(string text)
-            {
-                if (!text.StartsWith("0b", StringComparison.OrdinalIgnoreCase))
-                    return null;
-
-                long value = 0;
-                for (int i = 2; i < text.Length; i++)
-                {
-                    char c = text[i];
-                    if (c != '0' && c != '1')
-                        return null;
-
-                    value = (value << 1) + (c == '1' ? 1 : 0);
-                }
-
-                return value;
-            }
-
-            private Token MakeSimpleToken(TokenKind kind, int line, int column, int startPos, int length)
-            {
-                string lexeme = _text.Substring(startPos, length);
-                return new Token(kind, lexeme, line, column);
-            }
-
-            private char Current => _position < _text.Length ? _text[_position] : '\0';
-
-            private char Peek(int offset)
-            {
-                int index = _position + offset;
-                if (index < 0 || index >= _text.Length)
-                    return '\0';
-                return _text[index];
-            }
-
-            private void Advance(int count = 1)
-            {
-                for (int i = 0; i < count; i++)
-                {
-                    if (_position >= _text.Length)
-                        return;
-
-                    char c = _text[_position++];
                     if (c == '\n')
                     {
-                        _line++;
-                        _column = 1;
+                        break;
                     }
-                    else
+                }
+
+                string text = sb.ToString();
+                // terminated が false でも Lexer 的にはいったん StringLiteral として返し、
+                // エラー扱いはパーサ側に任せる。
+                return MakeToken(TokenKind.StringLiteral, text, startPos, startLine, startColumn);
+            }
+
+            private AloeToken ReadCharLiteral(int startPos, int startLine, int startColumn)
+            {
+                var sb = new StringBuilder();
+                char quote = Advance(); // '\''
+                sb.Append(quote);
+
+                if (IsAtEnd())
+                {
+                    return MakeToken(TokenKind.CharLiteral, sb.ToString(), startPos, startLine, startColumn);
+                }
+
+                char c = Advance();
+                sb.Append(c);
+
+                if (c == '\\')
+                {
+                    if (!IsAtEnd())
                     {
-                        _column++;
+                        char esc = Advance();
+                        sb.Append(esc);
                     }
+                }
+
+                if (!IsAtEnd())
+                {
+                    char end = Advance();
+                    sb.Append(end);
+                }
+
+                string text = sb.ToString();
+                return MakeToken(TokenKind.CharLiteral, text, startPos, startLine, startColumn);
+            }
+
+            // ---------- 記号 / 演算子 ----------
+
+            private AloeToken ReadSymbol(int startPos, int startLine, int startColumn)
+            {
+                char c = Advance();
+
+                switch (c)
+                {
+                    case '(':
+                        return MakeToken(TokenKind.LParen, "(", startPos, startLine, startColumn);
+                    case ')':
+                        return MakeToken(TokenKind.RParen, ")", startPos, startLine, startColumn);
+                    case '{':
+                        return MakeToken(TokenKind.LBrace, "{", startPos, startLine, startColumn);
+                    case '}':
+                        return MakeToken(TokenKind.RBrace, "}", startPos, startLine, startColumn);
+                    case '[':
+                        return MakeToken(TokenKind.LBracket, "[", startPos, startLine, startColumn);
+                    case ']':
+                        return MakeToken(TokenKind.RBracket, "]", startPos, startLine, startColumn);
+                    case ',':
+                        return MakeToken(TokenKind.Comma, ",", startPos, startLine, startColumn);
+                    case '.':
+                        return MakeToken(TokenKind.Dot, ".", startPos, startLine, startColumn);
+                    case ';':
+                        return MakeToken(TokenKind.Semicolon, ";", startPos, startLine, startColumn);
+                    case ':':
+                        return MakeToken(TokenKind.Colon, ":", startPos, startLine, startColumn);
+                    case '?':
+                        return MakeToken(TokenKind.Question, "?", startPos, startLine, startColumn);
+
+                    case '+':
+                        return MakeToken(TokenKind.Plus, "+", startPos, startLine, startColumn);
+
+                    case '-':
+                        // ここに来るのは「IsStartOfNumber() が false の '-'」なので、二項 Minus として扱う
+                        return MakeToken(TokenKind.Minus, "-", startPos, startLine, startColumn);
+
+                    case '*':
+                        return MakeToken(TokenKind.Star, "*", startPos, startLine, startColumn);
+
+                    case '%':
+                        return MakeToken(TokenKind.Percent, "%", startPos, startLine, startColumn);
+
+                    case '/':
+                        return MakeToken(TokenKind.Slash, "/", startPos, startLine, startColumn);
+
+                    case '=':
+                        if (Peek() == '=')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.EqualEqual, "==", startPos, startLine, startColumn);
+                        }
+                        return MakeToken(TokenKind.Assign, "=", startPos, startLine, startColumn);
+
+                    case '!':
+                        if (Peek() == '=')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.BangEqual, "!=", startPos, startLine, startColumn);
+                        }
+                        return MakeToken(TokenKind.Bang, "!", startPos, startLine, startColumn);
+
+                    case '<':
+                        if (Peek() == '=')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.LessEqual, "<=", startPos, startLine, startColumn);
+                        }
+                        if (Peek() == '<')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.ShiftLeft, "<<", startPos, startLine, startColumn);
+                        }
+                        return MakeToken(TokenKind.Less, "<", startPos, startLine, startColumn);
+
+                    case '>':
+                        if (Peek() == '=')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.GreaterEqual, ">=", startPos, startLine, startColumn);
+                        }
+                        if (Peek() == '>')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.ShiftRight, ">>", startPos, startLine, startColumn);
+                        }
+                        return MakeToken(TokenKind.Greater, ">", startPos, startLine, startColumn);
+
+                    case '&':
+                        if (Peek() == '&')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.AmpAmp, "&&", startPos, startLine, startColumn);
+                        }
+                        return MakeToken(TokenKind.Ampersand, "&", startPos, startLine, startColumn);
+
+                    case '|':
+                        if (Peek() == '|')
+                        {
+                            Advance();
+                            return MakeToken(TokenKind.PipePipe, "||", startPos, startLine, startColumn);
+                        }
+                        return MakeToken(TokenKind.Pipe, "|", startPos, startLine, startColumn);
+
+                    case '^':
+                        return MakeToken(TokenKind.Caret, "^", startPos, startLine, startColumn);
+
+                    case '~':
+                        return MakeToken(TokenKind.Tilde, "~", startPos, startLine, startColumn);
+
+                    default:
+                        // 不明な文字はとりあえず単一トークンとして返す（エラーは上位で扱う）
+                        string text = c.ToString();
+                        return MakeToken(TokenKind.Identifier, text, startPos, startLine, startColumn);
                 }
             }
         }

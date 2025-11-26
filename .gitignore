@@ -1,6 +1,6 @@
 # Promptプロジェクトのファイルすべてを除外
 .vs/
-Prompt/
+
 CommonLib/bin/
 CommonLib/obj/
 
@@ -12,3 +12,9 @@ RuntimeLib/obj/
 
 Test_CompilerLib/bin/
 Test_CompilerLib/obj/
+
+Documents/bin/
+Documents/obj/
+
+Documents/TODO.md
+

@@ -1,0 +1,763 @@
+﻿```html
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>AloeVM 仕様書（ドラフト）</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.7;
+      color: #222;
+    }
+    .layout {
+      display: flex;
+      min-height: 100vh;
+    }
+    .sidebar {
+      width: 260px;
+      background: #111827;
+      color: #f9fafb;
+      padding: 1rem 0.75rem 2rem;
+      position: sticky;
+      top: 0;
+      align-self: flex-start;
+      max-height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar h1 {
+      font-size: 1.1rem;
+      margin: 0 0 0.5rem;
+      padding: 0 0.25rem;
+    }
+    .sidebar small {
+      display: block;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-bottom: 0.75rem;
+      padding: 0 0.25rem;
+    }
+    .nav-section-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #9ca3af;
+      margin: 0.75rem 0 0.25rem;
+      padding: 0 0.25rem;
+    }
+    .nav-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .nav-list li {
+      margin: 0;
+    }
+    .nav-link {
+      display: block;
+      padding: 0.25rem 0.5rem;
+      margin: 0 0.1rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: #e5e7eb;
+      text-decoration: none;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nav-link:hover {
+      background: #374151;
+    }
+    .nav-link.active {
+      background: #4b5563;
+      color: #ffffff;
+      font-weight: 600;
+    }
+    .content {
+      flex: 1;
+      padding: 1.5rem 2rem 3rem;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+    .chapter {
+      display: none;
+      padding-bottom: 2rem;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 2rem;
+    }
+    .chapter.active {
+      display: block;
+    }
+    h2, h3, h4 {
+      line-height: 1.3;
+    }
+    h2 {
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 0.25rem;
+      margin-top: 0;
+    }
+    pre {
+      background: #f5f5f5;
+      padding: 0.75rem 1rem;
+      overflow-x: auto;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    code {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+    }
+    hr {
+      margin: 2rem 0;
+      border: none;
+      border-top: 1px solid #e5e7eb;
+    }
+    .note {
+      padding: 0.5rem 0.75rem;
+      border-left: 4px solid #888;
+      background: #fafafa;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      border-collapse: collapse;
+      font-size: 0.9rem;
+      margin: 0.5rem 0 1rem;
+      min-width: 60%;
+    }
+    th, td {
+      border: 1px solid #d1d5db;
+      padding: 0.35rem 0.6rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f3f4f6;
+      font-weight: 600;
+    }
+    ul, ol { padding-left: 1.3rem; }
+    @media (max-width: 800px) {
+      .layout { flex-direction: column; }
+      .sidebar {
+        width: 100%;
+        position: static;
+        max-height: none;
+        display: flex;
+        flex-wrap: wrap;
+      }
+      .sidebar h1, .sidebar small, .nav-section-title {
+        width: 100%;
+      }
+      .nav-list {
+        display: flex;
+        flex-wrap: wrap;
+      }
+      .nav-list li {
+        flex: 0 0 50%;
+      }
+      .content {
+        padding: 1rem 1rem 3rem;
+      }
+    }
+  </style>
+  <script>
+    function showChapter(id) {
+      const chapters = document.querySelectorAll('.chapter');
+      chapters.forEach(ch => ch.classList.remove('active'));
+      const target = document.getElementById(id);
+      if (target) target.classList.add('active');
+
+      const links = document.querySelectorAll('.nav-link');
+      links.forEach(a => a.classList.remove('active'));
+      const activeLink = document.querySelector('.nav-link[data-target="' + id + '"]');
+      if (activeLink) activeLink.classList.add('active');
+
+      if (window.innerWidth <= 800) {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+      const first = document.querySelector('.chapter');
+      if (first) first.classList.add('active');
+      const firstLink = document.querySelector('.nav-link');
+      if (firstLink) firstLink.classList.add('active');
+
+      document.querySelectorAll('.nav-link').forEach(a => {
+        a.addEventListener('click', (e) => {
+          e.preventDefault();
+          showChapter(a.dataset.target);
+        });
+      });
+    });
+  </script>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h1>AloeVM 仕様書</h1>
+    <small>（現時点のドラフト。今後変更・拡張される可能性があります。）</small>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Chapters</div>
+      <ul class="nav-list">
+        <li><a class="nav-link" data-target="vm-ch0">0. 概要</a></li>
+        <li><a class="nav-link" data-target="vm-ch1">1. 実行モデル</a></li>
+        <li><a class="nav-link" data-target="vm-ch2">2. VM 値モデル</a></li>
+        <li><a class="nav-link" data-target="vm-ch3">3. コールスタックとフレーム</a></li>
+        <li><a class="nav-link" data-target="vm-ch4">4. ヒープと GC 方針</a></li>
+        <li><a class="nav-link" data-target="vm-ch5">5. パイプ / フィルタの表現</a></li>
+        <li><a class="nav-link" data-target="vm-ch6">6. AloeBC バイナリ形式</a></li>
+        <li><a class="nav-link" data-target="vm-ch7">7. 命令セットと WASM 対応</a></li>
+        <li><a class="nav-link" data-target="vm-ch8">8. 未決事項・TODO</a></li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- 0. 概要 -->
+    <section id="vm-ch0" class="chapter">
+      <h2>0. 概要</h2>
+      <p>
+        AloeVM は、Aloe 言語の実行用に設計された <strong>スタックベースの仮想マシン</strong> です。<br>
+        ここでは以下を定義します：
+      </p>
+      <ul>
+        <li>実行モデル（スタックマシン／フレーム構造）</li>
+        <li>VM レベルの値モデル（プリミティブ・構造体・クラス・enum・pipe/filter 等）</li>
+        <li>ヒープと GC の方針</li>
+        <li>パイプ / フィルタの VM 上での表現</li>
+        <li>AloeBC（Aloe バイトコード）バイナリ形式</li>
+        <li>WebAssembly（WASM）との対応ポリシー</li>
+      </ul>
+      <div class="note">
+        AloeVM には 2 つの想定ランタイムがあります：
+        <ul>
+          <li>C# 実装（.NET 上で動作する VM）</li>
+          <li>WASM ネイティブ実装（aloe2wasm によって直接 WASM にコンパイルされたコード）</li>
+        </ul>
+        本仕様は主に「C# 実装 VM + AloeBC」の振る舞いを定義し、<br>
+        WASM 側は「命令セットをほぼ 1:1 でマッピングする」「GC は WASM 実行系に任せる」という方針を示します。
+      </div>
+    </section>
+
+    <!-- 1. 実行モデル -->
+    <section id="vm-ch1" class="chapter">
+      <h2>1. 実行モデル</h2>
+
+      <h3>1.1 スタックマシンとしてのモデル</h3>
+      <ul>
+        <li>VM は <strong>オペランドスタック</strong> を中心としたスタックマシンである。</li>
+        <li>算術命令・比較命令などはスタックトップから値を取り出し、結果を再びスタックに積む。</li>
+        <li>ローカル変数・引数は <strong>フレーム内ローカル領域</strong> に保持される。</li>
+      </ul>
+
+      <h3>1.2 実行単位</h3>
+      <ul>
+        <li>実行単位は「関数（メソッド）」であり、Aloe のメソッド／main ブロックに対応する。</li>
+        <li>各関数は AloeBC 内で <strong>関数テーブル</strong> に登録されており、エントリには
+          <ul>
+            <li>コードオフセット</li>
+            <li>ローカル変数数</li>
+            <li>引数数</li>
+            <li>例外ハンドラテーブルへの参照</li>
+          </ul>
+          などを保持する。
+        </li>
+      </ul>
+
+      <h3>1.3 例外処理モデル</h3>
+      <ul>
+        <li>Aloe の <code>try / catch / finally</code> は VM レベルでも例外ハンドラテーブルに展開される。</li>
+        <li>例外は VM 内で <strong>オブジェクト参照</strong> として扱い、スロー時にスタックを巻き戻す。</li>
+        <li>WASM 実装では、ホストの例外モデルまたは多値戻り＋エラーコードパターンへマッピングする。</li>
+      </ul>
+
+      <h3>1.4 実行モード</h3>
+      <ul>
+        <li><strong>VM 実行モード</strong>:
+          <ul>
+            <li>C# 実装 VM が AloeBC を直接読み込み、命令を逐次解釈または JIT コンパイルする。</li>
+          </ul>
+        </li>
+        <li><strong>WASM ネイティブモード</strong>:
+          <ul>
+            <li>aloe2wasm により、AloeVM 命令列をほぼ 1:1 対応で WASM 命令列へ変換し、AloeVM 自体は存在しない。</li>
+            <li>GC・低レベルのメモリ管理は WASM ランタイム（実行系）に委譲する。</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 2. VM 値モデル -->
+    <section id="vm-ch2" class="chapter">
+      <h2>2. VM 値モデル</h2>
+
+      <h3>2.1 VM 値のカテゴリ</h3>
+      <p>VM 上で扱う値は、概念的に以下のカテゴリに分かれる。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ</th>
+              <th>例</th>
+              <th>備考</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>整数（int32）</td>
+              <td><code>int</code>, <code>enum</code>, <code>bitfield enum</code></td>
+              <td>32bit 符号付き整数。enum は常に int ベース。</td>
+            </tr>
+            <tr>
+              <td>整数（その他）</td>
+              <td><code>byte</code></td>
+              <td>内部的には int32 にパックして扱ってもよい。</td>
+            </tr>
+            <tr>
+              <td>浮動小数点</td>
+              <td><code>float</code></td>
+              <td>32bit IEEE754。</td>
+            </tr>
+            <tr>
+              <td>decimal</td>
+              <td><code>decimal</code></td>
+              <td>C# decimal と同程度の精度を持つ 128bit 近似表現（実装依存）。</td>
+            </tr>
+            <tr>
+              <td>bool</td>
+              <td><code>bool</code></td>
+              <td>内部表現は 1byte or int32。命令セットでは int と同じ比較命令を再利用可。</td>
+            </tr>
+            <tr>
+              <td>char</td>
+              <td><code>char</code></td>
+              <td>Unicode コードポイント（実装は UTF-16 でも UTF-32 でもよい）。</td>
+            </tr>
+            <tr>
+              <td>オブジェクト参照</td>
+              <td><code>class</code> インスタンス、<code>string</code></td>
+              <td>ヒープオブジェクトへのハンドル（例: 64bit ID）。</td>
+            </tr>
+            <tr>
+              <td>構造体</td>
+              <td><code>struct</code></td>
+              <td>VM 上では「値の塊」。実装により inline / boxed を選択。</td>
+            </tr>
+            <tr>
+              <td>pipe</td>
+              <td><code>pipe&lt;T&gt;</code></td>
+              <td>VM レベルで専用タグを持つ。実装は OS パイプ／ソケット等。</td>
+            </tr>
+            <tr>
+              <td>filter</td>
+              <td><code>filter Foo</code></td>
+              <td>VM レベルで専用タグ。関数＋接続情報のラッパ。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <strong>enum / bitfield enum</strong> は VM レベルでは <strong>常に int32</strong> として表現される。<br>
+        bitfield enum の有効ビットは 0～31（最大 32 bit）に制限される。
+      </div>
+
+      <h3>2.2 AloeObject とヒープオブジェクト</h3>
+      <p>
+        C# 実装 VM では、ヒープ上のオブジェクトは <strong>オブジェクト ID（例: 64bit 整数）</strong> で識別される。
+      </p>
+      <ul>
+        <li>VM 上でのオブジェクト値:
+          <ul>
+            <li>スタックやローカルには単に <code>objectId: long</code> が積まれる（<strong>AloeObject</strong>）。</li>
+          </ul>
+        </li>
+        <li>メモリマネージャ側で、オブジェクト ID → メタデータを管理する:
+          <ul>
+            <li>クラス／構造体の <strong>フィールドリスト（参照スロット定義）</strong></li>
+            <li>フィールドごとの <strong>値スロット</strong>（プリミティブ値 or 他オブジェクト ID）</li>
+            <li>trait 合成後の最終的なフィールドレイアウト</li>
+          </ul>
+        </li>
+        <li>構造体も同じ枠組みで扱える:
+          <ul>
+            <li>値型であっても、ヒープ上に配置する場合は同様に「フィールドリスト＋値スロット」で管理可能。</li>
+            <li>VM の最適化次第で、スタック上に inline 展開するかどうかを切り替えられる。</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>2.3 pipe / filter の VM タグ</h3>
+      <ul>
+        <li><code>pipe&lt;T&gt;</code> と <code>filter</code> は、クラスインスタンスとは別の <strong>専用 VM 値タグ</strong> を持つ。</li>
+        <li>ただし WASM 対応のため、内部表現は「ref 型」（例: <code>externref</code> / <code>funcref</code> / <code>anyref</code> 相当）にマッピングしやすい構造にする。</li>
+        <li>pipe は「末端バッファ＋同期オブジェクトへの参照」、filter は「バインド済みハンドラ関数＋ in/out メタ情報」などを持つ。</li>
+      </ul>
+    </section>
+
+    <!-- 3. コールスタックとフレーム -->
+    <section id="vm-ch3" class="chapter">
+      <h2>3. コールスタックとフレーム</h2>
+
+      <h3>3.1 フレーム構造</h3>
+      <p>各関数呼び出しは「フレーム」を生成する。フレームは少なくとも以下を持つ。</p>
+      <ul>
+        <li>戻りアドレス（次に実行する命令の PC）</li>
+        <li>前のフレームへのリンク</li>
+        <li>ローカル変数領域</li>
+        <li>引数領域</li>
+        <li>一時値スロット（必要なら）</li>
+      </ul>
+
+      <h3>3.2 呼び出し規約（概要）</h3>
+      <ul>
+        <li>関数呼び出し命令（例: <code>CALL</code>）は、引数をスタック上に積んだ状態で実行される。</li>
+        <li>フレーム作成後、引数はローカル領域に移される（またはスタック上に残したままインデックス指定）。</li>
+        <li>戻り値はスタックトップに 1 つだけ積まれる。</li>
+        <li>void 関数は戻り値を積まない。</li>
+      </ul>
+
+      <h3>3.3 例外フレーム</h3>
+      <ul>
+        <li>例外ハンドラテーブルに基づき、スタックのどこまで巻き戻すかを決定する。</li>
+        <li>巻き戻し後、catch ブロック先頭にジャンプし、例外オブジェクトをローカルまたはスタックに渡す。</li>
+      </ul>
+    </section>
+
+    <!-- 4. ヒープと GC 方針 -->
+    <section id="vm-ch4" class="chapter">
+      <h2>4. ヒープと GC 方針（C# 実装 VM）</h2>
+
+      <h3>4.1 基本方針</h3>
+      <ul>
+        <li>ヒープは固定長または可変長の <strong>ブロック</strong> の集合として管理される。</li>
+        <li>各ブロックは複数のオブジェクトスロットを持つ。</li>
+        <li>標準の mark-sweep ではなく、「<strong>ブロック単位解放＋参照カウントベースのグループ管理</strong>」をベースとした軽量 GC を想定する。</li>
+      </ul>
+
+      <h3>4.2 参照カウント＋グループ管理</h3>
+      <ul>
+        <li>各オブジェクトは「どのグループに属しているか」のメタデータを持つ（メモリマネージャ側管理）。</li>
+        <li>グループ単位で参照カウントを管理する:
+          <ul>
+            <li>グループ外からの参照数が 0 になったグループは「到達不能」とみなして一括解放可能。</li>
+            <li>循環参照は同一グループ内に閉じ込められるため、グループの refcount が 0 になればまとめて破棄できる。</li>
+          </ul>
+        </li>
+        <li>実装上は「ルート（スタック・静的領域）→ オブジェクト → グループ」のマッピングを管理する必要がある。</li>
+      </ul>
+
+      <h3>4.3 ブロックの縮退と再配置</h3>
+      <ul>
+        <li>各ブロックについて、<strong>生存オブジェクト数</strong>をトラッキングする。</li>
+        <li>あるブロックの生存オブジェクト数が十分小さくなった（例: 10 個以下）場合、
+          <ul>
+            <li>そのブロックの生存オブジェクトを別のブロックへ「詰め替え」るミニ GC を走らせる。</li>
+            <li>詰め替え後、元ブロックは完全に空になればヒープから解放できる。</li>
+          </ul>
+        </li>
+        <li>このとき、オブジェクト ID 自体は変えず、ID→アドレスのテーブルを更新する設計にすると参照更新が簡単になる。</li>
+      </ul>
+
+      <h3>4.4 delete と GC の関係</h3>
+      <ul>
+        <li>Aloe 言語の <code>delete x;</code> は「変数 x への参照を切る」だけであり、即座のメモリ解放は保証しない。</li>
+        <li>GC はブロック状態・グループ参照カウントに基づき、適切なタイミングでオブジェクトを解放する。</li>
+        <li>ヒープメモリが限界近くまで伸びた場合、GC を強制起動し、解放可能なブロックを優先的に解放する。</li>
+      </ul>
+
+      <h3>4.5 WASM 実装時の GC</h3>
+      <div class="note">
+        WASM ネイティブモードでは、AloeVM 独自の GC は基本的に使用せず、<br>
+        GC・メモリ確保・解放は <strong>WASM 実行系およびホストランタイムに完全に委譲</strong>する。
+      </div>
+      <ul>
+        <li>Aloe のオブジェクトは WASM の <code>struct</code> / <code>array</code> / <code>ref</code> へ直接マッピングされうる。</li>
+        <li>Aloe 側では GC のポリシーを規定せず、「WASM 実行系に任せる」ものとする。</li>
+      </ul>
+    </section>
+
+    <!-- 5. パイプ / フィルタ -->
+    <section id="vm-ch5" class="chapter">
+      <h2>5. パイプ / フィルタの VM 表現</h2>
+
+      <h3>5.1 pipe&lt;T&gt;</h3>
+      <ul>
+        <li>VM レベルで <strong>PIPE</strong> タグを持つ値として表現する。</li>
+        <li>内部には以下のような情報を持つ想定:
+          <ul>
+            <li>バッファ（リングバッファ／キュー）</li>
+            <li>同期プリミティブ（ロック／条件変数など）</li>
+            <li>要素の型情報（ランタイム型情報への参照）</li>
+          </ul>
+        </li>
+        <li>複数スレッドからアクセスしても壊れないよう、実装はスレッドセーフであること。</li>
+        <li>実装例:
+          <ul>
+            <li>OS パイプ／ソケット</li>
+            <li>メモリマップドファイル上のリングバッファ</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>5.2 filter</h3>
+      <ul>
+        <li>filter は専用タグ（FILTER）を持つ値として表現される。</li>
+        <li>filter 値は、概念的には
+          <ul>
+            <li>「bound 関数へのポインタ」</li>
+            <li>フィルタ定義メタ情報（in/out 型）</li>
+          </ul>
+          をまとめた構造体。
+        </li>
+        <li>ユーザ定義フィルタも同じ仕組みで表現できる。</li>
+      </ul>
+
+      <h3>5.3 パイプライン文の実行モデル</h3>
+      <pre><code class="language-aloe">
+A | filter(F) | B;
+      </code></pre>
+      <ul>
+        <li>VM はこの文を「接続構築命令」の列に展開する。</li>
+        <li>典型的な流れ:
+          <ol>
+            <li><code>A</code> の出力 pipe を解決する。</li>
+            <li><code>filter(F)</code> のインスタンスを生成し、<code>bound(input, output)</code> を別タスク／スレッドとして起動。</li>
+            <li>出力 pipe を <code>B</code> に接続する。</li>
+          </ol>
+        </li>
+        <li>実装によっては、複数フィルタを 1 スレッド内で順次処理する最適化も可能。</li>
+      </ul>
+    </section>
+
+    <!-- 6. AloeBC バイナリ形式 -->
+    <section id="vm-ch6" class="chapter">
+      <h2>6. AloeBC バイナリ形式</h2>
+
+      <h3>6.1 全体構造</h3>
+      <p>AloeBC（Aloe Byte Code）は、AloeVM 向けコンパイル結果を格納するバイナリフォーマットである。</p>
+
+      <h3>6.2 ヘッダ</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>オフセット</th>
+              <th>サイズ</th>
+              <th>フィールド</th>
+              <th>内容</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>0</td>
+              <td>6 byte</td>
+              <td>Magic</td>
+              <td>ASCII 文字列 <code>"ALOEBC"</code></td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td>1 byte</td>
+              <td>VersionMajor</td>
+              <td>メジャーバージョン</td>
+            </tr>
+            <tr>
+              <td>7</td>
+              <td>1 byte</td>
+              <td>VersionMinor</td>
+              <td>マイナーバージョン</td>
+            </tr>
+            <tr>
+              <td>8</td>
+              <td>1 byte</td>
+              <td>VersionBuild</td>
+              <td>ビルド番号</td>
+            </tr>
+            <tr>
+              <td>9</td>
+              <td>1 byte</td>
+              <td>Reserved</td>
+              <td>予約（0 固定）</td>
+            </tr>
+            <tr>
+              <td>10</td>
+              <td>4 byte</td>
+              <td>HeaderSize</td>
+              <td>ヘッダ全体のサイズ（リトルエンディアン）</td>
+            </tr>
+            <tr>
+              <td>14</td>
+              <td>4 byte</td>
+              <td>ConstPoolOffset</td>
+              <td>定数プールの先頭オフセット</td>
+            </tr>
+            <tr>
+              <td>18</td>
+              <td>4 byte</td>
+              <td>TypeTableOffset</td>
+              <td>型テーブルの先頭オフセット</td>
+            </tr>
+            <tr>
+              <td>22</td>
+              <td>4 byte</td>
+              <td>FuncTableOffset</td>
+              <td>関数テーブルの先頭オフセット</td>
+            </tr>
+            <tr>
+              <td>26</td>
+              <td>4 byte</td>
+              <td>CodeSectionOffset</td>
+              <td>コードセクションの先頭オフセット</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>エンディアンは <strong>リトルエンディアン</strong> を前提とする。</p>
+
+      <h3>6.3 定数プール（概要）</h3>
+      <ul>
+        <li>文字列リテラル、数値リテラル、型情報などを一元管理する。</li>
+        <li>各エントリは「タグ + 長さ + 本体」で構成される可変長レコード。</li>
+        <li>タグの例:
+          <ul>
+            <li>0x01: UTF-8 文字列</li>
+            <li>0x02: int32</li>
+            <li>0x03: float32</li>
+            <li>0x04: decimal</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>6.4 型テーブル（概要）</h3>
+      <ul>
+        <li>各 Aloe 型（class / struct / enum / bitfield enum / pipe&lt;T&gt; など）に ID を割り当てる。</li>
+        <li>enum / bitfield enum は VM 上では <strong>int32 値型</strong> としてフラグ付けされる。</li>
+        <li>bitfield enum の有効ビット数（0～31）はメタ情報として保持してもよい（警告発生などに利用）。</li>
+      </ul>
+
+      <h3>6.5 関数テーブル・コードセクション</h3>
+      <ul>
+        <li>関数テーブル:
+          <ul>
+            <li>関数シグネチャ（引数の型、戻り値の型）</li>
+            <li>ローカル変数の数</li>
+            <li>コードセクション内のオフセット・長さ</li>
+          </ul>
+        </li>
+        <li>コードセクション:
+          <ul>
+            <li>VM 命令列をバイト列として格納。</li>
+            <li>命令セットの詳細は第 7 章参照。</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <!-- 7. 命令セットと WASM 対応 -->
+    <section id="vm-ch7" class="chapter">
+      <h2>7. 命令セットと WASM 対応（概要）</h2>
+
+      <h3>7.1 命令カテゴリ</h3>
+      <p>命令セットはおおよそ以下のカテゴリに分かれる想定。</p>
+      <ul>
+        <li>スタック操作命令
+          <ul>
+            <li>PUSH, POP, DUP, SWAP など</li>
+          </ul>
+        </li>
+        <li>算術・論理命令
+          <ul>
+            <li>ADD, SUB, MUL, DIV, MOD</li>
+            <li>AND, OR, XOR, SHL, SHR</li>
+          </ul>
+        </li>
+        <li>比較命令
+          <ul>
+            <li>CMPEQ, CMPNE, CMPLT, CMPLE, CMPGT, CMPGE</li>
+          </ul>
+        </li>
+        <li>制御フロー命令
+          <ul>
+            <li>JMP, JMP_IF_TRUE, JMP_IF_FALSE</li>
+          </ul>
+        </li>
+        <li>関数呼び出し命令
+          <ul>
+            <li>CALL, RET</li>
+          </ul>
+        </li>
+        <li>オブジェクト操作命令
+          <ul>
+            <li>NEWOBJ, GETFIELD, SETFIELD など</li>
+          </ul>
+        </li>
+        <li>配列・コレクション操作命令（将来）</li>
+        <li>pipe / filter 操作命令（接続・read/write）</li>
+      </ul>
+
+      <div class="note">
+        命令セットの「数値（opcode）」「バイナリフォーマットとしての具体的ビット配置」は<br>
+        まだ確定しておらず、今後「命令セット表」として定義する予定。
+      </div>
+
+      <h3>7.2 WASM への 1:1 マッピング方針</h3>
+      <ul>
+        <li>基本算術・比較命令は、可能な限り WASM の <code>i32.add</code>, <code>i32.lt_s</code> などへ 1:1 でマッピングする。</li>
+        <li>スタック操作も WASM のスタックマシンと概念的に一致するため、ほぼそのまま変換可能。</li>
+        <li>例外処理は、WASM の exception handling 拡張またはエラーコード + ブロック構造の組み合わせで表現する。</li>
+        <li>pipe / filter は、WASM の <code>ref</code> 型＋ホスト関数を用いて実装されることが多い。</li>
+      </ul>
+
+      <h3>7.3 aloe2wasm の役割</h3>
+      <ul>
+        <li>Aloe ソース → AloeBC → AloeVM 実行 という経路とは別に、
+          <ul>
+            <li>Aloe ソース → 中間 IR → WASM という <strong>ネイティブ WASM ビルド</strong> 経路を用意する。</li>
+          </ul>
+        </li>
+        <li>このとき、AloeVM 命令セットと WASM 命令セットが近いほど、コンパイラ実装が単純になる。</li>
+        <li>理想的には「AloeVM 命令列をそのまま WASM にシリアライズするだけ」で動作するレベルを目指す。</li>
+      </ul>
+    </section>
+
+    <!-- 8. 未決事項・TODO -->
+    <section id="vm-ch8" class="chapter">
+      <h2>8. 未決事項・TODO</h2>
+
+      <h3>8.1 まだ決まっていない事項</h3>
+      <ul>
+        <li>各命令の opcode 割り当てと、正確なバイナリ形式（命令セット表）</li>
+        <li>例外ハンドラテーブルの具体的なフォーマット（範囲指定、catch 種別など）</li>
+        <li>構造体の inline 展開と box/unbox の扱い</li>
+        <li>参照カウント＋グループ管理 GC の詳細なアルゴリズム（実際の update タイミングなど）</li>
+        <li>pipe / filter のスレッドモデル（1 フィルタ 1 スレッドか、ワーカー共有か）</li>
+        <li>WASM 版での pipe / filter の標準 ABI（ホストとのインターフェース）</li>
+      </ul>
+
+      <h3>8.2 将来の拡張候補</h3>
+      <ul>
+        <li>JIT コンパイル層（ホット関数のネイティブコード化）</li>
+        <li>デバッガフック（ブレークポイント・ステップ実行・変数ウォッチ）</li>
+        <li>プロファイラ API（実行時間・割り当てメモリの計測）</li>
+        <li>分散実行（複数プロセス／ノードにまたがる pipe のサポート）</li>
+      </ul>
+
+      <div class="note">
+        現在の仕様書の内容だけでも、<strong>Aloe コンパイラ / C# 実装の AloeVM / aloe2wasm のプロトタイプ</strong>は実装可能なレベルを目指している。<br>
+        ただし、命令セット表や GC 実装は試行錯誤しつつブラッシュアップしていく前提。
+      </div>
+    </section>
+
+  </main>
+</div>
+</body>
+</html>
+```
