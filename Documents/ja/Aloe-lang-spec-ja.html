@@ -19,7 +19,7 @@
       min-height: 100vh;
     }
     .sidebar {
-      width: 320px; /* 幅を広げる */
+      width: 380px; /* ← 幅を少し広めに */
       background: #111827;
       color: #e5e7eb;
       padding: 1.5rem 1.25rem;
@@ -62,9 +62,9 @@
       padding: 0.25rem 0.4rem;
       border-radius: 0.35rem;
       cursor: pointer;
-      white-space: nowrap;        /* 折り返さない */
+      white-space: nowrap;
       overflow: hidden;
-      text-overflow: ellipsis;    /* はみ出したら三点リーダ */
+      text-overflow: ellipsis;
     }
     .sidebar a:hover {
       background: #1f2937;
@@ -120,7 +120,6 @@
       color: #4b5563;
     }
 
-    /* chapter 切り替え */
     .chapter {
       display: none;
     }
@@ -511,61 +510,82 @@ print(x);
         <code>with</code> ブロックがある。
       </p>
 <pre><code>with (user) {
-    .name = "Alice";
-    .age = .age + 1;
-    print(.name);
+    name = "Alice";
+    age = age + 1;
+    print(name);
 }
 </code></pre>
       <ul>
-        <li><code>with (expr) { ... }</code> ブロック内では：
+        <li><code>with (expr1)</code> または <code>with (expr1), (expr2), ...</code> という形で指定する。</li>
+        <li>各 <code>exprN</code> はブロックの先頭で 1 度だけ評価され、内部一時変数として保持される。
           <ul>
-            <li><code>.Member</code> は <code>(expr).Member</code> の省略形。</li>
-            <li><code>expr</code> はブロックの先頭で 1 度だけ評価され、内部一時変数に保持される。</li>
-            <li>特別な一時変数 <code>_</code> は「with 対象オブジェクト」を指す。
-              <ul>
-                <li><code>log(_);</code> のように渡すことができる。</li>
-              </ul>
-            </li>
-            <li>プレフィックスのない <code>Member</code> という識別子は、
-              通常どおりローカル変数・引数・外側スコープを優先して解決される。
-              <ul>
-                <li>つまり <code>with</code> によって「裸の識別子の意味」が変わることはない。</li>
-                <li><code>with</code> が影響するのは <code>.Member</code> だけ。</li>
-              </ul>
-            </li>
+            <li>以降のメンバーアクセスでは、その内部一時変数に対してアクセスが行われる。</li>
           </ul>
         </li>
-        <li>ネストした <code>with</code> ブロック：
+        <li>with ブロック内の「単純な識別子」<code>name</code> の解決順は次の通り：
+          <ol>
+            <li>そのブロック内で宣言されたローカル変数 / 引数</li>
+            <li><strong>with 対象</strong> のメンバー
+              <ul>
+                <li>左から右の順で <code>expr1, expr2, ...</code> それぞれの型の
+                  フィールド / プロパティ / メソッドを探索する。</li>
+                <li>複数の with 対象が同じ名前のメンバーを持つ場合はコンパイルエラー（曖昧）。</li>
+              </ul>
+            </li>
+            <li>外側のスコープ（外側のブロック、クラスのフィールド、import されたシンボルなど）</li>
+          </ol>
+        </li>
+        <li>特別な一時変数 <code>_</code> は「最初の with 対象（expr1）」を指す。
           <ul>
-            <li>内側の <code>with</code> が <code>.</code> の解決および <code>_</code> をシャドウする。</li>
-            <li>外側オブジェクトへは通常の変数名でアクセスできる。</li>
+            <li><code>log(_);</code> のように渡すことができる。</li>
+            <li>複数ターゲットのときも、<code>_</code> は常に expr1 に対応する。</li>
           </ul>
         </li>
-        <li>同じブロックに複数の <code>with</code> を並べられる：</li>
       </ul>
+
+      <h4>4.2.1 複数ターゲット with</h4>
 <pre><code>with (user), (profile) {
-    .name = "Alice";          // user.name または profile.name（曖昧ならコンパイルエラー）
-    .updateProfile();         // user.updateProfile() または profile.updateProfile()
+    name = "Alice";        // user.name または profile.name に解決を試みる
+    updateProfile();       // user.updateProfile() または profile.updateProfile()
 }
 </code></pre>
       <ul>
-        <li>どのオブジェクトのメンバーに解決されるかの順序は実装依存。</li>
-        <li>ただし曖昧な場合（複数オブジェクトが同じメンバーを持つ）はコンパイルエラー。</li>
+        <li>複数ターゲット with では、2 番目以降のターゲットもメンバー解決対象になる。</li>
+        <li>同名メンバーを複数ターゲットが持っている場合はコンパイルエラー。</li>
+        <li>一方、ローカル変数や外側スコープに同名シンボルが存在する場合は、それらが優先される。</li>
       </ul>
+
+      <h4>4.2.2 ネストした with</h4>
+<pre><code>with (user) {
+    name = "Alice";
+
+    with (address) {
+        city = "Tokyo";     // address.city
+        print(name);        // ここでは user.name かローカル name か、通常の解決順に従う
+    }
+}
+</code></pre>
+      <ul>
+        <li>内側の <code>with</code> は独立した解決規則を持つ。</li>
+        <li>内側で解決できない識別子は、外側 with を含む外側スコープへとフォールバックする。</li>
+        <li>内側の with で同名メンバーが現れると、外側の with メンバーをシャドウする形になる。</li>
+      </ul>
+
       <p>
-        <code>with</code> はあくまで構文糖衣であり、意味的にはすべて
-        明示的な <code>obj.member</code> 呼び出しに書き換えた上で
-        型チェック・コード生成を行うことができる。
+        <code>with</code> はあくまで構文糖衣であり、意味的には
+        <strong>「ローカル変数／パラメータ → with 対象 → 外側スコープ」</strong>
+        という名前解決ルールを追加した上で、
+        明示的な <code>obj.member</code> 呼び出しに近い形へと解釈できる。
       </p>
 
-      <h4>4.2.1 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
+      <h4>4.2.3 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
       <p>
         通常の <code>with (expr)</code> に加えて、<strong>型名</strong> を対象にした
         <code>with</code> を利用できる。
       </p>
 <pre><code>with (TypeName) {
-    .SomeStaticMethod();
-    .SomeStaticField = 1;
+    SomeStaticMethod();
+    SomeStaticField = 1;
 }
 </code></pre>
       <p>ここで <code>TypeName</code> は次のいずれか：</p>
@@ -576,37 +596,35 @@ print(x);
       </ul>
       <p>この場合、<code>with</code> は「型コンテキスト with」として解釈される：</p>
       <ul>
-        <li><code>()</code> 内の式は実行時に値として評価されない。
+        <li><code>()</code> 内の識別子は式としてではなく「型」として解決される。
           <ul>
-            <li>コンパイラは <code>TypeName</code> を型として解決し、インスタンス生成などは行わない。</li>
+            <li>実行時評価やインスタンス生成は行わない。</li>
           </ul>
         </li>
-        <li>ブロック内では：
+        <li>with ブロック内での単純識別子の解決順は、通常の with と同様に
+          <ol>
+            <li>ローカル変数 / 引数</li>
+            <li>with 対象の「型コンテキスト」のメンバー
+              <ul>
+                <li>static フィールド</li>
+                <li>static メソッド</li>
+                <li>enum / bitfield enum の列挙子</li>
+              </ul>
+            </li>
+            <li>外側のスコープ</li>
+          </ol>
+        </li>
+        <li>特別な一時変数 <code>_</code> は、「最初の型ターゲットの static コンテキスト」を表す擬似オブジェクトとして扱われる。
           <ul>
-            <li><code>.Member</code> は <code>TypeName.Member</code> の省略形。
-              <ul>
-                <li>対象となる <code>Member</code> は
-                  <ul>
-                    <li>static フィールド</li>
-                    <li>static メソッド</li>
-                    <li>enum / bitfield enum の列挙子</li>
-                  </ul>
-                </li>
-              </ul>
-            </li>
-            <li>一時変数 <code>_</code> は、<code>TypeName</code> の static コンテキストを表す擬似オブジェクトとして振る舞う。
-              <ul>
-                <li><code>_.Member</code> も <code>TypeName.Member</code> と等価。</li>
-              </ul>
-            </li>
-            <li>型ベース with 内でインスタンスメンバーにアクセスすることはコンパイルエラー。</li>
+            <li><code>_.Member</code> と書いてもよいが、<code>Member</code> と等価。</li>
           </ul>
         </li>
+        <li>型ベース with 内でインスタンスメンバーにアクセスすることはコンパイルエラー。</li>
       </ul>
       <p>
-        なお、型ベース with でもローカル変数や外側スコープの変数が同名で存在すればそちらが優先される。
-        列挙子や static メンバーを明示したいときは <code>TypeName.Member</code> または
-        <code>.Member</code> / <code>_.Member</code> を用いる。
+        型ベース with は、通常の値ベース with と混在させることもできる。
+        その場合も、すべてのターゲットを合わせて「メンバー解決候補」として扱い、
+        複数のターゲットに同名メンバーが存在する場合は曖昧としてコンパイルエラーになる。
       </p>
 
       <h5>例：class / struct の static アクセス</h5>
@@ -627,13 +645,13 @@ class MathUtil {
 
 main(args: string[]) {
     with (AngleUtil) {
-        var rad = degToRad(90.0);   // 通常の名前解決（別にローカル関数でもよい）
-        var rad2 = .degToRad(90.0); // AngleUtil.degToRad(90.0) の糖衣構文
-        print(.Pi);                 // AngleUtil.Pi
+        var rad  = degToRad(90.0);  // AngleUtil.degToRad(90.0)
+        var rad2 = degToRad(45.0);
+        print(Pi);                  // AngleUtil.Pi
     }
 
     with (MathUtil) {
-        var m = .max(10, 20);       // MathUtil.max(10, 20)
+        var m = max(10, 20);        // MathUtil.max(10, 20)
         print(m);
     }
 }
@@ -648,23 +666,23 @@ main(args: string[]) {
 
 main(args: string[]) {
     with (Color) {
-        var c1: Color = .Red;   // Color.Red
-        var c2: Color = .Blue;  // Color.Blue
+        var c1: Color = Red;   // Color.Red
+        var c2: Color = Blue;  // Color.Blue
         print(c1);
         print(c2);
     }
 }
 </code></pre>
-      <p>
-        型ベース <code>with</code> も複数ターゲット構文に混在させられる：
-      </p>
+
+      <h5>例：値ターゲットと型ターゲットの混在</h5>
 <pre><code>with (user), (Color) {
-    .name = "Alice";      // user.name
-    var c: Color = .Red;  // Color.Red
+    name = "Alice";      // user.name （他ターゲットに name があると曖昧でエラー）
+    var c: Color = Red;  // Color.Red
 }
 </code></pre>
       <p>
-        この場合も解決順は実装依存だが、曖昧であればコンパイルエラーとする。
+        この場合も、値ターゲットと型ターゲットをあわせてメンバー解決を行い、
+        同名候補が複数ある場合はコンパイルエラーとする。
       </p>
     </section>
 
@@ -933,7 +951,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
       <ul>
         <li>内部表現は常に int32。</li>
         <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code> のような基礎型の変更は許可されない。</li>
-        <li>enum 型も型ベース with の対象となり、<code>with (Color) { .Red; }</code> などで列挙子に短縮アクセスできる。</li>
+        <li>enum 型も型ベース with の対象となり、<code>with (Color) { Red; }</code> などで列挙子に短縮アクセスできる。</li>
       </ul>
 
       <h3>11.2 bitfield enum</h3>
@@ -995,7 +1013,9 @@ method foo(): void {
         <li><code>_</code> は任意のブロックで宣言なしに使用できる特別な一時変数。</li>
         <li>main では常に int。</li>
         <li>その他のブロックでは、そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
-        <li>with ブロック内では、追加で「現在の with 対象」を指す意味を持つ（4.2 参照）。</li>
+        <li>4.2 で述べたように、単一ターゲット <code>with</code> ブロック内では、
+          補助的に「with 対象オブジェクト」を指す概念としても利用できるが、
+          実装上は単に構文糖衣として扱ってよい。</li>
       </ul>
     </section>
 
@@ -1225,7 +1245,7 @@ main(args: string[]) {
       <hr />
       <p class="note">
         以上が、元の英語仕様に基づき、
-        <strong>with ブロックの型対応拡張を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+        <strong>with ブロックの「ドットなし」拡張（値 / 型ターゲット両対応）を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
       </p>
     </section>
 
