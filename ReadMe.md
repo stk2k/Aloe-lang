@@ -1,283 +1,340 @@
-﻿````markdown
-# Aloe Programming Language
+﻿# Aloe Programming Language
 
-> A small, strongly-typed, pipe-friendly language designed together with an LLM.  
+> A small, strongly-typed, **pipe-oriented** language designed together with generative AI.  
 > License: MIT
 
-Aloe is an experimental, statically-typed language with a simple syntax, a stack-based VM, and first-class support for **pipes** and **filters** for I/O and data transformation.
+Aloe is an experimental programming language with:
 
-The project currently focuses on:
+- Static typing and type inference
+- A simple, explicit syntax
+- A stack-based virtual machine (AloeVM)
+- A design that maps well to **WebAssembly**
 
-- A **language spec** that’s easy to read and reason about.
-- An **AloeVM** bytecode format (`AloeBC`) designed to map cleanly to **WebAssembly**.
-- A composable **pipe/filter** model that makes tasks like text processing, REST calls, and streaming data feel natural.
+A distinctive feature of Aloe is that **I/O and data transformation are modeled around `pipe` and `filter`** as first-class concepts.
 
-> ⚠️ Aloe is experimental and not production-ready yet.  
-> Breaking changes to the syntax, VM and tooling are expected.
+> $26A0$FE0F Aloe is **highly experimental** and not intended for production use yet.  
+> The syntax, VM, and toolchain may change in backward-incompatible ways.
 
 ---
 
-## Features (Design)
+## Goals & Philosophy
 
-- **Static typing with type inference**
+- **Clarity over cleverness**  
+  The language is meant to be easy to read and to implement, especially for people who like reading language/VM specs.
 
-  ```aloe
-  var n = 42;      // inferred as int
-  var pi = 3.14;   // inferred as float
-  let name: string = "Aloe";
-````
+- **Pipe-first design**  
+  Streaming text, JSON, and structured data via `pipe<T>` and `filter(...)` should feel natural and ergonomic.
 
-* **Distinct value / reference types**
+- **VM + WASM orientation**  
+  AloeVM bytecode (`AloeBC`) is designed so that instructions can map 1:1 (or very closely) to WebAssembly opcodes.
 
-  * `struct` = value type (copied by value)
-  * `class` = reference type (heap allocated)
-  * `delete obj;` sets a reference to `null` (no explicit `= null` in source)
+- **Spec-first**  
+  The language and VM are documented in detail before (or while) being implemented. The specs are the source of truth.
 
-* **Simple, explicit control flow**
+---
 
-  * All statements end with `;`
-  * No significant indentation
-  * `try / catch / finally` for exceptions
+## Language at a Glance
 
-* **Pipes and filters for I/O and data flow**
+### Static typing with inference
 
-  Modeled directly in the language:
+```aloe
+var n  = 42;      // inferred as int
+var pi = 3.14;    // inferred as float
+let name: string = "Aloe";
+```
 
-  ```aloe
-  main(args: string[]) {
-      let lines: pipe<string> = pipe<string>.create();
+- `var` $2013 local type inference
+- `let` $2013 explicit type annotation
+- No `any` / dynamic type
 
-      stdin
-        | filter(utf8)       // bytes -> string
+### Value types vs reference types
+
+- `struct` $2013 value type (copied by value)
+- `class`  $2013 reference type (allocated on the heap)
+- `string` $2013 reference type internally, but with special syntax
+- `delete obj;` $2013 sets a reference to `null` (you cannot write `obj = null;` directly)
+
+Example:
+
+```aloe
+class User {
+    field id:   int;
+    field name: string;
+
+    construct(id: int, name: string) {
+        this.id   = id;
+        this.name = name;
+    }
+}
+```
+
+### Explicit control flow
+
+- Semicolons (`;`) are mandatory at the end of every statement
+- Indentation has no semantic meaning (unlike Python)
+- Exceptions with `try / catch / finally`
+
+```aloe
+try {
+    doSomething();
+}
+catch (e) {
+    print("error: " + e.toString());
+}
+finally {
+    cleanup();
+}
+```
+
+---
+
+## Pipes & Filters
+
+Aloe treats **streams of values** as first-class citizens via `pipe<T>`.  
+Filters transform these streams and are composed with a pipeline syntax.
+
+### Basic example: reading from stdin
+
+```aloe
+main(args: string[]) {
+    let lines: pipe<string> = pipe<string>.create();
+
+    stdin
+        | filter(utf8)       // byte -> string
         | filter(lineSplit)  // string -> string (per line)
         | lines;
 
-      foreach (line in lines) {
-          if (line == "") { break; }
-          print("LINE: " + line);
-      }
+    foreach (line in lines) {
+        if (line == "") { break; }
+        print("LINE: " + line);
+    }
 
-      _ = 0; // exit code
-  }
-  ```
+    _ = 0; // exit code
+}
+```
 
-* **Filter definitions**
+- `stdin` is a built-in `pipe<byte>`
+- `filter(utf8)` encodes/decodes between `byte` and `string` depending on the input type
+- `filter(lineSplit)` splits into line-by-line chunks
+- The final `lines` pipe is consumed with `foreach`
 
-  ```aloe
-  filter lineSplit {
-      in:  pipe<string>;
-      out: pipe<string>;
+### Defining a filter
 
-      bound(input, output) {
-          foreach (chunk in input) {
-              let parts = chunk.split("\n");
-              foreach (line in parts) {
-                  output.write(line);
-              }
-          }
-          output.close();
-      }
-  }
-  ```
+```aloe
+filter lineSplit {
+    in:  pipe<string>;
+    out: pipe<string>;
 
-* **First-class traits + `with` sugar**
+    bound(input, output) {
+        foreach (chunk in input) {
+            let parts = chunk.split("\n");
+            foreach (line in parts) {
+                output.write(line);
+            }
+        }
+        output.close();
+    }
+}
+```
 
-  ```aloe
-  trait Printable {
-      method printSelf(): void {
-          print(this.toString());
-      }
-  }
+- `in` / `out` declare the input/output types of the filter
+- `bound(input, output)` contains the processing logic
+- Filters are VM values with special roles for `in` and `out`
 
-  class User {
-      field name: string;
-      method toString(): string {
-          return "User(" + name + ")";
-      }
-  }
+### Pipe methods: next / take / peek
 
-  main(args: string[]) {
-      var u = new User();
-      u.name = "alice";
+For convenience, pipes provide a few built-in methods (semantics still evolving in the spec):
 
-      var p = u with Printable;
-      p.printSelf();   // "User(alice)"
-      _ = 0;
-  }
-  ```
+- `next()` $2013 get the next element if available (or a sentinel / exception on EOF)
+- `take(n)` $2013 a new pipe or collection containing up to `n` elements
+- `peek()` $2013 look at the next value without consuming it (implementation-dependent)
 
-* **AloeVM & AloeBC**
+Example:
 
-  * Stack-based VM with a compact bytecode (`AloeBC`).
-  * `AloeBC` files start with magic `ALOEBC` and version bytes.
-  * Instruction set designed to mirror WebAssembly as much as possible.
+```aloe
+let users: pipe<UserInfo> = getUsersPipe();
 
-* **WASM-friendly**
-
-  * Planned 1:1-ish mapping from AloeVM instructions to WASM opcodes.
-  * Long-term goal:
-
-    * Dev workflow: Aloe → WASM → host (browser, server, etc.)
-    * `AloeVM` interpreter optional, mainly for debugging and non-WASM environments.
+let firstUser = users.next();
+if (firstUser is UserInfo) {
+    print("First user: " + firstUser.name);
+}
+```
 
 ---
 
-## Example: Simple REST-style Pipeline
+## Traits and `with` syntax
 
-Conceptual example of using a pipe-based HTTP client + JSON filter to fetch a user:
+Traits are reusable groups of methods that can be attached to existing types.
 
 ```aloe
-struct UserInfo {
-    field id:   int;
+trait Printable {
+    method printSelf(): void {
+        print(this.toString());
+    }
+}
+
+class User {
     field name: string;
-    field email: string;
+
+    method toString(): string {
+        return "User(" + name + ")";
+    }
 }
 
 main(args: string[]) {
-    let request: pipe<byte>  = pipe<byte>.create();
-    let response: pipe<byte> = pipe<byte>.create();
-    let users: pipe<UserInfo> = pipe<UserInfo>.create();
+    var u = new User();
+    u.name = "alice";
 
-    // pseudo: httpClient is a built-in or library function
-    // that sends "request" and fills "response"
-    httpClient("GET", "https://api.example.com/users/1", request, response);
-
-    response
-        | filter(utf8)
-        | filter(json<UserInfo>)
-        | users;
-
-    // Get the first (current) value from the pipe
-    let u = users.next();  // or users.take(1) depending on final naming
-
-    if (u is UserInfo) {
-        print("User: " + u.name + " <" + u.email + ">");
-    }
+    var p = u with Printable;
+    p.printSelf();  // "User(alice)"
 
     _ = 0;
 }
 ```
 
-> Note: concrete standard library APIs (e.g. `httpClient`, `json<T>` options, etc.) are still under design.
-> The example shows the intended *style* of Aloe programs.
+- Traits provide an alternative to multiple inheritance
+- `with` attaches trait behavior to an instance
 
 ---
 
-## Project Structure (Planned)
+## Exception model (high level)
 
-A possible structure for the repository (names may change):
+Standard exception types are arranged in a simple hierarchy (spec in progress). Examples:
+
+- `Exception`
+  - `SystemException`
+    - `NullReferenceException`
+    - `IndexOutOfBoundsException`
+    - `OverflowException` (covers underflow as well)
+    - `ZeroDivisionException` (thrown on division by `0` or `0.0`)
+    - `InvalidOperationException`
+    - `NotImplementedException`
+    - `TimeoutException`
+    - `ArgumentException`
+      - `ArgumentNullException`
+      - `ArgumentOutOfRangeException`
+    - `FormatException`
+  - `IOException`
+    - `FileNotFoundException`
+    - `EndOfStreamException`
+
+Many details (e.g., exact mapping to VM codes) are still being refined.
+
+---
+
+## AloeVM & AloeBC
+
+AloeVM is a stack-based virtual machine designed to be:
+
+- Small and relatively easy to implement
+- Friendly to WebAssembly code generation
+- Backed by an explicit bytecode format: **AloeBC**
+
+### AloeBC
+
+- Binary format with a magic header, e.g.:
+
+  - Magic: `ALOEBC`
+  - Version: 3 bytes (Major, Minor, Build)
+
+- Contains:
+  - Constant pool
+  - Type information
+  - Function definitions
+  - Bytecode instructions
+
+The exact instruction set is being designed so that **each AloeVM opcode has a straightforward mapping to a WASM opcode or sequence**, making an `aloe2wasm` backend natural.
+
+### WASM strategy
+
+Long-term vision:
+
+- **Development**:  
+  `Aloe source` → `AloeBC` → `WASM` (via aloe2wasm) → any WASM runtime
+- **Runtime modes**:
+  - Native AloeVM interpreter (C#, for example) for:
+    - Debugging
+    - Non-WASM platforms
+  - Direct WASM compilation/execution for:
+    - Browsers
+    - Server runtimes that support WASM
+
+Garbage collection for the VM is specified at a high level (mark/sweep$2013like strategies, block management, etc.), while WASM-native GC is delegated to the WASM environment where available.
+
+---
+
+## Ecosystem (Planned / In Progress)
+
+The project is very early. A possible repository layout:
 
 ```text
 .
 ├─ docs/
-│  ├─ aloe-lang-spec-ja.md      # Aloe language spec (Japanese)
-│  ├─ aloe-lang-spec-en.md      # Aloe language spec (English)
-│  ├─ aloe-vm-spec-en.md        # AloeVM + AloeBC + GC + WASM mapping
-│  └─ filters-standard-lib.md   # Standard filter library spec
+│  ├─ aloe-lang-spec-en.html   # Language spec (English, HTML)
+│  ├─ aloe-lang-spec-ja.html   # Language spec (Japanese, HTML)
+│  ├─ aloe-vm-spec-en.html     # VM / AloeBC / GC / WASM mapping
+│  └─ filters-standard-lib.md  # Standard filter library
 ├─ src/
-│  ├─ compiler/                 # Aloe → AloeBC compiler (C#, WIP)
-│  ├─ vm/                       # Native AloeVM interpreter (C#, WIP)
-│  └─ aloe2wasm/                # Aloe → WASM backend (WIP)
+│  ├─ compiler/                # Aloe → AloeBC compiler (C#, WIP)
+│  ├─ vm/                      # AloeVM interpreter (C#, WIP)
+│  └─ aloe2wasm/               # Aloe → WASM backend (WIP)
 ├─ examples/
 │  ├─ hello-world.aloe
-│  ├─ pipes/                    # pipe + filter samples
-│  └─ web/                      # simple REST / web-style examples
+│  ├─ pipes/
+│  └─ web/
 ├─ tests/
-│  └─ ...
 ├─ LICENSE
 └─ README.md
 ```
 
-At the moment, the primary “source of truth” is the specification in `docs/`.
-
----
-
-## Status
-
-* ✅ Language design: **draft** but fairly detailed (types, control flow, pipes/filters, traits, exceptions).
-* ✅ VM design: **draft** (stack model, bytecode format, GC policy, WASM mapping).
-* ⏳ Implementation: compiler / VM / WASM backend are **work in progress**.
-* ⏳ Tooling: REPL, formatter, LSP, package manager, etc. are **future work**.
-
-If you are interested in experimental language/runtime design, PRs and discussions are welcome.
-
----
-
-## Building (When Implementation Exists)
-
-> This section is forward-looking. Adjust commands to your actual tooling/paths once the implementation is in place.
-
-### Prerequisites
-
-* .NET 8 SDK (for the reference C# implementation)
-* A recent C# compiler / IDE (optional but recommended)
-* For WASM backend:
-
-  * `dotnet` with WASM support or
-  * an external toolchain depending on implementation
-
-### Example
-
-```bash
-# Clone
-git clone https://github.com/your-org/aloe-lang.git
-cd aloe-lang
-
-# Build compiler + VM
-dotnet build src/compiler
-dotnet build src/vm
-
-# Run tests
-dotnet test
-```
+Right now, **the specs in `docs/` are the authoritative reference**.
 
 ---
 
 ## Contributing
 
-Aloe is intentionally experimental and opinionated. Contributions that help clarify, simplify, or strengthen the design are very welcome.
+This project is exploratory and welcomes:
 
-Ways to contribute:
+- Feedback on language and VM design
+- Prototype implementations (parsers, type checkers, VMs)
+- Examples that use `pipe`/`filter` in interesting ways
+- Discussions about WASM mapping strategies
 
-* Try to implement:
+Because Aloe is still evolving, large changes to the language or VM should ideally be discussed via an issue or discussion thread before being implemented in a PR.
 
-  * A small part of the compiler (parser / type checker / codegen).
-  * A toy AloeVM interpreter.
-  * A prototype `aloe2wasm` backend.
-* Improve / correct the specs:
+Some ideas for contributions:
 
-  * Clarify edge cases.
-  * Propose alternative syntax or semantics (with concrete examples).
-* Add examples and tests:
-
-  * Pipe-heavy text tools.
-  * Simple web-style flows (REST, JSON pipelines).
-  * Trait + `with` usage patterns.
-
-Please open an issue or discussion before large design changes so we can keep the language coherent.
+- Implement a minimal Aloe subset compiler in C#
+- Implement a toy AloeVM for that subset
+- Experiment with an `aloe2wasm` prototype that maps a small subset to WASM
 
 ---
 
-## Roadmap (High-level)
+## Roadmap (Very Rough)
 
-* Language:
+### Language
 
-  * Freeze a 0.x syntax & type system.
-  * Flesh out standard filter library spec.
-  * Define core collections & standard types in more detail.
-* VM:
+- Stabilize a 0.x syntax and type system
+- Finalize `pipe` / `filter` semantics
+- Specify standard filters (UTF-8, JSON, line splitting, etc.)
 
-  * Finalize instruction set and AloeBC format tables.
-  * Implement a reference C# VM with simple GC.
-* WASM:
+### VM
 
-  * Implement Aloe → WASM mapping for a “core subset”.
-  * Prototype direct WASM builds without the interpreter.
-* Tooling:
+- Finalize the AloeVM instruction set
+- Freeze AloeBC binary format
+- Provide a reference C# implementation with a simple GC
 
-  * Basic CLI (`aloec`, `aloevm`).
-  * Formatter / syntax highlighter.
-  * Basic package story (even a very simple one).
+### WASM
+
+- Design a clear mapping from AloeVM ops to WASM
+- Implement `aloe2wasm` for a core subset
+- Explore linking Aloe-generated WASM with other WASM libraries
+
+### Tooling
+
+- CLI tools: `aloec` (compiler), `aloevm` (VM runner)
+- Basic formatter and syntax highlighting
+- Simple package distribution story (even a minimal one)
 
 ---
 
@@ -285,8 +342,4 @@ Please open an issue or discussion before large design changes so we can keep th
 
 Aloe is released under the **MIT License**.
 
-See the [`LICENSE`](./LICENSE) file for full details.
-
-```
-::contentReference[oaicite:0]{index=0}
-```
+See the `LICENSE` file for details.
