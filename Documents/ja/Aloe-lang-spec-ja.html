@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト、日本語 + with 拡張）</title>
+  <title>Aloe 言語仕様書（ドラフト、日本語 + with 拡張 + コレクションパイプライン）</title>
   <style>
     /* レイアウトだけ最低限。フォントはブラウザ標準任せにしておく */
     body {
@@ -125,7 +124,7 @@
   <aside class="sidebar">
     <h1>Aloe Language Specification</h1>
     <div class="subtitle">
-      Draft / 日本語訳 + <code>with</code> 拡張
+      Draft / 日本語訳 + <code>with</code> 拡張 + コレクションパイプライン DSL
     </div>
 
     <h2>Chapters</h2>
@@ -150,6 +149,7 @@
         <li><a class="nav-link" data-target="ch16"><span class="chapter-index">16.</span>例外</a></li>
         <li><a class="nav-link" data-target="ch17"><span class="chapter-index">17.</span>モジュール / namespace / import</a></li>
         <li><a class="nav-link" data-target="ch18"><span class="chapter-index">18.</span>Pipes と Filters</a></li>
+        <li><a class="nav-link" data-target="ch19"><span class="chapter-index">19.</span>コレクションパイプライン DSL</a></li>
       </ul>
     </nav>
 
@@ -157,6 +157,7 @@
     <nav>
       <ul>
         <li><a class="nav-link" data-target="ch4">4.2 with ブロック</a></li>
+        <li><a class="nav-link" data-target="ch19">19. コレクションパイプライン DSL</a></li>
       </ul>
     </nav>
   </aside>
@@ -167,7 +168,9 @@
     <p class="note">
       元文書：<code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code> をベースに翻訳し、<br />
       さらに <strong>4.2 with-blocks</strong> に「ピリオド省略版 + 型ベース with (class/struct/enum の static/列挙子ショートカット)」を追加しています。<br />
-      併せて、<strong>サンプル中のメソッド名 / プロパティ名 / フィールド名は PascalCase（先頭大文字）</strong> にそろえています。
+      併せて、<strong>サンプル中のメソッド名 / プロパティ名 / フィールド名は PascalCase（先頭大文字）</strong> にそろえています。<br />
+      また、本ドラフトでは <strong>19 章としてコレクションパイプライン DSL</strong>（<code>|:</code> / <code>| map</code> /
+      <code>| sort</code> / <code>| union</code> / <code>as</code> / <code>with(Alias) where(...)</code>）を追加しています。
     </p>
 
     <!-- 0. Overview -->
@@ -903,11 +906,286 @@ finally {
       <p class="note">
         pipe / filter の詳細なランタイム挙動は AloeVM 側の仕様に委ねられる。
       </p>
+    </section>
+
+    <!-- 19. Collection Pipelines DSL -->
+    <section class="chapter" id="ch19">
+      <hr />
+      <h2>19. Collection Pipelines（コレクションパイプライン DSL）</h2>
+
+      <p>
+        本章では、<code>Iterable&lt;T&gt;</code> を対象とした LINQ 風の「クエリ DSL」を定義する。<br />
+        これは 18 章の <code>pipe&lt;T&gt;</code> / <code>filter</code> によるストリーム処理とは別レイヤーであり、<br />
+        主に「メモリ上のコレクション」に対するフィルタ / 変換 / ソート / 結合を記述するための構文である。
+      </p>
+
+      <h3>19.1 基本構文（パイプライン全体）</h3>
+<pre><code>PipelineExpr ::=
+    Expr
+    ( '|' PipeSegment )*
+
+PipeSegment ::=
+      ':' ConditionExpr          // |:
+    | 'map' MapExpr              // | map ...
+    | 'sort' SortKey [asc|desc]  // | sort ...
+    | 'union' Expr               // | union ...
+</code></pre>
+      <ul>
+        <li>パイプラインは左から右に順番に評価される。</li>
+        <li>各 <code>PipeSegment</code> は「直前までの結果コレクション」を入力とし、新しいコレクションを返す。</li>
+        <li>戻り値は <code>Iterable&lt;...&gt;</code> 系のコレクションとする（具体的な型は VM / ランタイム実装に依存）。</li>
+      </ul>
+
+      <h3>19.2 コレクションのエイリアス指定: <code>as Alias</code></h3>
+      <p>
+        コレクション式の直後に <code>as Alias</code> を付与することで、以降のパイプ内で「要素エイリアス」を明示的に指定できる。
+      </p>
+<pre><code>Orders as o
+    |: Status == "Completed"
+    | sort o.OrderDate desc;
+</code></pre>
+      <ul>
+        <li><code>Orders as o</code> は「Orders の各要素を o と呼ぶ」ことを宣言する。</li>
+        <li><code>|:</code> や <code>| map</code>、<code>| sort</code> の右辺では、識別子解決の対象としてこのエイリアスが使われる。</li>
+        <li>エイリアスは省略可能で、その場合は「暗黙の要素」を用いた解決規則（19.3.2）のもとで解釈される。</li>
+      </ul>
+
+      <h3>19.3 フィルタパイプ: <code>|:</code></h3>
+
+      <h4>19.3.1 意味</h4>
+      <p><code>|:</code> は「条件に一致する要素だけを残す」フィルタパイプである。</p>
+<pre><code>Orders as o
+    |: Status == "Completed"
+    |: Total  >= 10000;
+</code></pre>
+      <p>内部的なイメージ（疑似コード）は例えば次のようになる。</p>
+<pre><code>Filter(Orders, (o) =&gt; o.Status == "Completed")
+    .Filter((o) =&gt; o.Total &gt;= 10000);
+</code></pre>
+
+      <h4>19.3.2 フィルタ内の識別子解決</h4>
+      <p>
+        <code>as Alias</code> を指定している場合、<code>|:</code> の右辺における単純識別子の解決順は次のとおり。
+      </p>
+      <ol>
+        <li>ローカル変数・引数</li>
+        <li>エイリアスのプロパティ（<code>Alias.Property</code>）</li>
+        <li>解決できなければコンパイルエラー</li>
+      </ol>
+<pre><code>let MinScore = 80;
+
+Orders as o
+    |: Status == "Completed"   // = o.Status
+    |: Total  >= MinScore;     // MinScore はローカル変数
+</code></pre>
+      <p>エイリアスを明示して書くこともできる。</p>
+<pre><code>Orders as o
+    |: o.Status == "Completed"
+    |: o.Total  >= MinScore;
+</code></pre>
+      <p>
+        エイリアスを付けなかった場合は「暗黙の要素」のプロパティとして解釈される。
+      </p>
+<pre><code>Orders
+    |: Status == "Completed"   // 暗黙要素.Status
+    |: Total  >= 10000;
+</code></pre>
+
+      <h3>19.4 変換パイプ: <code>| map</code></h3>
+      <p><code>| map</code> は要素を別の値／型に写像したシーケンスを返す。</p>
+<pre><code>let UserNames =
+    Users as u
+        | map Name;      // = u.Name
+</code></pre>
+      <ul>
+        <li>戻り値は右辺式の型に応じた <code>Iterable&lt;...&gt;</code> となる。</li>
+      </ul>
+      <p>オブジェクト初期化と組み合わせることで DTO / ViewModel などへ変換できる。</p>
+<pre><code>let UserDtos =
+    Users as u
+        | map UserDto {
+              Id       = Id      // = u.Id
+              Name     = Name
+              Score    = Score
+              IsActive = IsActive
+          };
+</code></pre>
+
+      <h3>19.5 ソートパイプ: <code>| sort</code></h3>
+      <p><code>| sort KeyExpr [asc|desc]</code> はキー式に基づいて並び替えを行う。</p>
+<pre><code>let TopUsers =
+    Users as u
+        |: IsActive
+        | sort Score desc
+        | take 100;
+</code></pre>
+      <ul>
+        <li><code>KeyExpr</code> も 19.3.2 と同じルールで識別子解決される。</li>
+        <li><code>asc</code>（昇順）はデフォルト値として省略可能にしてよい（仕様上は実装依存）。</li>
+      </ul>
+
+      <h3>19.6 ユニオンパイプ: <code>| union</code></h3>
+      <p><code>| union</code> は 2 つのコレクションをまとめたコレクションを返すパイプである。</p>
+<pre><code>let AllOrders =
+    myOrders
+        | union yourOrders;
+</code></pre>
+      <ul>
+        <li>左辺: 直前までのパイプ結果となるコレクション。</li>
+        <li>右辺: 任意のコレクション式 <code>Expr</code>。</li>
+        <li>戻り値: 左右の要素を統合したコレクション（重複扱い・キーなどの詳細はライブラリ設計に委ねられる）。</li>
+      </ul>
+      <p>
+        パイプの性質上、次のようなコードでは:
+      </p>
+<pre><code>myOrders
+    | union yourOrders
+    |: Status == "Completed";
+</code></pre>
+      <p>
+        <code>|:</code> は常に「<code>union(myOrders, yourOrders)</code> の結果」に対するフィルタとなる。<br />
+        どちらの集合に対する条件かというあいまいさは発生しない。
+      </p>
+      <p>
+        右辺のコレクション式に対してもパイプを用いる場合のみ、グルーピングのため括弧を用いる。
+      </p>
+<pre><code>let MergedHighValue =
+    myOrders
+        | union (
+            yourOrders
+                |: Status == "Completed"
+                |: Total  >= 10000
+        )
+        |: Total >= 10000;
+</code></pre>
+      <ul>
+        <li>右辺 <code>(yourOrders |: ...)</code> を先に評価し、その結果と <code>myOrders</code> を <code>union</code> する。</li>
+        <li>その後の <code>|:</code> は union 結果に対するフィルタになる。</li>
+      </ul>
+
+      <h3>19.7 <code>as Alias</code> と <code>| union</code> の組み合わせ</h3>
+<pre><code>let MergedWithOwner =
+    (myOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "Me"
+          })
+    | union
+      (yourOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "You"
+          })
+    as o
+        |: Total >= 10000
+        | sort o.OrderDate desc;
+</code></pre>
+      <ul>
+        <li>両方のシーケンスを同じ型 <code>Order</code> に揃えたうえで <code>union</code> している。</li>
+        <li><code>as o</code> で union 後の要素エイリアスを定義し、後続の <code>|:</code> や <code>| sort</code> で利用している。</li>
+      </ul>
+
+      <h3>19.8 <code>with(Alias) where(...)</code> による複雑条件ブロック</h3>
+      <p>
+        条件が長くなり、一塊として読みたい場合には <code>with(Alias) where(...)</code> を使って<br />
+        「エイリアスを限定したフィルタブロック」を書ける。
+      </p>
+<pre><code>let TopActiveUsersJP =
+    Orders as o
+        |: Status == "Completed"             // = o.Status
+        | with(o) where(
+              o.User.IsActive
+              && o.User.Score   >= MinScore
+              && o.User.Country == "JP"
+          )
+        | sort o.OrderDate desc
+        | take 50
+        | map UserSummary {
+              UserId   = o.User.Id
+              UserName = o.User.Name
+              Total    = o.Total
+          };
+</code></pre>
+      <ul>
+        <li><code>| with(o) where(Condition)</code> もフィルタパイプの一種である。</li>
+        <li><code>Condition</code> の中は通常の式であり、<code>o</code> を用いて要素のプロパティにアクセスする。</li>
+        <li>4.2 章の <code>with</code> ステートメントとは別物であり、「パイプライン上のフィルタとしての with」として扱う。</li>
+      </ul>
+      <p class="note">
+        <code>with(Alias)</code> は「エイリアスを強調しつつ条件をまとめたいときだけ使う」想定で、<br />
+        通常の条件はできるだけ <code>|:</code> で簡潔に書くのが推奨スタイルである。
+      </p>
+
+      <h3>19.9 典型例まとめ</h3>
+
+      <h4>19.9.1 シンプルなフィルタ + ソート + 変換</h4>
+<pre><code>let TopActiveUsersJP =
+    Users as u
+        |: IsActive
+        |: Age >= 18
+        |: Country == "JP"
+        | sort Score desc
+        | take 100
+        | map UserSummary {
+              Id    = Id
+              Name  = Name
+              Score = Score
+          };
+</code></pre>
+
+      <h4>19.9.2 Order と User を絡めた条件</h4>
+<pre><code>let TopActiveOrdersJP =
+    Orders as o
+        |: Status == "Completed"
+        | with(o) where(
+              o.User.IsActive
+              && o.User.Score   >= MinScore
+              && o.User.Country == "JP"
+          )
+        | sort o.OrderDate desc
+        | take 50
+        | map OrderSummary {
+              OrderId   = o.Id
+              UserId    = o.User.Id
+              UserName  = o.User.Name
+              Total     = o.Total
+          };
+</code></pre>
+
+      <h4>19.9.3 myOrders / yourOrders の union + map</h4>
+<pre><code>let MergedOrders =
+    myOrders
+        | union yourOrders;
+
+let MergedWithOwner =
+    (myOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "Me"
+          })
+    | union
+      (yourOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "You"
+          })
+    as o
+        | sort o.OrderDate desc;
+</code></pre>
 
       <hr />
       <p class="note">
-        以上が、元英語版仕様をベースにした日本語版＋<code>with</code> 拡張＋PascalCase 整理済み HTML です。<br />
-        これをそのままファイル保存して開けば、左メニュー→右コンテンツ切り替えが動くはずです。
+        以上が、コレクションパイプライン DSL（<code>|:</code> / <code>| map</code> / <code>| sort</code> / <code>| union</code> / <code>as</code> / <code>with(Alias) where(...)</code>）の仕様である。<br />
+        18 章の <code>pipe</code> / <code>filter</code> によるストリーム処理と組み合わせることで、<br />
+        Aloe のコードはデータフローとクエリ処理を両方とも簡潔に表現できる。
       </p>
     </section>
 
