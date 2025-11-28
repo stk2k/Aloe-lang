@@ -1,8 +1,11 @@
+了解、じゃあここでは Markdown のコードブロックでそのまま出すね。
+中身は素の HTML（必要な所だけ &lt; などにエスケープ）なので、そのまま全部コピペして aloe-spec.html とかに保存すれば OK。
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter 更新版）</title>
+  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer 更新版）</title>
   <style>
     body {
       margin: 0;
@@ -128,7 +131,7 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト版 / pipe・filter モデル更新</div>
+    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer 更新</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. 概要</a>
@@ -143,8 +146,9 @@
       <a href="#pipe-overview">6. Pipe / Filter モデル</a>
       <a href="#pipe-type">6.1 Pipe&lt;T&gt; 型</a>
       <a href="#pipe-roles">6.2 Producer / Transformer / Consumer</a>
-      <a href="#pipe-operator">6.3 パイプ演算子 <code>|&gt;</code></a>
-      <a href="#pipe-std">6.4 標準フィルタ例</a>
+      <a href="#pipe-defs">6.3 Pipe 系宣言構文</a>
+      <a href="#pipe-operator">6.4 パイプ演算子 <code>|&gt;</code></a>
+      <a href="#pipe-std">6.5 標準フィルタ・プロデューサ例</a>
 
       <div class="section-title">構文拡張</div>
       <a href="#with">7. with 構文</a>
@@ -165,7 +169,7 @@
       <p>
         Aloe は、静的型付き・シンプルな構文・スタックベースの VM（AloeVM）を持つ
         <strong>実験的プログラミング言語</strong>です。
-        特に <strong>pipe / filter によるデータフロー記述</strong> と、
+        特に <strong>Pipe / Filter によるデータフロー記述</strong> と、
         WebAssembly との親和性を重視して設計されています。
       </p>
       <ul>
@@ -188,7 +192,7 @@
       <ul>
         <li><strong>読みやすさ</strong>：仕様として読めるドキュメント性</li>
         <li><strong>実装しやすさ</strong>：小さなコンパイラ・VM で実装できる</li>
-        <li><strong>pipe / filter の一貫性</strong>：データフローの型安全な表現</li>
+        <li><strong>Pipe / Filter の一貫性</strong>：データフローの型安全な表現</li>
         <li><strong>Wasm へのブリッジ</strong>：将来的に Wasm コンポーネントモデルと接続しやすい</li>
       </ul>
 
@@ -314,7 +318,7 @@ if (Count &gt; Threshold) {
 }
 
 bound Pipe&lt;T&gt; {
-  method Where(pred: T -&gt; Bool): Pipe&lt;T&gt; {
+  method Where(Predicate: T -&gt; Bool): Pipe&lt;T&gt; {
     // 実装略
   }
 }</code></pre>
@@ -374,7 +378,7 @@ bound Pipe&lt;T&gt; {
 
         <p class="note">
           <strong>パイプ世界</strong>とは、<code>Pipe&lt;T&gt;</code> を入力・出力とする
-          函数たち（producer / transformer）の合成領域を指す。
+          函数たち（producer / transformer / consumer）の合成領域を指す。
           この世界から外へ出るのが consumer である。
         </p>
       </section>
@@ -383,32 +387,22 @@ bound Pipe&lt;T&gt; {
         <h3>6.2 Producer / Transformer / Consumer</h3>
 
         <p>
-          Pipe / Filter モデルでは、関数（またはメソッド）の役割を
+          Pipe / Filter モデルでは、関数（またはオブジェクト）の役割を
           次の 3 種類に分類する。
         </p>
 
         <h4>6.2.1 Producer</h4>
         <ul>
-          <li><strong>定義</strong>：戻り値型が <code>Pipe&lt;*&gt;</code> である関数のうち、
+          <li><strong>定義</strong>：戻り値型が <code>Pipe&lt;*&gt;</code> である関数・オブジェクトのうち、
             パイプラインの先頭に置かれるもの。
           </li>
           <li><strong>役割</strong>：外部世界（ファイル・HTTP・配列など）から
             データを読み取り、パイプ世界（<code>Pipe&lt;T&gt;</code>）に「流し込む」。
           </li>
-          <li><strong>戻り値制限</strong>：Producer として利用される関数は
-            <code>Pipe&lt;T&gt;</code> を返す必要がある。
+          <li><strong>型レベル</strong>：<code>X -&gt; Pipe&lt;T&gt;</code> という形を持つ。
+            本仕様では <strong>Producer として設計されるものは必ず <code>Pipe&lt;*&gt;</code> を出力する</strong>。
           </li>
         </ul>
-
-        <pre><code>// 配列からの producer
-method FromArray&lt;T&gt;(Items: T[]): Pipe&lt;T&gt; {
-  // 実装略
-}
-
-// ファイルから行単位で読む producer
-method ReadLines(Path: String): Pipe&lt;String&gt; {
-  // 実装略
-}</code></pre>
 
         <h4>6.2.2 Transformer（中間フィルタ）</h4>
         <ul>
@@ -448,7 +442,7 @@ method ReadLines(Path: String): Pipe&lt;String&gt; {
         <ul>
           <li><strong>定義</strong>：
             <code>Pipe&lt;T&gt; -&gt; R</code> の形を持ち、
-            戻り値 <code>R</code> が <code>Pipe&lt;*&gt;</code> ではない関数。
+            戻り値 <code>R</code> が <code>Pipe&lt;*&gt;</code> ではない関数・オブジェクト。
           </li>
           <li><strong>役割</strong>：
             パイプ世界から外へ出るゲート。
@@ -456,34 +450,218 @@ method ReadLines(Path: String): Pipe&lt;String&gt; {
           </li>
           <li><strong>戻り値制限</strong>：
             Consumer に関しては <strong>戻り値型に制限はない</strong>。
-            <code>T[]</code>, <code>Int</code>, <code>Unit</code> など任意の型を返せる。
+            <code>T[]</code>, <code>Int</code>, <code>Unit</code> など任意の型を返せるが、
+            <code>Pipe&lt;*&gt;</code> を返すことはできない。
           </li>
         </ul>
 
         <pre><code>// 配列に展開する pure consumer
-method ToArray&lt;T&gt;(Source: Pipe&lt;T&gt;): T[] {
-  // 実装略
+method ToArray&lt;T&gt;(Source: Pipe&lt;T&gt;): T[] { ... }
+
+// 行数を数える consumer
+method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
+
+      </section>
+
+      <section id="pipe-defs">
+        <h3>6.3 Pipe 系宣言構文（producer / pipe / filter / consumer）</h3>
+
+        <p>
+          Aloe では、Pipe / Filter モデルを構成する要素として、
+          <strong>producer / pipe / filter / consumer</strong> の 4 種類の宣言を導入する。
+          これらはすべて「コンストラクタ付きオブジェクト」として定義され、
+          パイプラインに結合されたときに <code>bound</code> ブロックが実行される。
+        </p>
+
+        <h4>6.3.1 producer 定義</h4>
+
+        <pre><code>producer ProducerName(Params...) {
+  out: Pipe&lt;T&gt;;
+
+  bound(output) {
+    // パイプラインに結合されたときの処理
+    // 外部リソースからデータを読み取り、output に書き込む
+  }
+}</code></pre>
+
+        <ul>
+          <li><code>ProducerName</code> はプロデューサー名。</li>
+          <li><code>out</code> には、この producer が生成する
+            <strong>パイプ世界の出力型</strong>を指定する。
+            仕様上、<strong>必ず <code>Pipe&lt;*&gt;</code> 型でなければならない</strong>。
+          </li>
+          <li><code>bound(output)</code> ブロックは、
+            実際にパイプライン先頭に結合されたときの処理を記述する。
+            <code>output</code> の型は <code>out</code> に指定した型（<code>Pipe&lt;T&gt;</code>）である。
+          </li>
+        </ul>
+
+        <p>
+          コンストラクタ引数（<code>Params...</code>）は、
+          <code>bound</code> ブロック内からそのまま参照できる。
+        </p>
+
+        <pre><code>producer ReadLines(Path: String) {
+  out: Pipe&lt;String&gt;;
+
+  bound(output) {
+    // Pseudo:
+    //   let file = OpenFile(Path);
+    //   for each line in file:
+    //     output.write(line);
+    //   file.close();
+  }
+}</code></pre>
+
+        <h4>6.3.2 pipe 定義</h4>
+
+        <pre><code>pipe PipeName(Params...) {
+  in:  入力データの型;
+  out: 出力データの型;
+
+  bound(input, output) {
+    // パイプ同士の結合や、中継・変換処理
+  }
+}</code></pre>
+
+        <ul>
+          <li><code>PipeName</code> はパイプ名。</li>
+          <li><code>in</code> は「上流」から受け取るデータの型。</li>
+          <li><code>out</code> は「下流」へ流すデータの型。</li>
+          <li><code>bound(input, output)</code> では、
+            <code>input</code> から <code>output</code> へデータを流す実装を書く。
+          </li>
+        </ul>
+
+        <p class="note">
+          Pipe 定義は、外部世界との接続（ソケット・HTTP）や、
+          型の異なるストリームの橋渡し（テキスト→JSON など）を表現する用途を想定している。
+        </p>
+
+        <pre><code>pipe JsonDecode&lt;T&gt;() {
+  in:  String;   // JSON テキスト
+  out: T;        // デコードされたオブジェクト
+
+  bound(input, output) {
+    // Pseudo:
+    //   for each line in input:
+    //     let obj: T = JsonParse&lt;T&gt;(line);
+    //     output.write(obj);
+  }
+}</code></pre>
+
+        <h4>6.3.3 filter 定義</h4>
+
+        <pre><code>filter FilterName(Params...) {
+  in:  入力データの型;
+  out: 出力データの型;
+
+  bound(input, output) {
+    // フィルタ結合時の処理
+    // input から output へどのように要素を流すかを記述
+  }
+}</code></pre>
+
+        <ul>
+          <li><code>FilterName</code> はフィルタ名。</li>
+          <li><code>in</code> / <code>out</code> にはこのフィルタが扱う入出力型を指定する。</li>
+          <li>Pipe / Filter モデルにおける「中間フィルタ」の場合、
+            <code>in</code> / <code>out</code> はどちらも <code>Pipe&lt;*&gt;</code> になる。
+          </li>
+          <li><code>bound(input, output)</code> では、
+            <code>input</code> から <code>output</code> への変換処理を書く。
+          </li>
+        </ul>
+
+        <pre><code>filter Where&lt;T&gt;(Predicate: T -&gt; Bool) {
+  in:  Pipe&lt;T&gt;;
+  out: Pipe&lt;T&gt;;
+
+  bound(input, output) {
+    // Pseudo:
+    //   for each item in input:
+    //     if (Predicate(item)):
+    //       output.write(item);
+  }
 }
 
-// 行をファイルに書き出す effectful consumer
-method WriteLines&lt;T&gt;(Source: Pipe&lt;T&gt;, Path: String): Unit {
-  // 実装略（外部 I/O 副作用あり）
+filter Map&lt;T, U&gt;(Selector: T -&gt; U) {
+  in:  Pipe&lt;T&gt;;
+  out: Pipe&lt;U&gt;;
+
+  bound(input, output) {
+    // Pseudo:
+    //   for each item in input:
+    //     output.write(Selector(item));
+  }
+}</code></pre>
+
+        <h4>6.3.4 consumer 定義</h4>
+
+        <pre><code>consumer ConsumerName(Params...) {
+  in: 入力データの型;
+
+  bound(input) {
+    // パイプライン終端で実行される処理
+    // input をすべて消費し、何かしらの値を return する
+  }
+}</code></pre>
+
+        <ul>
+          <li><code>ConsumerName</code> はコンシューマ名。</li>
+          <li><code>in</code> には、この consumer が受け取るデータの型を指定する。
+            Pipe / Filter モデルでは、<strong>通常は <code>Pipe&lt;T&gt;</code> を指定する</strong>。
+          </li>
+          <li><code>bound(input)</code> は、パイプライン終端に結合されたときに実行される本体で、
+            <code>input</code> を最後まで消費し、任意の型 <code>R</code> の値を <code>return</code> する。
+          </li>
+          <li><code>R</code> は <code>T[]</code> / <code>Int</code> / <code>Bool</code> / <code>Unit</code> など任意だが、
+            <strong><code>Pipe&lt;*&gt;</code> であってはならない</strong>。
+          </li>
+        </ul>
+
+        <pre><code>consumer ToArray&lt;T&gt; {
+  in: Pipe&lt;T&gt;;
+
+  bound(input) {
+    var buffer: List&lt;T&gt;;
+    // Pseudo:
+    //   for each item in input:
+    //     buffer.add(item);
+    //   return buffer.toArray();
+    return buffer.toArray();
+  }
+}
+
+consumer Count&lt;T&gt; {
+  in: Pipe&lt;T&gt;;
+
+  bound(input) {
+    var c: Int = 0;
+    // Pseudo:
+    //   for each item in input:
+    //     c = c + 1;
+    //   return c;
+    return c;
+  }
 }</code></pre>
 
         <p class="note">
-          まとめると：
+          まとめると、Pipe 系宣言は次のような役割を持つ：
           <ul>
-            <li>Producer: <code>X -&gt; Pipe&lt;T&gt;</code></li>
-            <li>Transformer: <code>Pipe&lt;T&gt; -&gt; Pipe&lt;U&gt;</code>（<code>bound Pipe&lt;T&gt;</code> に定義）</li>
-            <li>Consumer: <code>Pipe&lt;T&gt; -&gt; R</code>（<code>R</code> は任意で <code>Pipe</code> 以外）</li>
+            <li><strong>producer</strong>：外部世界 → <code>Pipe&lt;*&gt;</code>（必ず <code>Pipe</code> を出力）</li>
+            <li><strong>pipe</strong>：型の異なるストリーム同士や外部 I/O の橋渡し</li>
+            <li><strong>filter</strong>：主に <code>Pipe&lt;T&gt; -&gt; Pipe&lt;U&gt;</code> の変換ロジック</li>
+            <li><strong>consumer</strong>：<code>Pipe&lt;T&gt;</code> → 任意の非 <code>Pipe</code> 型（パイプ世界からの出口）</li>
           </ul>
         </p>
+
       </section>
 
       <section id="pipe-operator">
-        <h3>6.3 パイプ演算子 <code>|&gt;</code></h3>
+        <h3>6.4 パイプ演算子 <code>|&gt;</code></h3>
 
-        <h4>6.3.1 言語レベルの定義</h4>
+        <h4>6.4.1 言語レベルの定義</h4>
         <p>
           Aloe の <code>|&gt;</code> は、<strong>単なる関数合成の糖衣構文</strong>として定義される。
         </p>
@@ -504,12 +682,11 @@ method WriteLines&lt;T&gt;(Source: Pipe&lt;T&gt;, Path: String): Unit {
 
         <div class="note">
           したがって、<strong>言語の型システムとしては</strong><br />
-          「途中で戻り値の型が変わる」ことは何ら問題ではない。
-          <br />
-          Pipe / Filter モデルの制約は、<strong>ライブラリ設計（<code>Pipe&lt;T&gt;</code> とその bound）</strong>で与えられる。
+          「途中で戻り値の型が変わる」ことは何ら問題ではない。<br />
+          Pipe / Filter モデルの制約は、<strong>ライブラリ設計（<code>Pipe&lt;T&gt;</code> と Pipe 系宣言）</strong>で与えられる。
         </div>
 
-        <h4>6.3.2 Pipe&lt;T&gt; と組み合わせた使用</h4>
+        <h4>6.4.2 Pipe&lt;T&gt; と組み合わせた使用</h4>
 
         <pre><code>ReadLines("users.json")
   |&gt; Where (.Trim().Length &gt; 0)
@@ -533,44 +710,50 @@ method WriteLines&lt;T&gt;(Source: Pipe&lt;T&gt;, Path: String): Unit {
       </section>
 
       <section id="pipe-std">
-        <h3>6.4 標準フィルタ例</h3>
+        <h3>6.5 標準フィルタ・プロデューサ例</h3>
 
-        <h4>6.4.1 代表的な transformer</h4>
-        <pre><code>bound Pipe&lt;T&gt; {
-  // フィルタリング
-  method Where(Predicate: T -&gt; Bool): Pipe&lt;T&gt; { ... }
+        <h4>6.5.1 代表的な transformer（filter）</h4>
+        <pre><code>filter Where&lt;T&gt;(Predicate: T -&gt; Bool) {
+  in:  Pipe&lt;T&gt;;
+  out: Pipe&lt;T&gt;;
+  bound(input, output) { ... }
+}
 
-  // 射影（要素型変換）
-  method Map&lt;U&gt;(Selector: T -&gt; U): Pipe&lt;U&gt; { ... }
+filter Map&lt;T, U&gt;(Selector: T -&gt; U) {
+  in:  Pipe&lt;T&gt;;
+  out: Pipe&lt;U&gt;;
+  bound(input, output) { ... }
+}
 
-  // 先頭 n 件を取り出す
-  method Take(Count: Int): Pipe&lt;T&gt; { ... }
-
-  // スキップ
-  method Skip(Count: Int): Pipe&lt;T&gt; { ... }
-
-  // ソート（簡易版）
-  method OrderBy&lt;K&gt;(KeySelector: T -&gt; K): Pipe&lt;T&gt; { ... }
+filter Take&lt;T&gt;(Count: Int) {
+  in:  Pipe&lt;T&gt;;
+  out: Pipe&lt;T&gt;;
+  bound(input, output) { ... }
 }</code></pre>
 
-        <h4>6.4.2 代表的な producer</h4>
-        <pre><code>// 配列から pipe を生成
-method FromArray&lt;T&gt;(Items: T[]): Pipe&lt;T&gt; { ... }
+        <h4>6.5.2 代表的な producer</h4>
+        <pre><code>producer FromArray&lt;T&gt;(Items: T[]) {
+  out: Pipe&lt;T&gt;;
+  bound(output) { ... }
+}
 
-// 文字列から 1 行ずつ読み出す
-method ReadLines(Path: String): Pipe&lt;String&gt; { ... }</code></pre>
+producer ReadLines(Path: String) {
+  out: Pipe&lt;String&gt;;
+  bound(output) { ... }
+}</code></pre>
 
-        <h4>6.4.3 代表的な consumer</h4>
-        <pre><code>// コレクション展開
-method ToArray&lt;T&gt;(Source: Pipe&lt;T&gt;): T[] { ... }
+        <h4>6.5.3 代表的な consumer</h4>
+        <pre><code>consumer ToArray&lt;T&gt; {
+  in: Pipe&lt;T&gt;;
+  bound(input) { ... }   // T[] を返す
+}
 
-// カウント
-method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }
+consumer Count&lt;T&gt; {
+  in: Pipe&lt;T&gt;;
+  bound(input) { ... }   // Int を返す
+}</code></pre>
 
-// 条件に一致する要素の存在チェック
-method Any&lt;T&gt;(Source: Pipe&lt;T&gt;, Predicate: T -&gt; Bool): Bool { ... }</code></pre>
-
-        <h4>6.4.4 使用例</h4>
+        <h4>6.5.4 使用例</h4>
         <pre><code>let ActiveUserNames: String[] =
   ReadLines("users.json")
     |&gt; Where (.Trim().Length &gt; 0)
@@ -715,8 +898,8 @@ lock (SharedCounter) {
 
       <p class="note">
         本ドラフトは特に、
-        <strong>Pipe / Filter と Producer / Transformer / Consumer の関係、
-        ならびに <code>bound Pipe&lt;T&gt;</code> における戻り値制限</strong>
+        <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係、
+        ならびに それらの宣言構文</strong>
         を明確化するために更新された版である。
       </p>
     </section>
