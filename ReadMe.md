@@ -20,9 +20,9 @@ Current focus:
 
 ## Documentation
 
-- Aloe language specification (Japanese, HTML)  
+- Aloe language specification (HTML)  
   https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html
-- AloeVM specification (Japanese, HTML)  
+- AloeVM specification (HTML)  
   https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-spec-en.html
 
 ---
