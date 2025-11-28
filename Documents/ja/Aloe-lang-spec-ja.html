@@ -363,12 +363,12 @@ Print(X);
       <h3>2.3 Value / reference types</h3>
       <ul>
         <li>値型：プリミティブ + struct + enum / bitfield enum。</li>
-        <li>参照型：class, string, task, pipe など。</li>
+        <li>参照型：class, string, 配列 / リスト / セット / マップなどのコレクション型, task, pipe など。</li>
       </ul>
       <h4>Struct restrictions</h4>
       <ul>
         <li>struct フィールドはプリミティブか他の struct のみ。</li>
-        <li>class など参照型フィールドは禁止。</li>
+        <li>配列 / リスト / セット / マップなどのコレクション型や class などの参照型フィールドは禁止。</li>
         <li>struct 代入は値コピー。</li>
       </ul>
     </section>
@@ -872,6 +872,15 @@ finally {
         <li><code>pipe&lt;T&gt;</code> は T のストリーム。</li>
         <li><code>stdin</code>, <code>stdout</code> などの組み込みパイプを想定。</li>
       </ul>
+      <p class="note">
+        パイプラインで流れるのは「コンテキスト」そのものではなく、あくまで T 型のデータである。<br />
+        必要なコンテキスト（OrderId / UserId など）はメッセージ struct / class のフィールドとして<br />
+        明示的にデータに含めて流す。
+      </p>
+      <p class="note">
+        具体的な実装では、パイプの背後にファイル / ソケット / ネットワークストリームなどを割り当てたり、<br />
+        別プロセス・別ノード上の filter と接続することもできるが、その分散実行モデルは AloeVM 実装依存とする。
+      </p>
 
       <h3>18.2 filter 定義</h3>
 <pre><code>filter LineSplit {
