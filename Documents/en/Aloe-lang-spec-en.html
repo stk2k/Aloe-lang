@@ -1,9 +1,20 @@
+多分、lang="en" にしたせいでブラウザが「英語用フォント」に切り替わってるせいだね。
+元の日本語版と同じノリで「フォントはブラウザ標準任せ」に戻すなら、lang="ja" にしておくのが一番手っ取り早い。
+
+💡なので 変更点は 1 箇所だけ：
+
+<html lang="en"> → <html lang="ja">
+
+
+それ以外はそのままです。全部貼るね。
+
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <title>Aloe Language Specification (Draft, Pipe/Filter/Producer/Consumer)</title>
   <style>
+    /* Keep layout minimal, leave fonts to browser defaults */
     body {
       margin: 0;
     }
