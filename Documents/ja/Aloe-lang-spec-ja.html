@@ -1,12 +1,10 @@
-了解、じゃあここでは Markdown のコードブロックでそのまま出すね。
-中身は素の HTML（必要な所だけ &lt; などにエスケープ）なので、そのまま全部コピペして aloe-spec.html とかに保存すれば OK。
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer 更新版）</title>
+  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer + delete/with/lock 更新版）</title>
   <style>
+    /* レイアウトだけ最低限。フォントはブラウザ標準任せにしておく */
     body {
       margin: 0;
     }
@@ -131,7 +129,7 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer 更新</div>
+    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer + delete/with/lock 更新</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. 概要</a>
@@ -152,14 +150,15 @@
 
       <div class="section-title">構文拡張</div>
       <a href="#with">7. with 構文</a>
-      <a href="#lock">8. lock 構文と同期</a>
+      <a href="#delete">8. delete 構文</a>
+      <a href="#lock">9. lock 構文と同期</a>
 
       <div class="section-title">制御・実行モデル</div>
-      <a href="#exceptions">9. 例外処理</a>
-      <a href="#runtime">10. 実行モデルとメモリ管理</a>
+      <a href="#exceptions">10. 例外処理</a>
+      <a href="#runtime">11. 実行モデルとメモリ管理</a>
 
       <div class="section-title">その他</div>
-      <a href="#limits">11. 制限事項と今後の拡張</a>
+      <a href="#limits">12. 制限事項と今後の拡張</a>
     </nav>
   </aside>
   <main class="content">
@@ -169,7 +168,7 @@
       <p>
         Aloe は、静的型付き・シンプルな構文・スタックベースの VM（AloeVM）を持つ
         <strong>実験的プログラミング言語</strong>です。
-        特に <strong>Pipe / Filter によるデータフロー記述</strong> と、
+        特に <strong>Pipe / Filter によるデータフロー記述</strong>と、
         WebAssembly との親和性を重視して設計されています。
       </p>
       <ul>
@@ -226,7 +225,7 @@
         <tr><td>宣言</td><td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code></td></tr>
         <tr><td>制御</td><td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code></td></tr>
         <tr><td>関数</td><td><code>method</code></td></tr>
-        <tr><td>補助</td><td><code>with</code>, <code>lock</code></td></tr>
+        <tr><td>補助</td><td><code>with</code>, <code>lock</code>, <code>delete</code></td></tr>
       </table>
 
       <h3>3.4 文と式</h3>
@@ -771,6 +770,8 @@ consumer Count&lt;T&gt; {
       <p>
         <code>with</code> 構文は、特定のオブジェクトに対する
         連続したプロパティ設定やメソッド呼び出しを簡潔に書くための構文糖衣である。
+        さらに Aloe では、<strong>with 対象オブジェクトの寿命をブロック内で保証する「解放ロック」</strong>
+        としても機能する。
       </p>
 
       <pre><code>struct HttpRequest {
@@ -789,7 +790,7 @@ with (Request) {
 
       <h3>7.2 意味</h3>
       <p>
-        上記の <code>with</code> ブロックは、次と等価である：
+        上記の <code>with</code> ブロックは、表面的な意味としては次と等価である：
       </p>
 
       <pre><code>{
@@ -802,12 +803,133 @@ with (Request) {
         <li><code>with (Expr) { ... }</code> の <code>Expr</code> は 1 回だけ評価される。</li>
         <li>ブロック内の単純識別子への代入式は、すべて対象オブジェクトのメンバーへのアクセスとして解釈される。</li>
       </ul>
+
+      <h3>7.3 解放ロック（GC ルートとしての動作）</h3>
+      <p>
+        AloeVM は参照カウンタ＋スライディングコンパクションによるメモリ管理を想定しており、
+        <code>with</code> ブロックは次のような「解放ロック」として振る舞う：
+      </p>
+      <ul>
+        <li><code>with (Expr)</code> の評価結果は、隠し変数（GC ルート）として保存される。</li>
+        <li>その隠し変数は <strong>ブロックを抜けるまで GC による解放対象から除外される</strong>。</li>
+        <li>したがって、with ブロックの実行中は、対象オブジェクトが必ず生存していることが保証される。</li>
+      </ul>
+
+      <h3>7.4 with と delete の関係</h3>
+      <ul>
+        <li><strong>with の対象として使用した変数（上の例では <code>Request</code>）に対して、
+          同じ with ブロック内で <code>delete</code> を適用することはコンパイルエラー</strong> とする。
+        </li>
+        <li>理由：with は「このオブジェクトはここでは生きていてほしい」という意図を表す構文であり、
+          その対象を delete するのは意味的に矛盾するため。
+        </li>
+        <li>一方、同じオブジェクトを参照している別の変数に対して
+          <code>delete</code> を行うことは許可される（with によって GC ルートが 1 本残っているため）。</li>
+      </ul>
+
+      <pre><code>var Request: HttpRequest = GetRequest();
+var Alias: HttpRequest = Request;
+
+with (Request) {
+  // Request は with に守られているので、ブロック中は必ず生存している
+
+  delete Alias;   // OK: Alias からの参照だけを切る
+  Url = "https://example.com/api";  // 依然として利用可能
+}
+
+// ここで with の GC ルートが外れ、他に参照が無ければ
+// いつか GC によって解放される</code></pre>
+
+      <p class="note">
+        まとめると、<code>with</code> は
+        <strong>「見た目はプロパティ設定の糖衣」かつ「対象オブジェクトを一時的に GC から保護するロック」</strong>
+        として機能する。
+      </p>
+    </section>
+
+    <section id="delete">
+      <h2>8. delete 構文</h2>
+
+      <h3>8.1 概要</h3>
+      <p>
+        Aloe の <code>delete</code> は、<strong>オブジェクト破棄そのものではなく、
+        「変数からの参照を切る」ための構文</strong>である。
+      </p>
+      <ul>
+        <li>実際のオブジェクト破棄（メモリ解放・ファイナライザなど）は
+          <strong>ランタイム（AloeVM）の参照カウンタ＋GC</strong> によって行われる。
+        </li>
+        <li><code>delete</code> は「この変数からはもうこのオブジェクトを使わない」という意図を
+          型安全に表現するための仕組みであり、<code>null</code> 代入の代替として位置づけられる。
+        </li>
+      </ul>
+
+      <h3>8.2 文法</h3>
+      <pre><code>DeleteStatement ::= 'delete' Identifier ';'</code></pre>
+
+      <h3>8.3 静的ルール（コンパイル時）</h3>
+      <ul>
+        <li><code>Identifier</code> は、そのスコープ内で宣言されている変数でなければならない。</li>
+        <li><strong><code>delete</code> を実行した位置以降、その変数を
+          読み取り・メンバアクセス・メソッド呼び出しに使用することはコンパイルエラー</strong> とする。
+        </li>
+        <li>ただし、<strong>再代入して新しい値を代入することは許可される</strong>。
+          すなわち、<code>delete</code> は「その変数をいったん未初期化状態に戻す」と見なす。
+        </li>
+      </ul>
+
+      <pre><code>var Buf: Buffer = NewBuffer();
+
+// Buf を使った処理
+DoSomething(Buf);
+
+delete Buf;
+
+// ここから先、Buf を右辺で読むのはコンパイルエラー
+// Buf.Length もコンパイルエラー
+
+Buf = NewBuffer();  // 再代入すれば、ここから先は再び利用可能</code></pre>
+
+      <h3>8.4 実行時の意味</h3>
+      <p>
+        <code>delete Var;</code> が実行されると、VM レベルでは概ね次のように扱われる：
+      </p>
+      <ul>
+        <li>変数 <code>Var</code> が現在指しているオブジェクトへの参照を 1 つ減らす
+          （参照カウンタ方式を想定）。
+        </li>
+        <li>変数 <code>Var</code> 自身は「未初期化／deleted」状態としてマークされる。</li>
+        <li>参照カウンタが 0 になったオブジェクトは、GC のタイミングで解放される。
+          <strong><code>delete</code> 実行時に即座にオブジェクトが破棄されるとは限らない</strong>。
+        </li>
+      </ul>
+
+      <p class="note">
+        Aloe 言語仕様としては、<strong>オブジェクト破棄のタイミングは VM・ランタイムの責務</strong>であり、
+        <code>delete</code> はあくまで「1 つの変数からの参照を切る」だけである。
+      </p>
+
+      <h3>8.5 with 構文との関係</h3>
+      <ul>
+        <li>7.4 節で述べた通り、<strong>with の対象となっている変数そのものに対して、
+          with ブロック内で <code>delete</code> を適用することはコンパイルエラー</strong> とする。
+        </li>
+        <li>同一オブジェクトを参照する別の変数に対して <code>delete</code> を適用することは許可される。
+          with が GC ルートとして対象オブジェクトを保護するためである。
+        </li>
+      </ul>
+
+      <p class="note">
+        将来的に「所有権付きリソース型」などを導入する場合、
+        <code>delete</code> がその所有権モデルと連携する可能性はあるが、
+        本ドラフトでは <strong>所有権モデルを導入しない前提</strong>で定義している。
+      </p>
     </section>
 
     <section id="lock">
-      <h2>8. lock 構文と同期</h2>
+      <h2>9. lock 構文と同期</h2>
 
-      <h3>8.1 概要</h3>
+      <h3>9.1 概要</h3>
       <p>
         <code>lock</code> 構文は、特定のオブジェクトをロックし、
         そのロック区間中に排他制御や GC の read barrier 最適化を行うための構文である。
@@ -819,7 +941,7 @@ lock (SharedCounter) {
   SharedCounter = SharedCounter + 1;
 }</code></pre>
 
-      <h3>8.2 意味</h3>
+      <h3>9.2 意味</h3>
       <ul>
         <li><code>lock (Expr) { Body }</code> は、<code>Expr</code> で示されるロック対象に対し、
           その区間で排他アクセスを保証する。
@@ -836,9 +958,9 @@ lock (SharedCounter) {
     </section>
 
     <section id="exceptions">
-      <h2>9. 例外処理</h2>
+      <h2>10. 例外処理</h2>
 
-      <h3>9.1 try / catch / finally</h3>
+      <h3>10.1 try / catch / finally</h3>
       <pre><code>try {
   DoSomething();
 } catch (ex: Error) {
@@ -855,21 +977,24 @@ lock (SharedCounter) {
     </section>
 
     <section id="runtime">
-      <h2>10. 実行モデルとメモリ管理</h2>
+      <h2>11. 実行モデルとメモリ管理</h2>
 
-      <h3>10.1 AloeVM の概要</h3>
+      <h3>11.1 AloeVM の概要</h3>
       <ul>
         <li>スタックベースのバイトコード VM。</li>
         <li>関数呼び出しはフレームを積む形で実装される。</li>
-        <li>GC はスライディングコンパクション方式を想定。</li>
+        <li>GC は参照カウンタ＋スライディングコンパクション方式を想定。</li>
       </ul>
 
-      <h3>10.2 メモリ管理（概要）</h3>
+      <h3>11.2 メモリ管理（概要）</h3>
       <ul>
         <li>オブジェクトはヒープ上に確保される。</li>
         <li>一定条件で GC が発動し、生存オブジェクトをスライドさせながらコンパクションする。</li>
-        <li><code>lock</code> 構文と組み合わせることで、
-          read barrier の回数を削減する最適化を行うことができる。
+        <li><code>with</code> 構文は一時的な GC ルートとしてオブジェクトを保護し、
+          <code>lock</code> 構文と組み合わせることで read barrier の回数を削減する最適化を行うことができる。
+        </li>
+        <li>プログラマは通常、メモリ解放のために <code>delete</code> を使用する必要はなく、
+          参照を切る意図を明示したいときに限って利用すればよい。
         </li>
       </ul>
 
@@ -879,27 +1004,29 @@ lock (SharedCounter) {
     </section>
 
     <section id="limits">
-      <h2>11. 制限事項と今後の拡張</h2>
+      <h2>12. 制限事項と今後の拡張</h2>
 
-      <h3>11.1 現時点の制限</h3>
+      <h3>12.1 現時点の制限</h3>
       <ul>
         <li>ジェネリックの表現力は最低限（型推論や高度な型クラスは未定義）。</li>
         <li>モジュールシステムやパッケージ管理は本仕様書では扱わない。</li>
         <li>メタプログラミング機能（マクロ・リフレクションなど）は未定義。</li>
       </ul>
 
-      <h3>11.2 今後の検討課題</h3>
+      <h3>12.2 今後の検討課題</h3>
       <ul>
         <li>Pipe / Filter の並列化・fusion 最適化。</li>
         <li>Wasm コンポーネントモデルとの連携仕様。</li>
         <li>エラー処理と Result 型的な表現（例外以外のエラーハンドリング）。</li>
         <li>分散処理やストリーム処理向けの標準ライブラリ拡張。</li>
+        <li><code>delete</code> と所有権付きリソース型の統合設計（必要になった場合）。</li>
       </ul>
 
       <p class="note">
         本ドラフトは特に、
         <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係、
-        ならびに それらの宣言構文</strong>
+        ならびにそれらの宣言構文</strong> に加え、
+        <strong>with / delete / lock の振る舞いと AloeVM のメモリ管理モデルとの関係</strong>
         を明確化するために更新された版である。
       </p>
     </section>
