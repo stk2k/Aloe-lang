@@ -1,17 +1,12 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe Language Specification (Draft, with with-extension)</title>
+  <title>Aloe Language Specification (Draft, English + with Extension + Collection Pipelines)</title>
   <style>
+    /* Minimal layout only. Let the browser choose the fonts. */
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-                   Helvetica, Arial, sans-serif, "Apple Color Emoji",
-                   "Segoe UI Emoji", "Segoe UI Symbol";
-      line-height: 1.6;
-      font-size: 16px;
     }
     .layout {
       display: flex;
@@ -129,7 +124,7 @@
   <aside class="sidebar">
     <h1>Aloe Language Specification</h1>
     <div class="subtitle">
-      Draft / English version + <code>with</code> extension
+      Draft / English + <code>with</code> Extension + Collection Pipeline DSL
     </div>
 
     <h2>Chapters</h2>
@@ -143,7 +138,7 @@
         <li><a class="nav-link" data-target="ch5"><span class="chapter-index">5.</span>Variables &amp; Constants</a></li>
         <li><a class="nav-link" data-target="ch6"><span class="chapter-index">6.</span>Fields</a></li>
         <li><a class="nav-link" data-target="ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
-        <li><a class="nav-link" data-target="ch8"><span class="chapter-index">8.</span>delete and null</a></li>
+        <li><a class="nav-link" data-target="ch8"><span class="chapter-index">8.</span>delete &amp; null</a></li>
         <li><a class="nav-link" data-target="ch9"><span class="chapter-index">9.</span>is Operator</a></li>
         <li><a class="nav-link" data-target="ch10"><span class="chapter-index">10.</span>Collections</a></li>
         <li><a class="nav-link" data-target="ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
@@ -153,26 +148,32 @@
         <li><a class="nav-link" data-target="ch15"><span class="chapter-index">15.</span>Operators</a></li>
         <li><a class="nav-link" data-target="ch16"><span class="chapter-index">16.</span>Exceptions</a></li>
         <li><a class="nav-link" data-target="ch17"><span class="chapter-index">17.</span>Modules / namespace / import</a></li>
-        <li><a class="nav-link" data-target="ch18"><span class="chapter-index">18.</span>Pipes and Filters</a></li>
+        <li><a class="nav-link" data-target="ch18"><span class="chapter-index">18.</span>Pipes &amp; Filters</a></li>
+        <li><a class="nav-link" data-target="ch19"><span class="chapter-index">19.</span>Collection Pipeline DSL</a></li>
       </ul>
     </nav>
 
-    <h2>Key Section</h2>
+    <h2>Key Sections</h2>
     <nav>
       <ul>
         <li><a class="nav-link" data-target="ch4">4.2 with-blocks</a></li>
+        <li><a class="nav-link" data-target="ch19">19. Collection Pipeline DSL</a></li>
       </ul>
     </nav>
   </aside>
 
   <!-- Right content -->
   <main class="content">
-    <h1>Aloe Language Specification (Draft)</h1>
+    <h1>Aloe Language Specification (Draft, English)</h1>
     <p class="note">
-      Base document: <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>.<br />
-      This is an English draft based on the original spec, with an additional extension in
-      <strong>4.2 with-blocks</strong>: “dot-less” with-blocks + <strong>type-based with</strong> (class/struct/enum static members and enum constants shortcut).<br />
-      Also, in the examples, <strong>method names, property names, and fields are written in PascalCase (leading uppercase)</strong>, according to the current naming guideline.
+      Based on the original document: <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>,<br />
+      with the following extensions:
+      <br />
+      <strong>4.2 with-blocks</strong> is extended with “dot-elision + type-based with (static / enum shortcut for class/struct/enum)”.<br />
+      All method / property / field names in samples are aligned to <strong>PascalCase</strong> (leading uppercase).<br />
+      In addition, this draft adds <strong>Chapter 19: Collection Pipeline DSL</strong>
+      (<code>|:</code> / <code>| map</code> /
+      <code>| sort</code> / <code>| union</code> / <code>as</code> / <code>with(Alias) where(...)</code>).
     </p>
 
     <!-- 0. Overview -->
@@ -180,31 +181,31 @@
       <hr />
       <h2>0. Overview</h2>
       <p>
-        Aloe is a statically-typed scripting language with simple and intuitive syntax,
+        Aloe is a statically typed scripting language with simple and intuitive syntax,
         running on a stack-based virtual machine (AloeVM).
       </p>
       <ul>
-        <li>Easy to read and write for educational use and small applications.</li>
-        <li>Targets C# runtime and WASM environments.</li>
-        <li>Controls I/O and concurrency using <code>Pipe</code> and <code>Filter</code> in a statically typed manner.</li>
+        <li>Easy to read and write for education and small applications.</li>
+        <li>Targets both C# runtime and WASM environments.</li>
+        <li>Provides static-typed control over I/O and concurrency via <code>pipe</code> and <code>filter</code>.</li>
       </ul>
-      <p>Main characteristics:</p>
+      <p>Main features:</p>
       <ul>
         <li>Static typing
           <ul>
             <li><code>var</code> for type inference.</li>
-            <li><code>let</code> for explicit type annotations.</li>
+            <li><code>let</code> for explicit type annotation.</li>
           </ul>
         </li>
-        <li>Value types vs reference types
+        <li>Value types / Reference types
           <ul>
             <li><code>struct</code> … value type</li>
             <li><code>class</code> … reference type</li>
           </ul>
         </li>
-        <li>GC-based memory management (actual algorithm is VM-dependent).</li>
-        <li>No explicit <code>= null</code> in source code (use <code>delete</code> instead).</li>
-        <li>Data-flow oriented design with <code>Pipe</code> and <code>Filter</code>.</li>
+        <li>GC-based memory management (algorithm is VM implementation–dependent).</li>
+        <li>No explicit <code>= null</code> in code (use <code>delete</code> instead).</li>
+        <li>Dataflow-oriented design using <code>pipe</code> / <code>filter</code>.</li>
       </ul>
     </section>
 
@@ -214,15 +215,15 @@
       <h2>1. Basic Syntax</h2>
 
       <h3>1.1 Comments</h3>
-<pre><code>// Single-line comment
+<pre><code>// single-line comment
 
-/* Multi-line
+/* multi-line
    comment */
 </code></pre>
       <ul>
-        <li><code>//</code> to end-of-line is a line comment.</li>
+        <li><code>//</code> to end of line is a line comment.</li>
         <li><code>/* ... */</code> is a multi-line comment.</li>
-        <li>Nested <code>/* */</code> is unspecified (not supported).</li>
+        <li>Nested <code>/* */</code> is undefined (not supported).</li>
       </ul>
 
       <h3>1.2 Identifiers</h3>
@@ -230,9 +231,9 @@
         <li>Allowed characters: letters (A–Z, a–z), digits (0–9), underscore <code>_</code>.</li>
         <li>First character must be a letter or <code>_</code>.</li>
         <li>Case-sensitive.</li>
-        <li>Keywords cannot be used as identifiers.</li>
-        <li>Identifiers starting with <code>_</code> are considered “private” by convention.</li>
-        <li>Certain Unicode letters may be allowed (whitespace and punctuation are excluded).</li>
+        <li>Cannot use keywords as identifiers.</li>
+        <li>Identifiers starting with <code>_</code> are conventionally “private”.</li>
+        <li>Some Unicode characters can be used (excluding whitespace and punctuation separators).</li>
       </ul>
 
       <h3>1.3 Keywords</h3>
@@ -299,20 +300,20 @@ yield
 
       <h3>1.4 Literals</h3>
       <ul>
-        <li>Integer: <code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code>, etc.</li>
-        <li>Float: <code>10.5</code>, <code>0.0</code>, <code>-3.14</code>.</li>
-        <li>Decimal: <code>10.12345678901234567890:d</code>, etc.</li>
-        <li>Boolean: <code>true</code>, <code>false</code>.</li>
-        <li>String: <code>"Hello, World!"</code>.</li>
-        <li>Char: <code>'A'</code>, <code>'Z'</code>, etc.</li>
-        <li>Null literal: <code>null</code> (exists as a literal but is not used in assignments directly).</li>
-        <li>Array literal: <code>[1, 2, 3]</code>.</li>
-        <li>List literal: <code>(1, 2, 3)</code>.</li>
-        <li>Set literal: <code>{1, 2, 3}</code>.</li>
-        <li>Map literal: <code>["Key1": 10, "Key2": 20]</code>.</li>
-        <li>Enum literal: <code>EnumType.Value1</code>.</li>
-        <li>Struct literal: <code>Point { X: 0, Y: 1 }</code>.</li>
-        <li>Object creation: <code>new ClassName()</code>.</li>
+        <li>Integers: <code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code>, etc.</li>
+        <li>Floating point: <code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
+        <li>Decimal: <code>10.12345678901234567890:d</code> etc.</li>
+        <li>Boolean: <code>true</code>, <code>false</code></li>
+        <li>String: <code>"Hello, World!"</code></li>
+        <li>Char: <code>'A'</code>, <code>'z'</code>, etc.</li>
+        <li>null literal: <code>null</code> (not used directly in assignments)</li>
+        <li>Array literal: <code>[1, 2, 3]</code></li>
+        <li>List literal: <code>(1, 2, 3)</code></li>
+        <li>Set literal: <code>{1, 2, 3}</code></li>
+        <li>Map literal: <code>["key1": 10, "key2": 20]</code></li>
+        <li>enum literal: <code>EnumType.Value1</code></li>
+        <li>struct literal: <code>Point { X: 0, Y: 1 }</code></li>
+        <li>Object creation: <code>new ClassName()</code></li>
       </ul>
 
       <h3>1.5 Statement terminator</h3>
@@ -321,14 +322,14 @@ X = X + 1;
 Print(X);
 </code></pre>
       <ul>
-        <li>All statements end with <code>;</code>.</li>
-        <li>No automatic semicolon insertion based on line breaks.</li>
+        <li>Every statement ends with <code>;</code>.</li>
+        <li>No automatic semicolon insertion based on newlines.</li>
       </ul>
 
       <h3>1.6 Whitespace / 1.7 Case sensitivity</h3>
       <ul>
-        <li>Spaces, tabs, and line breaks act as token delimiters.</li>
-        <li>Multiple whitespace characters are treated as a single delimiter.</li>
+        <li>Whitespace, tabs, and newlines separate tokens.</li>
+        <li>Multiple whitespace characters are treated as a single separator.</li>
         <li>Indentation has no semantic meaning.</li>
         <li>Identifiers and keywords are case-sensitive.</li>
         <li>All keywords are lowercase.</li>
@@ -355,24 +356,31 @@ Print(X);
 
       <h3>2.2 Composite / user-defined types</h3>
       <ul>
-        <li>Array: <code>T[]</code>.</li>
-        <li>List: <code>T()</code>.</li>
-        <li>Set: <code>T{}</code>.</li>
-        <li>Map: <code>map&lt;T&gt;</code> or <code>map&lt;K/V&gt;</code>.</li>
-        <li><code>struct</code>, <code>class</code>, <code>enum</code>, <code>bitfield enum</code>.</li>
-        <li><code>task</code>, <code>pipe&lt;T&gt;</code>.</li>
+        <li>Array: <code>T[]</code></li>
+        <li>List: <code>T()</code></li>
+        <li>Set: <code>T{}</code></li>
+        <li>Map: <code>map&lt;T&gt;</code> / <code>map&lt;K/V&gt;</code></li>
+        <li><code>struct</code>, <code>class</code>, <code>enum</code>, <code>bitfield enum</code></li>
+        <li><code>task</code>, <code>pipe&lt;T&gt;</code></li>
       </ul>
 
-      <h3>2.3 Value vs reference types</h3>
+      <h3>2.3 Value / reference types</h3>
       <ul>
-        <li>Value types: primitives + struct + enum/bitfield enum.</li>
-        <li>Reference types: class, string, task, pipe, etc.</li>
+        <li>Value types: primitives + struct + enum / bitfield enum.</li>
+        <li>
+          Reference types: class, string,
+          collection types such as arrays / lists / sets / maps,
+          task, pipe, etc.
+        </li>
       </ul>
       <h4>Struct restrictions</h4>
       <ul>
-        <li>Struct fields can be only primitives or other structs.</li>
-        <li>Reference-type fields (class, etc.) are not allowed.</li>
-        <li>Struct assignment always copies by value.</li>
+        <li>Struct fields may only be primitives or other struct types.</li>
+        <li>
+          Collection types such as arrays / lists / sets / maps and other reference types
+          such as class are not allowed as struct fields.
+        </li>
+        <li>Struct assignment is by value copy.</li>
       </ul>
     </section>
 
@@ -383,32 +391,34 @@ Print(X);
 
       <h3>3.1 int / float</h3>
       <ul>
-        <li>Mixed integer/float expressions are promoted to <code>float</code>.</li>
+        <li>When mixed in expressions, values are promoted to <code>float</code>.</li>
       </ul>
 
       <h3>3.2 decimal</h3>
       <ul>
-        <li>High-precision base-10 numeric type.</li>
-        <li>Overflow and underflow are treated as <code>OverflowException</code>.</li>
+        <li>High-precision decimal type. Overflow etc. result in <code>OverflowException</code>.</li>
       </ul>
 
       <h3>3.3 enum and int</h3>
       <ul>
         <li>No cast syntax.</li>
-        <li>enum &lt;=&gt; int implicit/explicit conversions are forbidden.</li>
+        <li>No implicit or explicit conversion between enum and int.</li>
       </ul>
 
       <h3>3.4 byte / char</h3>
       <ul>
-        <li><code>byte</code>: 0–255. Mixed with int is promoted to <code>int</code>.</li>
-        <li><code>char</code>: arithmetic is not allowed; comparison is allowed only between chars.</li>
+        <li><code>byte</code>: 0–255. Mixed with <code>int</code> promotes to <code>int</code>.</li>
+        <li><code>char</code>: no arithmetic. Comparisons only between chars.</li>
       </ul>
 
       <h3>3.5 NaN / Infinity</h3>
       <ul>
-        <li>Overflow/underflow are not represented by NaN/Infinity but by exceptions.</li>
-        <li>Division by zero is represented by <code>ZeroDivisionException</code>.</li>
-        <li>Helpers such as <code>IsNaN</code>, <code>IsInfinity</code> are considered standard-library functions (PascalCase) if provided.</li>
+        <li>NaN/Infinity are handled via exceptions rather than values.</li>
+        <li><code>ZeroDivisionException</code> represents division by zero.</li>
+        <li>
+          Helpers such as <code>IsNaN</code>, <code>IsInfinity</code> can be provided as standard library functions,
+          and should be written in PascalCase.
+        </li>
       </ul>
     </section>
 
@@ -430,12 +440,12 @@ Print(X);
 </code></pre>
       <ul>
         <li>Aloe uses static (lexical) scoping.</li>
-        <li>A variable declared in an inner block shadows outer ones.</li>
-        <li>When a field name conflicts with a local variable, the local is preferred; the field must be accessed via <code>this.</code>.</li>
+        <li>A variable declared in an inner block shadows the outer one.</li>
+        <li>When a field and a local share the same name, the local wins; fields are accessed as <code>this.Name</code>.</li>
       </ul>
 
-      <h3>4.2 with-blocks (member shortcut syntax)</h3>
-      <p>with-blocks provide a concise way to access members of one or more objects.</p>
+      <h3>4.2 with-blocks (member access shorthand)</h3>
+      <p>Syntax to simplify member access on objects.</p>
 <pre><code>with (User) {
     Name = "Alice";
     Age  = Age + 1;
@@ -443,54 +453,85 @@ Print(X);
 }
 </code></pre>
       <ul>
-        <li>Syntax: <code>with (Expr1)</code> or <code>with (Expr1), (Expr2), ...</code>.</li>
-        <li>Each Expr is evaluated only once at the start of the block and stored in an internal temporary.</li>
-        <li>Name resolution for a simple identifier inside a with-block:
+        <li>Form: <code>with (Expr1)</code> or <code>with (Expr1), (Expr2), ...</code>.</li>
+        <li>Each Expr is evaluated exactly once at the beginning of the block and bound to an internal temporary.</li>
+        <li>Resolution order for simple identifiers inside a with-block:
           <ol>
-            <li>Locals and parameters declared in that block.</li>
-            <li>Members (fields/properties/methods) of the with-targets (from left to right).</li>
-            <li>Outer scopes (outer blocks, class fields, imported symbols, etc.).</li>
+            <li>Locals / parameters in the current block</li>
+            <li>Members (fields / properties / methods) of with-targets from left to right</li>
+            <li>Outer scopes (outer blocks, class fields, etc.)</li>
           </ol>
         </li>
-        <li>If multiple with-targets have the same member name, it is ambiguous and a compile-time error.</li>
-        <li>A special temporary <code>_</code> refers to the first with-target (<code>Expr1</code>):
+        <li>If multiple targets have a member with the same name, it is ambiguous and a compile error.</li>
+        <li>
+          Special temporary <code>_</code> refers to the “first with-target (Expr1)”:
           <ul>
-            <li>You can pass it as <code>Log(_)</code>, etc.</li>
+            <li>You can pass it like <code>Log(_)</code>.</li>
           </ul>
         </li>
       </ul>
 
-      <h4>4.2.1 Multiple with-targets</h4>
+      <h4>4.2.1 Multiple targets with</h4>
 <pre><code>with (User), (Profile) {
-    Name = "Alice";          // Resolved on User.Name or Profile.Name
-    UpdateProfile();         // Resolved on User.UpdateProfile() or Profile.UpdateProfile()
+    Name = "Alice";          // Resolves to User.Name or Profile.Name
+    UpdateProfile();         // Resolves to User.UpdateProfile() or Profile.UpdateProfile()
 }
 </code></pre>
       <ul>
-        <li>Resolution order is from left to right: Expr1, then Expr2, ...</li>
-        <li>If more than one target defines the same member, it is ambiguous and a compile-time error.</li>
+        <li>Resolution order is left to right.</li>
+        <li>If multiple targets define the same member name, it is a compile error.</li>
       </ul>
 
-      <h4>4.2.2 Nested with-blocks</h4>
+      <h4>4.2.2 Nested with</h4>
 <pre><code>with (User) {
     Name = "Alice";
 
     with (Address) {
         City = "Tokyo";   // Address.City
-        Print(Name);      // Resolved to User.Name or a local Name
+        Print(Name);      // Resolves to User.Name or a local Name
     }
 }
 </code></pre>
       <ul>
-        <li>Inner with-blocks have their own resolution rules.</li>
-        <li>If a name cannot be resolved inside the inner with, lookup falls back to outer scopes, including outer with-blocks.</li>
+        <li>Inner with has its own resolution rules.</li>
+        <li>Unresolved identifiers fall back to outer scopes.</li>
       </ul>
 
       <h4>4.2.3 Type-based with (class / struct / enum)</h4>
       <p>
-        If you specify a <strong>type name</strong> instead of an expression in a with-block,
-        you can use it as a shortcut to static members (for classes/structs) or enum constants.
+        If a <strong>type name</strong> is given instead of an expression,
+        the block can access that type’s <strong>static members / enum constants</strong> directly.
       </p>
+<pre><code>with (AngleUtil) {
+    var Rad  = DegToRad(90.0);   // AngleUtil.DegToRad(90.0)
+    var Rad2 = DegToRad(45.0);
+    Print(Pi);                   // AngleUtil.Pi
+}
+</code></pre>
+      <ul>
+        <li>Allowed as type-based with target:
+          <ul>
+            <li>class</li>
+            <li>struct</li>
+            <li>enum / bitfield enum</li>
+          </ul>
+        </li>
+        <li>Resolution order for simple identifiers in type-based with:
+          <ol>
+            <li>Locals / parameters</li>
+            <li>Static fields / static methods / enum constants of the target type</li>
+            <li>Outer scopes</li>
+          </ol>
+        </li>
+        <li>Accessing instance members is a compile error.</li>
+        <li>
+          Special <code>_</code> can be treated as a pseudo object representing
+          the static context of the first type target
+          (writing <code>_.Member</code> is allowed but equivalent to <code>Member</code>).
+        </li>
+      </ul>
+
+      <h5>Example: struct / class</h5>
 <pre><code>struct AngleUtil {
     static field Pi: float = 3.14159;
 
@@ -537,15 +578,15 @@ main(Args: string[]) {
 }
 </code></pre>
 
-      <h5>Mixing value-based and type-based with</h5>
+      <h5>Mixing value targets + type targets</h5>
 <pre><code>with (User), (Color) {
     Name = "Alice";      // User.Name
     var C: Color = Red;  // Color.Red
 }
 </code></pre>
       <p class="note">
-        Value-based and type-based with-targets form a combined “candidate set” for member resolution.
-        If multiple candidates exist for the same identifier, it is considered ambiguous and a compile-time error.
+        Value targets and type targets are combined into one “candidate set of members”.
+        If more than one candidate is found for the same identifier, it is a compile error.
       </p>
     </section>
 
@@ -555,11 +596,11 @@ main(Args: string[]) {
       <h2>5. Variables &amp; Constants</h2>
 
       <h3>5.1 var (type inference)</h3>
-<pre><code>var I   = 10;
-var F   = 10.5;
-var S   = "Hello";
-var C   = 'A';
-var B   = 255;
+<pre><code>var I = 10;
+var F = 10.5;
+var S = "Hello";
+var C = 'A';
+var B = 255;
 var Arr = [1, 2, 3];
 var Lst = (1, 2, 3);
 var St  = {1, 2, 3};
@@ -574,10 +615,10 @@ let S: string = "Hello, Aloe!";
 let C: char = 'A';
 let B: byte = 255;
 
-let Arr: int[]   = [1, 2, 3];
-let Lst: int()   = (1, 2, 3);
-let St : int{}   = {1, 2, 3};
-let Mp : map&lt;string/int&gt; = ["Key": 10];
+let Arr: int[] = [1, 2, 3];
+let Lst: int() = (1, 2, 3);
+let St : int{} = {1, 2, 3};
+let Mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
 
       <h3>5.3 const</h3>
@@ -593,7 +634,7 @@ const AppName : string = "Aloe VM";
       <h2>6. Fields</h2>
 <pre><code>class Sample {
     field Count: int = 0;
-    field Name : string = "Default";
+    field Name : string = "default";
 
     readonly field Id: int;
 
@@ -603,7 +644,7 @@ const AppName : string = "Aloe VM";
 
     method Change(): void {
         this.Count = this.Count + 1;
-        // this.Id = 2; // NG (readonly)
+        // this.Id = 2; // NG
     }
 }
 </code></pre>
@@ -617,7 +658,7 @@ const AppName : string = "Aloe VM";
       <h3>7.1 class</h3>
 <pre><code>class FizzBuzz {
     field _Count: int = 0;
-    field Name  : string = "FizzBuzz";
+    field Name : string = "FizzBuzz";
 
     construct() {
     }
@@ -677,7 +718,7 @@ class ConsoleLogger implements ILogger {
 }
 </code></pre>
 
-      <h4>Applying traits via with</h4>
+      <h4>Applying with with</h4>
 <pre><code>var Obj = new SomeClass() with Trait_A;
 Obj.Hello();
 </code></pre>
@@ -687,25 +728,20 @@ Obj.Hello();
 var Obj3 = Obj2 - Trait_A;
 </code></pre>
 
-      <h4>Alias with as</h4>
+      <h4>Alias as</h4>
 <pre><code>var Obj2 = Obj + Trait_A as A;
 Obj2.A.Hello();
-// Obj2.Hello(); // NG: only through alias
+// Obj2.Hello(); // NG
 </code></pre>
     </section>
 
     <!-- 8. delete & null -->
     <section class="chapter" id="ch8">
       <hr />
-      <h2>8. delete and null</h2>
+      <h2>8. delete &amp; null</h2>
 <pre><code>var Obj = new FizzBuzz();
-delete Obj;   // At VM level, equivalent to Obj = null
+delete Obj;   // Equivalent to Obj = null at VM level
 </code></pre>
-      <ul>
-        <li>You cannot write <code>Obj = null;</code> directly in source code.</li>
-        <li>Reference types may be null internally, but the type system does not track nullability.</li>
-        <li>Accessing a null reference may cause a <code>NullReferenceException</code>.</li>
-      </ul>
     </section>
 
     <!-- 9. is -->
@@ -721,11 +757,6 @@ if (Obj is ILogger) {
 if (Obj is Trait_A) {
 }
 </code></pre>
-      <ul>
-        <li><code>is</code> checks runtime type.</li>
-        <li>Respects inheritance (derived is also base).</li>
-        <li>Can be used with interfaces and traits.</li>
-      </ul>
     </section>
 
     <!-- 10. Collections -->
@@ -741,8 +772,8 @@ var ObjLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
 var St: int{} = {1, 2, 3};
 var StructSt: Point{} = {Point { X:0, Y:0 }, Point { X:1, Y:1 }};
 
-var Mp: map&lt;int&gt; = ["Key1": 10, "Key2": 20];
-var Mp2: map&lt;string/float&gt; = ["Key1": 10.5, "Key2": 20.5];
+var Mp: map&lt;int&gt; = ["key1": 10, "key2": 20];
+var Mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
 var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()];
 </code></pre>
     </section>
@@ -759,11 +790,6 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
     Blue
 }
 </code></pre>
-      <ul>
-        <li>Underlying representation is always Int32.</li>
-        <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code> etc. are not allowed.</li>
-        <li>Enum types can be used as type-based with targets: <code>with (Color) { Red; }</code> is a shortcut for <code>Color.Red</code>.</li>
-      </ul>
 
       <h3>11.2 bitfield enum</h3>
 <pre><code>bitfield enum LogFlags {
@@ -777,16 +803,9 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
 <pre><code>bitfield enum LogFlags {
     None : b(0),
     Info : b(3),
-    Warn,            // Here it becomes b(4)
+    Warn,            // Here it is assigned b(4)
 }
 </code></pre>
-      <ul>
-        <li><code>b(n)</code> means bit n (i.e. <code>1 &lt;&lt; n</code>).</li>
-        <li><code>Name : b(n)</code> assigns that bit to the enumerator.</li>
-        <li>Usable bits are at most 32 (n = 0–31).</li>
-        <li>Multiple enumerators can share the same bit; this may be a warning but not necessarily an error.</li>
-        <li>Underlying type is always Int32; <code>bitfield enum&lt;byte&gt;</code>, etc. are compile-time errors.</li>
-      </ul>
     </section>
 
     <!-- 12. main -->
@@ -800,11 +819,6 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
     _ = 0;   // Process exit code
 }
 </code></pre>
-      <ul>
-        <li><code>main</code> is the program entry point.</li>
-        <li><code>Args</code> is the command-line argument array.</li>
-        <li>In <code>main</code>, <code>_</code> is always an <code>int</code> representing the process exit code.</li>
-      </ul>
     </section>
 
     <!-- 13. temp variable _ -->
@@ -813,13 +827,13 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
       <h2>13. Temp Variable <code>_</code></h2>
 <pre><code>method Foo(): void {
     var X = 10;
-    _ = X + 5;   // Temporary result in this block
+    _ = X + 5;   // Temporary result within this block
 }
 </code></pre>
       <p class="note">
-        In <code>main</code>, <code>_</code> is always <code>int</code> (exit code). In other blocks,
-        the type of <code>_</code> is inferred from the first assignment to it.<br />
-        For the special use of <code>_</code> in with-blocks, see section 4.2.
+        In <code>main</code>, <code>_</code> is fixed to int (exit code).
+        In other blocks, the type of <code>_</code> is determined by the first assignment.<br />
+        For interaction with <code>with</code>, see section 4.2.
       </p>
     </section>
 
@@ -831,42 +845,13 @@ var ObjMp: map&lt;FizzBuzz&gt; = ["Obj1": new FizzBuzz(), "Obj2": new FizzBuzz()
 var B = 20;
 swap (A, B);
 </code></pre>
-      <ul>
-        <li><code>swap(A, B)</code> exchanges the values (or references) of <code>A</code> and <code>B</code>.</li>
-        <li>Validity of swap is checked at compile time.</li>
-      </ul>
     </section>
 
     <!-- 15. Operators -->
     <section class="chapter" id="ch15">
       <hr />
       <h2>15. Operators</h2>
-      <p>Precedence and associativity follow the original English spec (summarized below).</p>
-
-      <h3>15.1 Precedence (high to low)</h3>
-      <ol>
-        <li>Member / call: <code>X.Y</code>, <code>X[Y]</code>, <code>X(Args...)</code></li>
-        <li>Unary: <code>+X</code>, <code>-X</code>, <code>!X</code>, <code>delete X</code></li>
-        <li>Multiplicative: <code>*</code>, <code>/</code>, <code>%</code></li>
-        <li>Additive: <code>+</code>, <code>-</code></li>
-        <li>Shift: <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
-        <li>Relational: <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
-        <li>Equality: <code>==</code>, <code>!=</code></li>
-        <li>Bitwise AND: <code>&amp;</code></li>
-        <li>Bitwise XOR: <code>^</code></li>
-        <li>Bitwise OR: <code>|</code></li>
-        <li>Logical AND: <code>&amp;&amp;</code></li>
-        <li>Logical OR: <code>||</code></li>
-        <li>Assignment: <code>=</code></li>
-      </ol>
-      <p>Compound assignments like <code>+=</code> are not yet specified.</p>
-
-      <h3>15.2 Associativity</h3>
-      <ul>
-        <li>Unary operators: right-associative.</li>
-        <li>Assignment: right-associative.</li>
-        <li>All other binary operators: left-associative.</li>
-      </ul>
+      <p>Precedence and associativity follow the original spec (omitted here).</p>
     </section>
 
     <!-- 16. Exceptions -->
@@ -874,41 +859,17 @@ swap (A, B);
       <hr />
       <h2>16. Exceptions</h2>
 <pre><code>try {
-    // Code that might throw
+    // ...
 }
 catch (E) {
-    // Handle exception
 }
 finally {
-    // Cleanup
 }
 </code></pre>
-
-      <h3>16.1 Standard exception hierarchy (simplified)</h3>
-<pre><code>Exception
-├── SystemException
-│   ├── NullReferenceException
-│   ├── IndexOutOfBoundsException
-│   ├── OverflowException
-│   ├── ZeroDivisionException
-│   ├── InvalidOperationException
-│   ├── NotImplementedException
-│   ├── TimeoutException
-│   ├── ArgumentException
-│   │   ├── ArgumentNullException
-│   │   └── ArgumentOutOfRangeException
-│   └── FormatException
-└── IOException
-    ├── FileNotFoundException
-    ├── EndOfStreamException
-    └── IOException (general)
-</code></pre>
-      <ul>
-        <li><code>OverflowException</code> covers both overflow and underflow.</li>
-        <li><code>ZeroDivisionException</code> is thrown for division by zero (including 0.0).</li>
-        <li>Parsing/format issues are represented by <code>FormatException</code>.</li>
-        <li>Other fatal VM-level errors are implementation-dependent.</li>
-      </ul>
+      <p>
+        The hierarchy of standard exceptions (such as <code>NullReferenceException</code>,
+        <code>OverflowException</code>, etc.) follows the original spec.
+      </p>
     </section>
 
     <!-- 17. Modules -->
@@ -922,11 +883,6 @@ finally {
     }
 }
 </code></pre>
-      <ul>
-        <li><code>namespace</code> declares logical namespaces.</li>
-        <li><code>import</code> brings names from other namespaces into scope.</li>
-        <li>File layout, circular imports, etc. are defined in a separate module system spec.</li>
-      </ul>
     </section>
 
     <!-- 18. Pipes & Filters -->
@@ -934,16 +890,26 @@ finally {
       <hr />
       <h2>18. Pipes &amp; Filters</h2>
 
-      <h3>18.1 Pipe&lt;T&gt;</h3>
+      <h3>18.1 pipe&lt;T&gt;</h3>
       <ul>
-        <li><code>Pipe&lt;T&gt;</code> represents a stream of <code>T</code>.</li>
-        <li>Built-in pipes such as <code>StdIn</code>, <code>StdOut</code>, etc. are assumed.</li>
+        <li><code>pipe&lt;T&gt;</code> is a stream of T.</li>
+        <li><code>stdin</code>, <code>stdout</code> etc. are assumed as built-in pipes.</li>
       </ul>
+      <p class="note">
+        What flows through the pipeline is not the “context” itself, but always data of type T.<br />
+        Required context (OrderId / UserId etc.) should be explicitly included as fields
+        of the message struct / class that flows through the pipe.
+      </p>
+      <p class="note">
+        In concrete implementations, the pipe can be backed by files / sockets / network streams, etc.,<br />
+        or connected to filters running in other processes or even other nodes.<br />
+        The distributed execution model itself is left to the AloeVM implementation.
+      </p>
 
-      <h3>18.2 Defining filters</h3>
+      <h3>18.2 Defining a filter</h3>
 <pre><code>filter LineSplit {
-    in : Pipe&lt;string&gt;;
-    out: Pipe&lt;string&gt;;
+    in : pipe&lt;string&gt;;
+    out: pipe&lt;string&gt;;
 
     bound(Input, Output) {
         foreach (Chunk in Input) {
@@ -958,73 +924,313 @@ finally {
 </code></pre>
 
       <h3>18.3 Pipeline statement</h3>
-<pre><code>StdIn
+<pre><code>stdin
     | filter(Utf8)
     | filter(Json&lt;User&gt;)
     | Users;
 </code></pre>
-      <ul>
-        <li><code>A | B | C;</code> connects the output of A to the input of B, and B to C.</li>
-        <li>Type checking ensures compatibility of input/output types between stages.</li>
-        <li>A pipeline statement itself does not return a value; it only establishes connections.</li>
-      </ul>
 
       <h3>18.4 foreach / EOF</h3>
 <pre><code>foreach (Line in Lines) {
     Print(Line);
 }
 </code></pre>
-      <ul>
-        <li><code>foreach (X in P)</code> repeatedly calls <code>P.Next()</code> until EOF.</li>
-        <li>When the writer calls <code>Close()</code>, the reader sees EOF and stops the loop.</li>
-      </ul>
-
-      <h3>18.5 close and EOF propagation</h3>
-      <ul>
-        <li>Calling <code>Write()</code> on a closed pipe is invalid and may cause an error.</li>
-        <li>Filters should close their output pipe when they detect EOF on their input.</li>
-      </ul>
-
-      <h3>18.6 Concurrency model with pipes</h3>
-      <ul>
-        <li><code>Pipe&lt;T&gt;</code> is the primary communication mechanism between tasks.</li>
-        <li>Aloe encourages a “shared-nothing” model; shared mutable data structures are discouraged.</li>
-      </ul>
-
-      <h3>18.7 Example: simple REST-ish pipeline</h3>
-<pre><code>class User {
-    field Id  : int;
-    field Name: string;
-}
-
-main(Args: string[]) {
-    let ReqPipe  : Pipe&lt;byte&gt; = Pipe&lt;byte&gt;.Create();
-    let UserPipe : Pipe&lt;User&gt; = Pipe&lt;User&gt;.Create();
-
-    StdIn
-        | filter(Utf8)
-        | filter(Json&lt;User&gt;)
-        | UserPipe;
-
-    let U: User? = UserPipe.Next();
-    if (U is User) {
-        Print("User: " + U.Name);
-    }
-
-    _ = 0;
-}
-</code></pre>
 
       <p class="note">
-        Details of standard filters such as <code>Utf8</code> and <code>Json&lt;T&gt;</code> belong to a separate “standard filter library” spec, not the core language spec.
+        Detailed runtime behavior of pipe / filter is delegated to the AloeVM spec.
       </p>
+    </section>
+
+    <!-- 19. Collection Pipelines DSL -->
+    <section class="chapter" id="ch19">
+      <hr />
+      <h2>19. Collection Pipelines (Collection Pipeline DSL)</h2>
+
+      <p>
+        This chapter defines a LINQ-like “query DSL” that targets <code>Iterable&lt;T&gt;</code>.<br />
+        It is a different layer from chapter 18’s <code>pipe&lt;T&gt;</code> / <code>filter</code> stream processing,<br />
+        and is mainly for describing filter / transform / sort / union operations on in-memory collections.
+      </p>
+
+      <h3>19.1 Basic syntax (pipeline as a whole)</h3>
+<pre><code>PipelineExpr ::=
+    Expr
+    ( '|' PipeSegment )*
+
+PipeSegment ::=
+      ':' ConditionExpr          // |:
+    | 'map' MapExpr              // | map ...
+    | 'sort' SortKey [asc|desc]  // | sort ...
+    | 'union' Expr               // | union ...
+</code></pre>
+      <ul>
+        <li>The pipeline is evaluated from left to right.</li>
+        <li>Each <code>PipeSegment</code> takes the previous result collection as input and returns a new collection.</li>
+        <li>The result is an <code>Iterable&lt;...&gt;</code>-like collection (exact runtime type depends on VM / runtime implementation).</li>
+      </ul>
+
+      <h3>19.2 Collection alias: <code>as Alias</code></h3>
+      <p>
+        Appending <code>as Alias</code> right after a collection expression defines an explicit “element alias”
+        that can be used in the rest of the pipeline.
+      </p>
+<pre><code>Orders as o
+    |: Status == "Completed"
+    | sort o.OrderDate desc;
+</code></pre>
+      <ul>
+        <li><code>Orders as o</code> declares that each element of Orders is referred to as <code>o</code>.</li>
+        <li>In the right-hand side of <code>|:</code>, <code>| map</code>, and <code>| sort</code>, identifiers use this alias for resolution.</li>
+        <li>If no alias is specified, the rules of “implicit element” (see 19.3.2) are used.</li>
+      </ul>
+
+      <h3>19.3 Filter pipe: <code>|:</code></h3>
+
+      <h4>19.3.1 Semantics</h4>
+      <p><code>|:</code> is a filter pipe that keeps only elements matching the condition.</p>
+<pre><code>Orders as o
+    |: Status == "Completed"
+    |: Total  >= 10000;
+</code></pre>
+      <p>Conceptually, the implementation may look like this (pseudo code):</p>
+<pre><code>Filter(Orders, (o) =&gt; o.Status == "Completed")
+    .Filter((o) =&gt; o.Total &gt;= 10000);
+</code></pre>
+
+      <h4>19.3.2 Identifier resolution inside filters</h4>
+      <p>
+        With <code>as Alias</code>, the resolution order for simple identifiers on the right-hand side of <code>|:</code> is:
+      </p>
+      <ol>
+        <li>Locals / parameters</li>
+        <li>Alias’s properties (<code>Alias.Property</code>)</li>
+        <li>If still unresolved, it is a compile error.</li>
+      </ol>
+<pre><code>let MinScore = 80;
+
+Orders as o
+    |: Status == "Completed"   // = o.Status
+    |: Total  >= MinScore;     // MinScore is a local variable
+</code></pre>
+      <p>You can always make the alias explicit:</p>
+<pre><code>Orders as o
+    |: o.Status == "Completed"
+    |: o.Total  >= MinScore;
+</code></pre>
+      <p>
+        Without an alias, identifiers are interpreted as properties of the implicit element.
+      </p>
+<pre><code>Orders
+    |: Status == "Completed"   // implicitElement.Status
+    |: Total  >= 10000;
+</code></pre>
+
+      <h3>19.4 Transform pipe: <code>| map</code></h3>
+      <p><code>| map</code> returns a sequence where each element is mapped to another value / type.</p>
+<pre><code>let UserNames =
+    Users as u
+        | map Name;      // = u.Name
+</code></pre>
+      <ul>
+        <li>The result is an <code>Iterable&lt;...&gt;</code> whose element type is the type of the right-hand side expression.</li>
+      </ul>
+      <p>Combined with object initialization, this can be used to convert to DTO / ViewModel types:</p>
+<pre><code>let UserDtos =
+    Users as u
+        | map UserDto {
+              Id       = Id      // = u.Id
+              Name     = Name
+              Score    = Score
+              IsActive = IsActive
+          };
+</code></pre>
+
+      <h3>19.5 Sort pipe: <code>| sort</code></h3>
+      <p><code>| sort KeyExpr [asc|desc]</code> sorts elements based on the key expression.</p>
+<pre><code>let TopUsers =
+    Users as u
+        |: IsActive
+        | sort Score desc
+        | take 100;
+</code></pre>
+      <ul>
+        <li><code>KeyExpr</code> is resolved with the same rules as 19.3.2.</li>
+        <li><code>asc</code> (ascending) may be treated as the default and omitted (implementation-dependent).</li>
+      </ul>
+
+      <h3>19.6 Union pipe: <code>| union</code></h3>
+      <p><code>| union</code> returns a collection that is the union of two collections.</p>
+<pre><code>let AllOrders =
+    myOrders
+        | union yourOrders;
+</code></pre>
+      <ul>
+        <li>Left-hand side: collection produced by the previous pipeline segments.</li>
+        <li>Right-hand side: any collection expression <code>Expr</code>.</li>
+        <li>
+          Result: a collection combining elements from both sides
+          (handling of duplicates / keys is delegated to library design).
+        </li>
+      </ul>
+      <p>
+        Because of the pipeline nature, in the following code:
+      </p>
+<pre><code>myOrders
+    | union yourOrders
+    |: Status == "Completed";
+</code></pre>
+      <p>
+        <code>|:</code> always filters the result of <code>union(myOrders, yourOrders)</code>.<br />
+        There is no ambiguity as to which source collection is filtered.
+      </p>
+      <p>
+        When you also want to use another pipeline on the right-hand side expression,
+        you must use parentheses for grouping.
+      </p>
+<pre><code>let MergedHighValue =
+    myOrders
+        | union (
+            yourOrders
+                |: Status == "Completed"
+                |: Total  >= 10000
+        )
+        |: Total >= 10000;
+</code></pre>
+      <ul>
+        <li>The right-hand side <code>(yourOrders |: ...)</code> is evaluated first, then unioned with <code>myOrders</code>.</li>
+        <li>The trailing <code>|:</code> filters the union result.</li>
+      </ul>
+
+      <h3>19.7 Combining <code>as Alias</code> with <code>| union</code></h3>
+<pre><code>let MergedWithOwner =
+    (myOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "Me"
+          })
+    | union
+      (yourOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "You"
+          })
+    as o
+        |: Total >= 10000
+        | sort o.OrderDate desc;
+</code></pre>
+      <ul>
+        <li>Both sequences are mapped to the same <code>Order</code> type before union.</li>
+        <li><code>as o</code> defines the alias for unioned elements, which is then used by <code>|:</code> and <code>| sort</code>.</li>
+      </ul>
+
+      <h3>19.8 Complex condition blocks with <code>with(Alias) where(...)</code></h3>
+      <p>
+        When conditions become long and you want to group them, you can use
+        <code>with(Alias) where(...)</code> to write a “filter block bound to an alias”.
+      </p>
+<pre><code>let TopActiveUsersJP =
+    Orders as o
+        |: Status == "Completed"             // = o.Status
+        | with(o) where(
+              o.User.IsActive
+              && o.User.Score   >= MinScore
+              && o.User.Country == "JP"
+          )
+        | sort o.OrderDate desc
+        | take 50
+        | map UserSummary {
+              UserId   = o.User.Id
+              UserName = o.User.Name
+              Total    = o.Total
+          };
+</code></pre>
+      <ul>
+        <li><code>| with(o) where(Condition)</code> is also a kind of filter pipe.</li>
+        <li>
+          <code>Condition</code> is an ordinary expression where you access element properties through
+          the alias <code>o</code>.
+        </li>
+        <li>
+          This is distinct from the <code>with</code> statement in chapter 4.2:
+          it is “with as a pipeline filter”.
+        </li>
+      </ul>
+      <p class="note">
+        <code>with(Alias)</code> is intended for cases where you want to emphasize the alias and group
+        the condition; for simple conditions, using <code>|:</code> is the recommended style.
+      </p>
+
+      <h3>19.9 Typical examples</h3>
+
+      <h4>19.9.1 Simple filter + sort + map</h4>
+<pre><code>let TopActiveUsersJP =
+    Users as u
+        |: IsActive
+        |: Age >= 18
+        |: Country == "JP"
+        | sort Score desc
+        | take 100
+        | map UserSummary {
+              Id    = Id
+              Name  = Name
+              Score = Score
+          };
+</code></pre>
+
+      <h4>19.9.2 Conditions involving both Order and User</h4>
+<pre><code>let TopActiveOrdersJP =
+    Orders as o
+        |: Status == "Completed"
+        | with(o) where(
+              o.User.IsActive
+              && o.User.Score   >= MinScore
+              && o.User.Country == "JP"
+          )
+        | sort o.OrderDate desc
+        | take 50
+        | map OrderSummary {
+              OrderId   = o.Id
+              UserId    = o.User.Id
+              UserName  = o.User.Name
+              Total     = o.Total
+          };
+</code></pre>
+
+      <h4>19.9.3 myOrders / yourOrders with union + map</h4>
+<pre><code>let MergedOrders =
+    myOrders
+        | union yourOrders;
+
+let MergedWithOwner =
+    (myOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "Me"
+          })
+    | union
+      (yourOrders
+        | map Order {
+              Id        = Id
+              Total     = Total
+              OrderDate = OrderDate
+              Owner     = "You"
+          })
+    as o
+        | sort o.OrderDate desc;
+</code></pre>
 
       <hr />
       <p class="note">
-        This completes the English version of the Aloe language specification, based on the original English spec,
-        with the extended <strong>with-block</strong> design (dot-less, value- and type-based)
-        and the current PascalCase naming guideline for methods/properties/fields.
-        Save this file and open it in a browser to use the left navigation menu to switch chapters.
+        The above defines the Collection Pipeline DSL (<code>|:</code> / <code>| map</code> /
+        <code>| sort</code> / <code>| union</code> / <code>as</code> / <code>with(Alias) where(...)</code>).<br />
+        Combined with chapter 18’s <code>pipe</code> / <code>filter</code> stream processing,
+        Aloe source code can express both dataflow and query-like transformations concisely.
       </p>
     </section>
 
