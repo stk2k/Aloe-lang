@@ -1,108 +1,72 @@
-﻿# Aloe Programming Language
+# Aloe Programming Language
 
-> A small, strongly-typed, **pipe-oriented** language designed together with generative AI.  
+> A small, strongly-typed, “pipe-oriented” language being designed together with a generative AI.  
 > License: MIT
 
-Aloe is an experimental programming language with:
+Aloe is an **experimental programming language** with static typing, a simple syntax,  
+and a stack-based VM. It is especially designed to treat **I/O and data transformation**  
+via **pipes** and **filters** as first-class features.
 
-- Static typing and type inference
-- A simple, explicit syntax
-- A stack-based virtual machine (AloeVM)
-- A design that maps well to **WebAssembly**
+Current focus:
 
-A distinctive feature of Aloe is that **I/O and data transformation are modeled around `pipe` and `filter`** as first-class concepts.
+- A **language specification** that is readable and explicitly written down
+- An AloeVM bytecode format (`AloeBC`) that is **easy to map to WebAssembly**
+- A **pipe/filter model** that feels good for text processing, REST calls, and streaming
 
-> $26A0$FE0F Aloe is **highly experimental** and not intended for production use yet.  
-> The syntax, VM, and toolchain may change in backward-incompatible ways.
-
----
-
-## Goals & Philosophy
-
-- **Clarity over cleverness**  
-  The language is meant to be easy to read and to implement, especially for people who like reading language/VM specs.
-
-- **Pipe-first design**  
-  Streaming text, JSON, and structured data via `pipe<T>` and `filter(...)` should feel natural and ergonomic.
-
-- **VM + WASM orientation**  
-  AloeVM bytecode (`AloeBC`) is designed so that instructions can map 1:1 (or very closely) to WebAssembly opcodes.
-
-- **Spec-first**  
-  The language and VM are documented in detail before (or while) being implemented. The specs are the source of truth.
+> ⚠️ Aloe is experimental and not intended for production use.  
+> The syntax, VM, and toolchain may still change in backward-incompatible ways.
 
 ---
 
-## Language at a Glance
+## Documentation
 
-### Static typing with inference
+- Aloe language specification (Japanese, HTML)  
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html
+- AloeVM specification (Japanese, HTML)  
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-spec-en.html
+
+---
+
+## Features (Design Goals)
+
+### Static Typing + Type Inference
 
 ```aloe
-var n  = 42;      // inferred as int
-var pi = 3.14;    // inferred as float
+var n = 42;      // inferred as int
+var pi = 3.14;   // inferred as float
 let name: string = "Aloe";
 ```
 
-- `var` $2013 local type inference
-- `let` $2013 explicit type annotation
-- No `any` / dynamic type
+- Local type inference with `var`
+- Explicit type annotations with `let`
 
-### Value types vs reference types
+### Clear Distinction Between Value Types and Reference Types
 
-- `struct` $2013 value type (copied by value)
-- `class`  $2013 reference type (allocated on the heap)
-- `string` $2013 reference type internally, but with special syntax
-- `delete obj;` $2013 sets a reference to `null` (you cannot write `obj = null;` directly)
+- `struct` … value type (copied by value)
+- `class` … reference type (heap-allocated)
+- `delete obj;` … dedicated syntax that sets the reference to `null`  
+  (`obj = null;` is not allowed in source code)
 
-Example:
+### Simple, Explicit Control Structures
 
-```aloe
-class User {
-    field id:   int;
-    field name: string;
-
-    construct(id: int, name: string) {
-        this.id   = id;
-        this.name = name;
-    }
-}
-```
-
-### Explicit control flow
-
-- Semicolons (`;`) are mandatory at the end of every statement
-- Indentation has no semantic meaning (unlike Python)
-- Exceptions with `try / catch / finally`
-
-```aloe
-try {
-    doSomething();
-}
-catch (e) {
-    print("error: " + e.toString());
-}
-finally {
-    cleanup();
-}
-```
+- `;` is required at the end of every statement
+- Indentation has no meaning (unlike Python-style syntax)
+- Exception handling with `try / catch / finally`
 
 ---
 
-## Pipes & Filters
+## I/O and Data Flow with Pipes and Filters
 
-Aloe treats **streams of values** as first-class citizens via `pipe<T>`.  
-Filters transform these streams and are composed with a pipeline syntax.
-
-### Basic example: reading from stdin
+You can describe data pipelines at the language level.
 
 ```aloe
 main(args: string[]) {
     let lines: pipe<string> = pipe<string>.create();
 
     stdin
-        | filter(utf8)       // byte -> string
-        | filter(lineSplit)  // string -> string (per line)
-        | lines;
+      | filter(utf8)       // byte -> string
+      | filter(lineSplit)  // string -> string (one line each)
+      | lines;
 
     foreach (line in lines) {
         if (line == "") { break; }
@@ -113,12 +77,7 @@ main(args: string[]) {
 }
 ```
 
-- `stdin` is a built-in `pipe<byte>`
-- `filter(utf8)` encodes/decodes between `byte` and `string` depending on the input type
-- `filter(lineSplit)` splits into line-by-line chunks
-- The final `lines` pipe is consumed with `foreach`
-
-### Defining a filter
+### Defining a Filter
 
 ```aloe
 filter lineSplit {
@@ -127,8 +86,8 @@ filter lineSplit {
 
     bound(input, output) {
         foreach (chunk in input) {
-            let parts = chunk.split("\n");
-            foreach (line in parts) {
+            let lines = chunk.split("\n");
+            foreach (line in lines) {
                 output.write(line);
             }
         }
@@ -137,34 +96,13 @@ filter lineSplit {
 }
 ```
 
-- `in` / `out` declare the input/output types of the filter
-- `bound(input, output)` contains the processing logic
-- Filters are VM values with special roles for `in` and `out`
-
-### Pipe methods: next / take / peek
-
-For convenience, pipes provide a few built-in methods (semantics still evolving in the spec):
-
-- `next()` $2013 get the next element if available (or a sentinel / exception on EOF)
-- `take(n)` $2013 a new pipe or collection containing up to `n` elements
-- `peek()` $2013 look at the next value without consuming it (implementation-dependent)
-
-Example:
-
-```aloe
-let users: pipe<UserInfo> = getUsersPipe();
-
-let firstUser = users.next();
-if (firstUser is UserInfo) {
-    print("First user: " + firstUser.name);
-}
-```
+- Input/output types are declared with `in` / `out`
+- `bound(input, output)` implements the actual transformation
+- In a pipeline you use it as `filter(lineSplit)`
 
 ---
 
-## Traits and `with` syntax
-
-Traits are reusable groups of methods that can be attached to existing types.
+## Mix-in Style with `trait` + `with`
 
 ```aloe
 trait Printable {
@@ -175,7 +113,6 @@ trait Printable {
 
 class User {
     field name: string;
-
     method toString(): string {
         return "User(" + name + ")";
     }
@@ -186,160 +123,171 @@ main(args: string[]) {
     u.name = "alice";
 
     var p = u with Printable;
-    p.printSelf();  // "User(alice)"
+    p.printSelf();   // "User(alice)"
 
     _ = 0;
 }
 ```
 
-- Traits provide an alternative to multiple inheritance
-- `with` attaches trait behavior to an instance
+- A trait is a reusable unit that can define methods
+- `with` attaches traits to an instance (mixin-like semantics)
 
 ---
 
-## Exception model (high level)
+## Overview of AloeVM & AloeBC
 
-Standard exception types are arranged in a simple hierarchy (spec in progress). Examples:
+- Assumes a stack-based VM
+- Compact bytecode format `AloeBC`
+  - Starts with the magic `"ALOEBC"` and version bytes (e.g. Major/Minor/Build)
+- Instruction set is designed to map **as closely 1:1 as possible to WebAssembly**
 
-- `Exception`
-  - `SystemException`
-    - `NullReferenceException`
-    - `IndexOutOfBoundsException`
-    - `OverflowException` (covers underflow as well)
-    - `ZeroDivisionException` (thrown on division by `0` or `0.0`)
-    - `InvalidOperationException`
-    - `NotImplementedException`
-    - `TimeoutException`
-    - `ArgumentException`
-      - `ArgumentNullException`
-      - `ArgumentOutOfRangeException`
-    - `FormatException`
-  - `IOException`
-    - `FileNotFoundException`
-    - `EndOfStreamException`
+### WASM-Friendly Design
 
-Many details (e.g., exact mapping to VM codes) are still being refined.
+- AloeVM instructions are designed so that they can be mapped straightforwardly to WebAssembly opcodes
+- Long-term ideal:
+
+  - Development flow:  
+    `Aloe source → WASM → Execution environment (browser / server / etc.)`
+  - The `AloeVM` interpreter is mainly for debugging and non-WASM environments
 
 ---
 
-## AloeVM & AloeBC
+## Example: Simple REST-Like Pipeline
 
-AloeVM is a stack-based virtual machine designed to be:
+This is an imagined example that fetches one user record using an HTTP client  
+and a JSON filter (the concrete standard library APIs are still under design).
 
-- Small and relatively easy to implement
-- Friendly to WebAssembly code generation
-- Backed by an explicit bytecode format: **AloeBC**
+```aloe
+struct UserInfo {
+    field id:    int;
+    field name:  string;
+    field email: string;
+}
 
-### AloeBC
+main(args: string[]) {
+    let request:  pipe<byte>     = pipe<byte>.create();
+    let response: pipe<byte>     = pipe<byte>.create();
+    let users:    pipe<UserInfo> = pipe<UserInfo>.create();
 
-- Binary format with a magic header, e.g.:
+    // Pseudo code: httpClient performs an HTTP call using request/response
+    httpClient("GET", "https://api.example.com/users/1", request, response);
 
-  - Magic: `ALOEBC`
-  - Version: 3 bytes (Major, Minor, Build)
+    response
+        | filter(utf8)
+        | filter(json<UserInfo>)
+        | users;
 
-- Contains:
-  - Constant pool
-  - Type information
-  - Function definitions
-  - Bytecode instructions
+    // Imaginary method that pulls the first element from the current pipe
+    let u = users.next();
 
-The exact instruction set is being designed so that **each AloeVM opcode has a straightforward mapping to a WASM opcode or sequence**, making an `aloe2wasm` backend natural.
+    if (u is UserInfo) {
+        print("User: " + u.name + " <" + u.email + ">");
+    }
 
-### WASM strategy
+    _ = 0;
+}
+```
 
-Long-term vision:
-
-- **Development**:  
-  `Aloe source` → `AloeBC` → `WASM` (via aloe2wasm) → any WASM runtime
-- **Runtime modes**:
-  - Native AloeVM interpreter (C#, for example) for:
-    - Debugging
-    - Non-WASM platforms
-  - Direct WASM compilation/execution for:
-    - Browsers
-    - Server runtimes that support WASM
-
-Garbage collection for the VM is specified at a high level (mark/sweep$2013like strategies, block management, etc.), while WASM-native GC is delegated to the WASM environment where available.
+Note: details such as `httpClient`, options for `json<T>`, and the standard filter/library  
+APIs are being designed in a separate document.
 
 ---
 
-## Ecosystem (Planned / In Progress)
+## Project Layout (Draft)
 
-The project is very early. A possible repository layout:
+A possible repository structure (subject to change):
 
 ```text
 .
 ├─ docs/
-│  ├─ aloe-lang-spec-en.html   # Language spec (English, HTML)
-│  ├─ aloe-lang-spec-ja.html   # Language spec (Japanese, HTML)
-│  ├─ aloe-vm-spec-en.html     # VM / AloeBC / GC / WASM mapping
-│  └─ filters-standard-lib.md  # Standard filter library
+│  ├─ aloe-lang-spec-ja.md      # Aloe language spec (Japanese)
+│  ├─ aloe-lang-spec-en.md      # Aloe language spec (English)
+│  ├─ aloe-vm-spec-en.md        # AloeVM / AloeBC / GC / WASM mapping spec
+│  └─ filters-standard-lib.md   # Standard filter library spec
 ├─ src/
-│  ├─ compiler/                # Aloe → AloeBC compiler (C#, WIP)
-│  ├─ vm/                      # AloeVM interpreter (C#, WIP)
-│  └─ aloe2wasm/               # Aloe → WASM backend (WIP)
+│  ├─ compiler/                 # Aloe → AloeBC compiler (C#, WIP)
+│  ├─ vm/                       # Native AloeVM interpreter (C#, WIP)
+│  └─ aloe2wasm/                # Aloe → WASM backend (WIP)
 ├─ examples/
 │  ├─ hello-world.aloe
-│  ├─ pipes/
-│  └─ web/
+│  ├─ pipes/                    # pipe + filter samples
+│  └─ web/                      # Simple REST / Web-like samples
 ├─ tests/
+│  └─ ...
 ├─ LICENSE
 └─ README.md
 ```
 
-Right now, **the specs in `docs/` are the authoritative reference**.
+At the moment, the specs under `docs/` are the “source of truth” for the language.
 
 ---
 
-## Contributing
+## Status
 
-This project is exploratory and welcomes:
+- ✅ **Language design**  
+  Drafts exist for the type system, control structures, pipes/filters, traits, exceptions, and many other details.
+- ✅ **VM design**  
+  Drafts exist for the stack model, `AloeBC` bytecode, GC strategy, and WASM mapping.
+- ⏳ **Implementation**  
+  Compiler, VM, and WASM backend are under development or still at the idea stage.
+- ⏳ **Tooling**  
+  REPL, formatter, LSP, package manager, etc. are future work.
 
-- Feedback on language and VM design
-- Prototype implementations (parsers, type checkers, VMs)
-- Examples that use `pipe`/`filter` in interesting ways
-- Discussions about WASM mapping strategies
-
-Because Aloe is still evolving, large changes to the language or VM should ideally be discussed via an issue or discussion thread before being implemented in a PR.
-
-Some ideas for contributions:
-
-- Implement a minimal Aloe subset compiler in C#
-- Implement a toy AloeVM for that subset
-- Experiment with an `aloe2wasm` prototype that maps a small subset to WASM
+Issues, PRs, and discussions from anyone interested in experimental language/runtime design are very welcome.
 
 ---
 
-## Roadmap (Very Rough)
+## How to Contribute
+
+**Implementation**
+
+- Prototypes for parts of the compiler (parser, type checker, code generation, etc.)
+- A simple AloeVM interpreter
+- A prototype `aloe2wasm` backend for a minimal core subset
+
+**Spec Improvements**
+
+- Find ambiguous parts and edge cases, and propose clarifications
+- Suggest alternative syntax or semantics (ideally with concrete examples)
+
+**Samples & Tests**
+
+- Text tools that make good use of pipes/filters
+- Simple REST / Web-style flows
+- Pattern collections using traits + `with`
+
+If you plan to propose a large design change, it helps a lot to open an Issue or Discussion  
+before sending a PR, so we can keep the overall language design consistent.
+
+---
+
+## Roadmap (Rough)
 
 ### Language
 
-- Stabilize a 0.x syntax and type system
-- Finalize `pipe` / `filter` semantics
-- Specify standard filters (UTF-8, JSON, line splitting, etc.)
+- “Freeze” the syntax and type system for a 0.x series
+- Stabilize the standard filter library spec
+- Flesh out the details of collections and standard types
 
 ### VM
 
-- Finalize the AloeVM instruction set
-- Freeze AloeBC binary format
-- Provide a reference C# implementation with a simple GC
+- Finalize the instruction set (opcodes) and AloeBC binary format
+- Implement a reference C# VM including a simple GC
 
 ### WASM
 
-- Design a clear mapping from AloeVM ops to WASM
-- Implement `aloe2wasm` for a core subset
-- Explore linking Aloe-generated WASM with other WASM libraries
+- Implement mapping from Aloe to WASM for a “core subset”
+- Prototype direct WASM execution without going through an interpreter
 
 ### Tooling
 
-- CLI tools: `aloec` (compiler), `aloevm` (VM runner)
-- Basic formatter and syntax highlighting
-- Simple package distribution story (even a minimal one)
+- CLI tools (e.g. `aloec`, `aloevm`)
+- Formatter / syntax highlighting
+- A simple package management mechanism (can be very minimal at first)
 
 ---
 
 ## License
 
-Aloe is released under the **MIT License**.
-
-See the `LICENSE` file for details.
+Aloe is planned to be released under the **MIT License**.  
+See the `LICENSE` file in the repository for details.

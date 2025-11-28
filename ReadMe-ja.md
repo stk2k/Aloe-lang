@@ -18,6 +18,15 @@ I/O とデータ変換を第一級機能として設計しています。
 
 ---
 
+## ドキュメント
+
+- Aloe 言語仕様書（日本語・HTML）  
+  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-lang-spec-ja.html
+- AloeVM 仕様書（日本語・HTML）  
+  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-vm-spec-ja.html
+
+---
+
 ## 特徴（設計方針）
 
 ### 静的型付け + 型推論
