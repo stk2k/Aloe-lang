@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/using/クラス継承/ジェネリクス）</title>
+  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/Task/async）</title>
   <meta name="last-updated" content="2025-11-29T12:30:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
@@ -136,7 +135,7 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/using/クラス継承/ジェネリクス</div>
+    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/Task/async</div>
     <div class="updated">最終更新: 2025-11-29 12:30:00</div>
     <nav>
       <div class="section-title">概要</div>
@@ -148,6 +147,7 @@
       <a href="#types">4. 型システム</a>
       <a href="#classes">4.5 クラスと継承</a>
       <a href="#generics">4.6 ジェネリクス</a>
+      <a href="#functypes">4.7 関数型 Func&lt;...:...&gt;</a>
       <a href="#functions-methods">5. 関数とメソッド</a>
 
       <div class="section-title">パイプ / コレクション</div>
@@ -164,12 +164,11 @@
       <a href="#lock">9. lock 構文と同期</a>
 
       <div class="section-title">制御 / 実行時モデル</div>
-      <a href="#using">10. using 構文</a>
-      <a href="#exceptions">11. 例外処理</a>
-      <a href="#runtime">12. 実行モデルとメモリ管理</a>
+      <a href="#exceptions">10. 例外処理</a>
+      <a href="#runtime">11. 実行モデルとメモリ管理</a>
 
       <div class="section-title">その他</div>
-      <a href="#limits">13. 制限事項と今後の展望</a>
+      <a href="#limits">12. 制限事項と今後の展望</a>
     </nav>
   </aside>
   <main class="content">
@@ -236,7 +235,7 @@
         </tr>
         <tr>
           <td>制御</td>
-          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code>, <code>using</code></td>
+          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code>, <code>async</code>, <code>await</code></td>
         </tr>
         <tr>
           <td>関数</td>
@@ -244,7 +243,7 @@
         </tr>
         <tr>
           <td>補助</td>
-          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td>
+          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code>, <code>using</code></td>
         </tr>
       </table>
 
@@ -316,10 +315,8 @@ if (Count &gt; Threshold) {
   Warn  = 3;
   Error = 4;
 }</code></pre>
-    </section>
 
-    <section id="classes">
-      <h2>4.5 クラスと継承（class / interface / trait / sealed）</h2>
+      <h3>4.5 クラスと継承（class / interface / trait / sealed）</h3>
 
       <h3>4.5.1 クラスの基本</h3>
       <ul>
@@ -390,17 +387,17 @@ class Bad : Base, OtherBase {
       </ul>
 
       <pre><code>interface IDisposable {
-  method Dispose(): Unit;
+  method Dispose(): void;
 }
 
 trait Printable {
-  method PrintSelf(): Unit {
+  method PrintSelf(): void {
     Print(this.ToString());
   }
 }
 
 class FileHandle : BaseFile implements IDisposable with Printable {
-  method Dispose(): Unit {
+  method Dispose(): void {
     // リソース解放処理
   }
 
@@ -473,19 +470,18 @@ class KeywordToken : Token {
         高レベルな方針を定める。<br />
         メソッド解決順序や trait の衝突解決の詳細は別途仕様化する。
       </p>
-    </section>
 
-    <section id="generics">
-      <h2>4.6 ジェネリクス</h2>
+      <section id="generics">
+        <h2>4.6 ジェネリクス</h2>
 
-      <h3>4.6.1 概要</h3>
-      <p>
-        Aloe は、型・関数・メソッド・パイプ関連宣言に対して最小限のジェネリクス機構を提供する。<br />
-        目的は、コレクションや Pipe / Filter を型安全に再利用可能にすることであり、
-        高度な型レベル計算をサポートすることではない。
-      </p>
+        <h3>4.6.1 概要</h3>
+        <p>
+          Aloe は、型・関数・メソッド・パイプ関連宣言に対して最小限のジェネリクス機構を提供する。<br />
+          目的は、コレクションや Pipe / Filter を型安全に再利用可能にすることであり、
+          高度な型レベル計算をサポートすることではない。
+        </p>
 
-      <pre><code>type Box&lt;T&gt; {
+        <pre><code>type Box&lt;T&gt; {
   Value: T;
 }
 
@@ -498,18 +494,18 @@ method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: T -&gt; U): Pipe&lt;U&gt
   // 実装は省略
 }</code></pre>
 
-      <h3>4.6.2 ジェネリック型パラメータ</h3>
-      <ul>
-        <li>型、struct、class、interface、trait、method、
-          および producer/filter/consumer 宣言は <code>&lt;T, U, ...&gt;</code> で型パラメータを受け取れる。
-        </li>
-        <li>型パラメータ名は一般的に大文字で始めることが推奨される
-          （<code>T</code>, <code>TItem</code>, <code>TKey</code> など）。
-        </li>
-        <li>型引数は利用箇所で具体的な型に束縛される。</li>
-      </ul>
+        <h3>4.6.2 ジェネリック型パラメータ</h3>
+        <ul>
+          <li>型、struct、class、interface、trait、method、
+            および producer/filter/consumer 宣言は <code>&lt;T, U, ...&gt;</code> で型パラメータを受け取れる。
+          </li>
+          <li>型パラメータ名は一般的に大文字で始めることが推奨される
+            （<code>T</code>, <code>TItem</code>, <code>TKey</code> など）。
+          </li>
+          <li>型引数は利用箇所で具体的な型に束縛される。</li>
+        </ul>
 
-      <pre><code>type List&lt;T&gt; {
+        <pre><code>type List&lt;T&gt; {
   Items: T[];
 }
 
@@ -517,57 +513,57 @@ method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
   // 実装は省略
 }</code></pre>
 
-      <h3>4.6.3 where 型制約（概要）</h3>
-      <p>
-        Aloe のジェネリクスは、<code>where</code> 句を用いた任意の型制約をサポートする。<br />
-        デフォルトは制約なしだが、バージョン 0.1 の段階でいくつかの基本的な制約をサポートする。
-      </p>
+        <h3>4.6.3 where 型制約（概要）</h3>
+        <p>
+          Aloe のジェネリクスは、<code>where</code> 句を用いた任意の型制約をサポートする。<br />
+          デフォルトは制約なしだが、バージョン 0.1 の段階でいくつかの基本的な制約をサポートする。
+        </p>
 
-      <pre><code>method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
+        <pre><code>method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
   where T: Int
 {
   // Int 専用の合計処理
 }</code></pre>
 
-      <p class="note">
-        ここでの <code>where</code> は純粋に <strong>コンパイル時の型チェック</strong> のためだけに存在する。<br />
-        実行時表現（モノモーフィック展開か、型タグを持つ共有コードかなど）は VM 仕様に委ねられる。
-      </p>
+        <p class="note">
+          ここでの <code>where</code> は純粋に <strong>コンパイル時の型チェック</strong> のためだけに存在する。<br />
+          実行時表現（モノモーフィック展開か、型タグを持つ共有コードかなど）は VM 仕様に委ねられる。
+        </p>
 
-      <h3>4.6.4 サポートされる制約の種類</h3>
-      <p>
-        バージョン 0.1 では、以下の種類の制約をサポートする：
-      </p>
+        <h3>4.6.4 サポートされる制約の種類</h3>
+        <p>
+          バージョン 0.1 では、以下の種類の制約をサポートする：
+        </p>
 
-      <ul>
-        <li><strong>値型 / 参照型 制約</strong>
-          <ul>
-            <li><code>where T: struct</code> – <code>T</code> は値型でなければならない。</li>
-            <li><code>where T: class</code> – <code>T</code> は参照型でなければならない。</li>
-          </ul>
-        </li>
-        <li><strong>プリミティブ型制約</strong>
-          <ul>
-            <li><code>where T: Int</code>, <code>where T: Float</code>, <code>where T: Bool</code> など、
-              プリミティブ型名を直接指定できる。
-            </li>
-          </ul>
-        </li>
-        <li><strong>ユーザー定義型制約</strong>
-          <ul>
-            <li><code>where T: SomeTrait</code> – trait <code>SomeTrait</code> を実装している型。</li>
-            <li><code>where T: MyStruct</code> – struct <code>MyStruct</code> とちょうど同じ型。</li>
-            <li><code>where T: MyClass</code> – class <code>MyClass</code> とちょうど同じ型。</li>
-          </ul>
-        </li>
-        <li><strong>任意の具体型名</strong>
-          <ul>
-            <li>既存の具体型名であれば何でも指定できる（例: <code>where T: Pipe&lt;Int&gt;</code>）。</li>
-          </ul>
-        </li>
-      </ul>
+        <ul>
+          <li><strong>値型 / 参照型 制約</strong>
+            <ul>
+              <li><code>where T: struct</code> – <code>T</code> は値型でなければならない。</li>
+              <li><code>where T: class</code> – <code>T</code> は参照型でなければならない。</li>
+            </ul>
+          </li>
+          <li><strong>プリミティブ型制約</strong>
+            <ul>
+              <li><code>where T: Int</code>, <code>where T: Float</code>, <code>where T: Bool</code> など、
+                プリミティブ型名を直接指定できる。
+              </li>
+            </ul>
+          </li>
+          <li><strong>ユーザー定義型制約</strong>
+            <ul>
+              <li><code>where T: SomeTrait</code> – trait <code>SomeTrait</code> を実装している型。</li>
+              <li><code>where T: MyStruct</code> – struct <code>MyStruct</code> とちょうど同じ型。</li>
+              <li><code>where T: MyClass</code> – class <code>MyClass</code> とちょうど同じ型。</li>
+            </ul>
+          </li>
+          <li><strong>任意の具体型名</strong>
+            <ul>
+              <li>既存の具体型名であれば何でも指定できる（例: <code>where T: Pipe&lt;Int&gt;</code>）。</li>
+            </ul>
+          </li>
+        </ul>
 
-      <pre><code>// 値型専用ジェネリック
+        <pre><code>// 値型専用ジェネリック
 method Zero&lt;T&gt;(): T
   where T: struct
 {
@@ -588,16 +584,16 @@ method PrintUser&lt;T&gt;(User: T)
   // 実装は省略
 }</code></pre>
 
-      <h3>4.6.5 制約違反時の挙動</h3>
-      <ul>
-        <li>ジェネリック関数／型に与えた型引数が <code>where</code> の制約を満たさない場合、
-          それはコンパイルエラーとなる。
-        </li>
-        <li>複数の制約が指定されている場合、それらすべてを同時に満たす必要がある。</li>
-        <li>循環する制約や高度な typeclass 的構造は現時点ではサポートしない。</li>
-      </ul>
+        <h3>4.6.5 制約違反時の挙動</h3>
+        <ul>
+          <li>ジェネリック関数／型に与えた型引数が <code>where</code> の制約を満たさない場合、
+            それはコンパイルエラーとなる。
+          </li>
+          <li>複数の制約が指定されている場合、それらすべてを同時に満たす必要がある。</li>
+          <li>循環する制約や高度な typeclass 的構造は現時点ではサポートしない。</li>
+        </ul>
 
-      <pre><code>// コンパイルエラーの例:
+        <pre><code>// コンパイルエラーの例:
 
 // where T: Int なので、T は String にはできない
 method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
@@ -609,9 +605,47 @@ method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
 var Lines: Pipe&lt;String&gt; = ReadLines("log.txt");
 var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
 
+        <p class="small">
+          ジェネリクスの内部表現（モノモーフィック展開か、型タグ付き共有コードか等）は AloeVM が定義する。<br />
+          本言語仕様では、型安全な再利用と <code>where</code> ベースの制約チェックの振る舞いに焦点を当てる。
+        </p>
+      </section>
+
+      <h3 id="functypes">4.7 関数型 Func&lt;...:...&gt;</h3>
+      <p>
+        Aloe では、関数・ラムダの型を表すために <code>Func&lt;...:...&gt;</code> という記法を用いる。
+        <code>:</code> の左側に引数型リスト（カンマ区切り）、右側に戻り値の型を記述する。
+      </p>
+
+      <pre><code>// Int を受け取って String を返す関数
+Func&lt;Int:String&gt;
+
+// String, Int を受け取って Task を返す関数
+Func&lt;String, Int:Task&gt;
+
+// String を受け取って Task&lt;Int&gt; を返す関数
+Func&lt;String:Task&lt;Int&gt;&gt;</code></pre>
+
+      <ul>
+        <li>引数がない場合は左側を空にし、<code>Func&lt;:ReturnType&gt;</code> と書く。</li>
+        <li>戻り値がない関数は、<code>Func&lt;Args:&gt;</code> または <code>Func&lt;Args:void&gt;</code> と書く。
+          この 2 つは等価であり、「値を返さない関数」であることを表す。
+        </li>
+        <li><code>void</code> は「戻り値がない」ことを示す専用のキーワードであり、
+          変数やフィールドの型としては使用できない（<code>let X: void</code> などはコンパイルエラー）。
+        </li>
+      </ul>
+
+      <pre><code>// Task を受け取って何も返さない関数
+Func&lt;Task:&gt;
+Func&lt;Task:void&gt;
+
+// 引数なしで Task&lt;Int&gt; を返す関数
+Func&lt;:Task&lt;Int&gt;&gt;</code></pre>
+
       <p class="small">
-        ジェネリクスの内部表現（モノモーフィック展開か、型タグ付き共有コードか等）は AloeVM が定義する。<br />
-        本言語仕様では、型安全な再利用と <code>where</code> ベースの制約チェックの振る舞いに焦点を当てる。
+        解説用には簡略表記として <code>A -&gt; B</code> を用いることがあるが、
+        正式な型表現としては <code>Func&lt;A:B&gt;</code> を用いる。
       </p>
     </section>
 
@@ -625,7 +659,7 @@ var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
 
       <ul>
         <li><code>method</code> はトップレベル関数、または型にバインドされたメソッドを定義する。</li>
-        <li>戻り値を明示しない場合、そのメソッドは <code>Unit</code> を返すとみなされる。</li>
+        <li>戻り値の型を明示しない場合、そのメソッドは「値を返さない（void）」メソッドとみなされる。</li>
       </ul>
 
       <h3>5.2 bound によるメソッドバインディング</h3>
@@ -646,6 +680,163 @@ bound Pipe&lt;T&gt; {
       <p class="note">
         <code>Pipe&lt;T&gt;</code> に対しては、<code>bound</code> ブロックで宣言されるメソッドの
         戻り値に関する<strong>制約</strong>を導入する（詳細は 6.2 を参照）。
+      </p>
+
+      <h3>5.3 Task と await（非同期処理の基本）</h3>
+      <p>
+        Aloe は C# に類似した <strong>Task ベースの非同期モデル</strong> を採用するが、
+        言語レベルでは <code>async</code> キーワードはメソッドには使用しない。
+      </p>
+
+      <h4>5.3.1 Task / Task&lt;T&gt; 型</h4>
+      <ul>
+        <li><code>Task</code> は「値を返さない非同期処理」を表す。</li>
+        <li><code>Task&lt;T&gt;</code> は「将来 <code>T</code> 型の値を 1 度だけ返す非同期処理」を表す。</li>
+        <li><code>Task&lt;void&gt;</code> といった表現は<strong>存在しない</strong>。
+          値を返さない非同期処理は常に <code>Task</code> で表現する。
+        </li>
+      </ul>
+
+      <pre><code>// HTTP GET: 文字列を返す非同期処理
+method HttpGet(Url: String): Task&lt;String&gt; {
+  // 実装は VM / 標準ライブラリ側
+}
+
+// ログを書き出すだけの非同期処理
+method LogAsync(Message: String): Task {
+  // 実装は省略
+}</code></pre>
+
+      <h4>5.3.2 await 式</h4>
+      <pre><code>AwaitExpression ::= 'await' Expression</code></pre>
+
+      <p><code>await</code> は <code>Task</code> / <code>Task&lt;T&gt;</code> の完了を待ち、その結果を取り出すための式である。</p>
+
+      <ul>
+        <li><code>Expression</code> の型が <code>Task&lt;T&gt;</code> の場合、
+          <code>await Expression</code> の型は <code>T</code> になる。
+        </li>
+        <li><code>Expression</code> の型が <code>Task</code> の場合、
+          <code>await Expression</code> は「値を生成しない式」として扱われる
+          （文としてのみ使用するのが一般的である）。
+        </li>
+        <li>それ以外の型に対して <code>await</code> を適用した場合はコンパイルエラーとなる。</li>
+      </ul>
+
+      <h4>5.3.3 await が使用できる場所</h4>
+      <p>
+        <code>await</code> は、次のいずれかの条件を満たすコンテキスト内でのみ使用できる：
+      </p>
+      <ul>
+        <li>戻り値の型が <code>Task</code> または <code>Task&lt;T&gt;</code> である <code>method</code> 本体の中。</li>
+        <li><code>async { ... }</code> ブロックの中（5.4 節参照）。</li>
+        <li><code>async (...)</code> で始まるラムダ式の中（5.4 節参照）。</li>
+      </ul>
+
+      <p>
+        戻り値の型が <code>Task</code> / <code>Task&lt;T&gt;</code> ではないメソッド、
+        および非 <code>async</code> ブロック／ラムダの中で <code>await</code> が現れた場合はコンパイルエラーとなる。
+      </p>
+
+      <h4>5.3.4 非同期メソッドの例</h4>
+
+      <pre><code>// ユーザ情報を取得する非同期メソッド
+method FetchUser(Id: Int): Task&lt;User&gt; {
+  let Url: String = "https://api.example.com/users/" + Id.ToString();
+  let Json: String = await HttpGet(Url);
+  return ParseUser(Json);
+}
+
+// 呼び出し側も Task / Task&lt;T&gt; を返す
+method Main(): Task {
+  let U: User = await FetchUser(1);
+  Print(U.Name);
+}</code></pre>
+
+      <p class="note">
+        C# の <code>async</code> キーワードとは異なり、Aloe では
+        「戻り値の型が <code>Task</code> / <code>Task&lt;T&gt;</code> であり、かつ本体に <code>await</code> を含むメソッド」
+        は自動的にステートマシンとしてコンパイルされる。<br />
+        メソッド宣言に特別な修飾子を付ける必要はない。
+      </p>
+
+      <h3>5.4 async ブロックと async ラムダ</h3>
+
+      <h4>5.4.1 async ブロック（無名非同期ブロック）</h4>
+      <p>
+        Aloe では、引数を持たない無名の非同期処理を作るために <code>async { ... }</code> 構文を提供する。
+        これは式として評価され、その型は <code>Task</code> または <code>Task&lt;T&gt;</code> になる。
+      </p>
+
+      <pre><code>// 戻り値なし（Task）
+let Job: Task = async {
+  Log("start");
+  let Body: String = await HttpGet("https://example.com");
+  Log("length = " + Body.Length.ToString());
+};
+
+// 戻り値あり（Task&lt;Int&gt;）
+let GetLength: Task&lt;Int&gt; = async {
+  let Body: String = await HttpGet("https://example.com");
+  return Body.Length;
+};</code></pre>
+
+      <ul>
+        <li><code>async { ... }</code> ブロック内では <code>await</code> が使用できる。</li>
+        <li>ブロック内に <code>return Expr;</code> が現れる場合、その式 <code>Expr</code> の型を <code>T</code> として
+          全体の型は <code>Task&lt;T&gt;</code> となる。
+        </li>
+        <li>明示的な <code>return</code> がなく、最後に値を返さない場合は型は <code>Task</code> となる。</li>
+      </ul>
+
+      <h4>5.4.2 async ラムダ式</h4>
+      <p>
+        引数を持つ非同期関数を無名で定義するには <code>async (Params) { ... }</code> を用いる。
+      </p>
+
+      <pre><code>// 型: Func&lt;String:Task&lt;Int&gt;&gt;
+let FetchLength: Func&lt;String:Task&lt;Int&gt;&gt; =
+  async (Url: String) {
+    let Body: String = await HttpGet(Url);
+    return Body.Length;
+  };
+
+// 型: Func&lt;Task:&gt; （Task を受け取って何も返さない）
+let NotifyDone: Func&lt;Task:&gt; =
+  async (t: Task) {
+    Log("job finished");
+    await FlushLogAsync();
+  };</code></pre>
+
+      <ul>
+        <li><code>async (Params) { ... }</code> の結果型は、代入先や呼び出し先の型（<code>Func&lt;...:...&gt;</code>）から推論される。</li>
+        <li>その関数型の戻り値が <code>Task</code> / <code>Task&lt;T&gt;</code> のとき、
+          ラムダ本体の中では <code>await</code> が使用できる。
+        </li>
+        <li>戻り値が非 Task 型の <code>Func</code> に <code>async</code> ラムダを代入しようとした場合はコンパイルエラーとなる。</li>
+      </ul>
+
+      <h4>5.4.3 async ブロックと async ラムダの関係</h4>
+      <p>
+        <code>async { ... }</code> は、概念的には
+        「引数なしの <code>async () { ... }</code> ラムダ」のシンタックスシュガーとみなせる：
+      </p>
+
+      <pre><code>let T: Task&lt;Int&gt; = async {
+  let Body: String = await HttpGet("https://example.com");
+  return Body.Length;
+};
+
+// おおよそ次と同等とみなせる:
+let T2: Func&lt;:Task&lt;Int&gt;&gt; = async () {
+  let Body: String = await HttpGet("https://example.com");
+  return Body.Length;
+};</code></pre>
+
+      <p class="small">
+        実際のコンパイル単位（ステートマシン型の生成など）は実装依存だが、
+        言語仕様上は「<code>Task</code> / <code>Task&lt;T&gt;</code> を返し、内部で <code>await</code> を利用できる無名関数」
+        という点が重要である。
       </p>
     </section>
 
@@ -768,7 +959,7 @@ bound Pipe&lt;T&gt; {
           </li>
           <li><strong>戻り値の型</strong>：
             <code>R</code> は <code>Pipe&lt;*&gt;</code> でない限り制約はない。
-            <code>T[]</code>、<code>Int</code>、<code>Unit</code> など任意の型を取れる。
+            <code>T[]</code>、<code>Int</code>、<code>Bool</code> など任意の型を取れる。
           </li>
         </ul>
 
@@ -927,7 +1118,7 @@ filter Map&lt;T, U&gt;(Selector: T -&gt; U) {
           <li><code>bound(input)</code> はパイプライン末尾で実行され、
             <code>input</code> を完全に消費し、任意の型 <code>R</code> の値を返す。
           </li>
-          <li><code>R</code> は <code>T[]</code>・<code>Int</code>・<code>Bool</code>・<code>Unit</code> など任意の型を取れるが、
+          <li><code>R</code> は <code>T[]</code>・<code>Int</code>・<code>Bool</code> など任意の型を取れるが、
             <strong><code>Pipe&lt;*&gt;</code> であってはならない</strong>。
           </li>
         </ul>
@@ -1344,133 +1535,10 @@ lock with (Conn) {
 // ここまで来たらロック解除＆with のライフタイムロックも解除される。</code></pre>
     </section>
 
-    <section id="using">
-      <h2>10. using 構文（RAII リソース管理）</h2>
-
-      <h3>10.1 概要</h3>
-      <p>
-        <code>using</code> 構文は、<strong>リソース（ファイルハンドル、ソケット、DB 接続など）の寿命をブロックに束縛し、</strong><br />
-        ブロックを抜けるタイミングで <code>Dispose()</code> を必ず呼び出すための構文である。<br />
-        これは C# の <code>using</code> に近い、RAII 風のリソース管理メカニズムとなる。
-      </p>
-
-      <pre><code>class FileHandle implements IDisposable {
-  method Dispose(): Unit {
-    // OS のハンドルやバッファを解放する
-  }
-}
-
-var File: FileHandle = OpenFile("data.txt");
-
-using (File) {
-  // File を使った読み書き
-  // ブロックを抜けると必ず File.Dispose() が呼ばれる
-}</code></pre>
-
-      <p class="note">
-        <code>using</code> は「メモリ解放」ではなく、<strong>OS リソースや外部リソースの解放</strong> を意図している。<br />
-        メモリ自体の解放は、従来通り AloeVM の GC によって行われる。
-      </p>
-
-      <h3>10.2 文法</h3>
-      <pre><code>UsingStatement ::= 'using' '(' Expression ')' Block</code></pre>
-
-      <ul>
-        <li><code>Expression</code> は <code>IDisposable</code> を実装したオブジェクトを評価する式でなければならない。</li>
-        <li>典型的には変数名（<code>File</code> など）やコンストラクタ呼び出しが使われる。</li>
-      </ul>
-
-      <pre><code>using (OpenFile("data.txt")) {
-  // ここで OpenFile の返したハンドルを使う
-}</code></pre>
-
-      <h3>10.3 静的ルール（コンパイル時）</h3>
-      <ul>
-        <li><code>using (Expr)</code> において、<code>Expr</code> の静的型は
-          <code>IDisposable</code> interface（4.5.3 節）を実装していなければならない。
-        </li>
-        <li>コンパイラは、<code>Dispose(): Unit</code> メソッドの存在をチェックする。</li>
-        <li><code>using</code> の対象にしている変数に対して、
-          その <code>using</code> ブロック内で <code>delete</code> を行うのはコンパイルエラーとする：
-          <ul>
-            <li>例：<code>using (File) { delete File; }</code> はエラー。</li>
-            <li>ただし、同じオブジェクトを指している別の変数に対する <code>delete</code> は許可される。</li>
-          </ul>
-        </li>
-      </ul>
-
-      <p class="note">
-        <code>with</code> と同様、「このブロックではこのオブジェクトを生かしておきたい」という意図と、<br />
-        「この変数から参照を消したい（<code>delete</code>）」という意図が衝突するため、<br />
-        同じ変数に対する <code>using</code> と <code>delete</code> の併用はコンパイル時に禁止される。
-      </p>
-
-      <h3>10.4 実行時セマンティクスとデシュガリング</h3>
-      <p>
-        <code>using (Expr) { Body }</code> は、意味的には次のコードと等価である：
-      </p>
-
-      <pre><code>{
-  let __res = Expr;        // Expr をちょうど 1 回だけ評価
-  try {
-    Body                   // リソースを使った処理
-  } finally {
-    __res.Dispose();       // 正常終了でも例外でも必ず呼ばれる
-  }
-}</code></pre>
-
-      <ul>
-        <li><code>Expr</code> は 1 回だけ評価され、その結果は隠し変数 <code>__res</code> に束縛される。</li>
-        <li><code>Body</code> の実行中に例外が発生しても、
-          <code>finally</code> 節により <code>Dispose()</code> は必ず 1 回だけ呼び出される。
-        </li>
-        <li><code>Body</code> 内で、元の変数（例：<code>File</code>）に対して読み書きすることは自由だが、
-          その変数に対する <code>delete</code> は 10.3 のルールにより禁止される。
-        </li>
-        <li><code>__res</code> はユーザーコードからは見えないスコープの一時変数であり、
-          ブロックを抜けると自動的に寿命が切れる（参照カウントが 1 減る）。
-        </li>
-      </ul>
-
-      <h3>10.5 using と with / lock の組み合わせ</h3>
-      <p>
-        <code>using</code> はリソース管理、<code>with</code> は GC ルートとしての寿命保証、
-        <code>lock</code> は排他制御を担当する。<br />
-        これらはネストして利用することで、用途ごとに組み合わせられる。
-      </p>
-
-      <pre><code>var Conn: Connection = OpenConnection();
-
-using (Conn) {
-  // Conn の Dispose はブロック末尾で必ず呼ばれる
-
-  lock with (Conn) {
-    // ここでは:
-    //   - Conn に対する排他ロック
-    //   - Conn の寿命保証（with）
-    //   - リソースは using によってブロック末尾で解放
-    Send("PING");
-    var Resp: String = Receive();
-    Print(Resp);
-  }
-
-  // lock with ブロックを抜けても、Conn 自体はまだ using 範囲内なので有効
-}
-
-// using ブロックを抜けると Conn.Dispose() が呼ばれ、
-// その後は他の参照がなければ GC によってメモリも解放されうる。</code></pre>
-
-      <p class="small">
-        まとめると、<code>with</code> が「メモリ的な寿命保証（GC ルート）」を、
-        <code>using</code> が「外部リソースの寿命保証（Dispose 呼び出し）」を担当し、<br />
-        <code>lock</code> はスレッドセーフなアクセスを担当するという役割分担になる。
-      </p>
-    </section>
-
     <section id="exceptions">
-      <h2>11. 例外処理</h2>
+      <h2>10. 例外処理</h2>
 
-      <h3>11.1 try / catch / finally</h3>
+      <h3>10.1 try / catch / finally</h3>
       <pre><code>try {
   DoSomething();
 } catch (ex: Error) {
@@ -1487,16 +1555,16 @@ using (Conn) {
     </section>
 
     <section id="runtime">
-      <h2>12. 実行モデルとメモリ管理</h2>
+      <h2>11. 実行モデルとメモリ管理</h2>
 
-      <h3>12.1 AloeVM の概要</h3>
+      <h3>11.1 AloeVM の概要</h3>
       <ul>
         <li>スタックベースのバイトコード VM。</li>
         <li>関数呼び出しはコールスタック上にフレームを積む。</li>
         <li>GC は参照カウント + スライディングコンパクションを用いる想定。</li>
       </ul>
 
-      <h3>12.2 メモリ管理（概要）</h3>
+      <h3>11.2 メモリ管理（概要）</h3>
       <ul>
         <li>オブジェクトはヒープ上に確保される。</li>
         <li>一定の条件を満たした時に GC が実行され、生存オブジェクトをスライドさせてメモリをコンパクトにする。</li>
@@ -1506,9 +1574,6 @@ using (Conn) {
         <li>通常、メモリ管理のために <code>delete</code> を呼ぶ必要はない。
           参照を明示的に破棄したい場合のみ <code>delete</code> を使用する。
         </li>
-        <li><code>using</code> はメモリではなくリソースの寿命を管理し、
-          ブロック末尾で <code>Dispose()</code> を呼ぶことだけを保証する。
-        </li>
       </ul>
 
       <p class="small">
@@ -1517,16 +1582,16 @@ using (Conn) {
     </section>
 
     <section id="limits">
-      <h2>13. 制限事項と今後の展望</h2>
+      <h2>12. 制限事項と今後の展望</h2>
 
-      <h3>13.1 現在の制限事項</h3>
+      <h3>12.1 現在の制限事項</h3>
       <ul>
         <li>ジェネリクスの表現力は最小限であり、typeclass や高階ジェネリクスは定義されていない。</li>
         <li>モジュールシステムやパッケージ管理は本ドキュメントの範囲外である。</li>
         <li>メタプログラミング（マクロ・リフレクション等）は定義されていない。</li>
       </ul>
 
-      <h3>13.2 今後の展望</h3>
+      <h3>12.2 今後の展望</h3>
       <ul>
         <li>Pipe / Filter パイプラインの並列化や融合最適化。</li>
         <li>Wasm コンポーネントモデルとの統合。</li>
@@ -1534,14 +1599,13 @@ using (Conn) {
         <li>分散処理・ストリーミング向けの標準ライブラリ拡張。</li>
         <li>必要に応じた所有権付きリソース型と <code>delete</code> の統合。</li>
         <li>trait / interface / sealed / readonly とパターンマッチおよび網羅性チェックとの統合。</li>
-        <li><code>using</code> と所有権モデルを組み合わせた、より強力な RAII パターンの検討。</li>
       </ul>
 
       <p class="note">
         本ドラフトでは特に、<br />
         <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係と宣言形式</strong>、<br />
         および
-        <strong>with / delete / lock / using / クラス継承 / readonly / clone / generics と AloeVM のメモリモデルとの関係</strong>
+        <strong>with / delete / lock / クラス継承 / readonly / clone / generics / Task / await と AloeVM のメモリモデルおよび非同期モデルとの関係</strong>
         を明確にすることに重点を置いている。
       </p>
     </section>
