@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/Task/async）</title>
-  <meta name="last-updated" content="2025-11-29T12:30:00+09:00" />
+  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event）</title>
+  <meta name="last-updated" content="2025-11-29T12:40:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -135,8 +135,8 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/Task/async</div>
-    <div class="updated">最終更新: 2025-11-29 12:30:00</div>
+    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/event</div>
+    <div class="updated">最終更新: 2025-11-29 12:40:00</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. はじめに</a>
@@ -147,7 +147,6 @@
       <a href="#types">4. 型システム</a>
       <a href="#classes">4.5 クラスと継承</a>
       <a href="#generics">4.6 ジェネリクス</a>
-      <a href="#functypes">4.7 関数型 Func&lt;...:...&gt;</a>
       <a href="#functions-methods">5. 関数とメソッド</a>
 
       <div class="section-title">パイプ / コレクション</div>
@@ -166,6 +165,9 @@
       <div class="section-title">制御 / 実行時モデル</div>
       <a href="#exceptions">10. 例外処理</a>
       <a href="#runtime">11. 実行モデルとメモリ管理</a>
+
+      <div class="section-title">イベント</div>
+      <a href="#event">13. event 構文とイベントモデル</a>
 
       <div class="section-title">その他</div>
       <a href="#limits">12. 制限事項と今後の展望</a>
@@ -235,7 +237,7 @@
         </tr>
         <tr>
           <td>制御</td>
-          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code>, <code>async</code>, <code>await</code></td>
+          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code></td>
         </tr>
         <tr>
           <td>関数</td>
@@ -243,7 +245,7 @@
         </tr>
         <tr>
           <td>補助</td>
-          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code>, <code>using</code></td>
+          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td>
         </tr>
       </table>
 
@@ -315,8 +317,10 @@ if (Count &gt; Threshold) {
   Warn  = 3;
   Error = 4;
 }</code></pre>
+    </section>
 
-      <h3>4.5 クラスと継承（class / interface / trait / sealed）</h3>
+    <section id="classes">
+      <h2>4.5 クラスと継承（class / interface / trait / sealed）</h2>
 
       <h3>4.5.1 クラスの基本</h3>
       <ul>
@@ -387,17 +391,17 @@ class Bad : Base, OtherBase {
       </ul>
 
       <pre><code>interface IDisposable {
-  method Dispose(): void;
+  method Dispose(): Unit;
 }
 
 trait Printable {
-  method PrintSelf(): void {
+  method PrintSelf(): Unit {
     Print(this.ToString());
   }
 }
 
 class FileHandle : BaseFile implements IDisposable with Printable {
-  method Dispose(): void {
+  method Dispose(): Unit {
     // リソース解放処理
   }
 
@@ -470,18 +474,19 @@ class KeywordToken : Token {
         高レベルな方針を定める。<br />
         メソッド解決順序や trait の衝突解決の詳細は別途仕様化する。
       </p>
+    </section>
 
-      <section id="generics">
-        <h2>4.6 ジェネリクス</h2>
+    <section id="generics">
+      <h2>4.6 ジェネリクス</h2>
 
-        <h3>4.6.1 概要</h3>
-        <p>
-          Aloe は、型・関数・メソッド・パイプ関連宣言に対して最小限のジェネリクス機構を提供する。<br />
-          目的は、コレクションや Pipe / Filter を型安全に再利用可能にすることであり、
-          高度な型レベル計算をサポートすることではない。
-        </p>
+      <h3>4.6.1 概要</h3>
+      <p>
+        Aloe は、型・関数・メソッド・パイプ関連宣言に対して最小限のジェネリクス機構を提供する。<br />
+        目的は、コレクションや Pipe / Filter を型安全に再利用可能にすることであり、
+        高度な型レベル計算をサポートすることではない。
+      </p>
 
-        <pre><code>type Box&lt;T&gt; {
+      <pre><code>type Box&lt;T&gt; {
   Value: T;
 }
 
@@ -494,18 +499,18 @@ method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: T -&gt; U): Pipe&lt;U&gt
   // 実装は省略
 }</code></pre>
 
-        <h3>4.6.2 ジェネリック型パラメータ</h3>
-        <ul>
-          <li>型、struct、class、interface、trait、method、
-            および producer/filter/consumer 宣言は <code>&lt;T, U, ...&gt;</code> で型パラメータを受け取れる。
-          </li>
-          <li>型パラメータ名は一般的に大文字で始めることが推奨される
-            （<code>T</code>, <code>TItem</code>, <code>TKey</code> など）。
-          </li>
-          <li>型引数は利用箇所で具体的な型に束縛される。</li>
-        </ul>
+      <h3>4.6.2 ジェネリック型パラメータ</h3>
+      <ul>
+        <li>型、struct、class、interface、trait、method、
+          および producer/filter/consumer 宣言は <code>&lt;T, U, ...&gt;</code> で型パラメータを受け取れる。
+        </li>
+        <li>型パラメータ名は一般的に大文字で始めることが推奨される
+          （<code>T</code>, <code>TItem</code>, <code>TKey</code> など）。
+        </li>
+        <li>型引数は利用箇所で具体的な型に束縛される。</li>
+      </ul>
 
-        <pre><code>type List&lt;T&gt; {
+      <pre><code>type List&lt;T&gt; {
   Items: T[];
 }
 
@@ -513,57 +518,57 @@ method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
   // 実装は省略
 }</code></pre>
 
-        <h3>4.6.3 where 型制約（概要）</h3>
-        <p>
-          Aloe のジェネリクスは、<code>where</code> 句を用いた任意の型制約をサポートする。<br />
-          デフォルトは制約なしだが、バージョン 0.1 の段階でいくつかの基本的な制約をサポートする。
-        </p>
+      <h3>4.6.3 where 型制約（概要）</h3>
+      <p>
+        Aloe のジェネリクスは、<code>where</code> 句を用いた任意の型制約をサポートする。<br />
+        デフォルトは制約なしだが、バージョン 0.1 の段階でいくつかの基本的な制約をサポートする。
+      </p>
 
-        <pre><code>method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
+      <pre><code>method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
   where T: Int
 {
   // Int 専用の合計処理
 }</code></pre>
 
-        <p class="note">
-          ここでの <code>where</code> は純粋に <strong>コンパイル時の型チェック</strong> のためだけに存在する。<br />
-          実行時表現（モノモーフィック展開か、型タグを持つ共有コードかなど）は VM 仕様に委ねられる。
-        </p>
+      <p class="note">
+        ここでの <code>where</code> は純粋に <strong>コンパイル時の型チェック</strong> のためだけに存在する。<br />
+        実行時表現（モノモーフィック展開か、型タグを持つ共有コードかなど）は VM 仕様に委ねられる。
+      </p>
 
-        <h3>4.6.4 サポートされる制約の種類</h3>
-        <p>
-          バージョン 0.1 では、以下の種類の制約をサポートする：
-        </p>
+      <h3>4.6.4 サポートされる制約の種類</h3>
+      <p>
+        バージョン 0.1 では、以下の種類の制約をサポートする：
+      </p>
 
-        <ul>
-          <li><strong>値型 / 参照型 制約</strong>
-            <ul>
-              <li><code>where T: struct</code> – <code>T</code> は値型でなければならない。</li>
-              <li><code>where T: class</code> – <code>T</code> は参照型でなければならない。</li>
-            </ul>
-          </li>
-          <li><strong>プリミティブ型制約</strong>
-            <ul>
-              <li><code>where T: Int</code>, <code>where T: Float</code>, <code>where T: Bool</code> など、
-                プリミティブ型名を直接指定できる。
-              </li>
-            </ul>
-          </li>
-          <li><strong>ユーザー定義型制約</strong>
-            <ul>
-              <li><code>where T: SomeTrait</code> – trait <code>SomeTrait</code> を実装している型。</li>
-              <li><code>where T: MyStruct</code> – struct <code>MyStruct</code> とちょうど同じ型。</li>
-              <li><code>where T: MyClass</code> – class <code>MyClass</code> とちょうど同じ型。</li>
-            </ul>
-          </li>
-          <li><strong>任意の具体型名</strong>
-            <ul>
-              <li>既存の具体型名であれば何でも指定できる（例: <code>where T: Pipe&lt;Int&gt;</code>）。</li>
-            </ul>
-          </li>
-        </ul>
+      <ul>
+        <li><strong>値型 / 参照型 制約</strong>
+          <ul>
+            <li><code>where T: struct</code> – <code>T</code> は値型でなければならない。</li>
+            <li><code>where T: class</code> – <code>T</code> は参照型でなければならない。</li>
+          </ul>
+        </li>
+        <li><strong>プリミティブ型制約</strong>
+          <ul>
+            <li><code>where T: Int</code>, <code>where T: Float</code>, <code>where T: Bool</code> など、
+              プリミティブ型名を直接指定できる。
+            </li>
+          </ul>
+        </li>
+        <li><strong>ユーザー定義型制約</strong>
+          <ul>
+            <li><code>where T: SomeTrait</code> – trait <code>SomeTrait</code> を実装している型。</li>
+            <li><code>where T: MyStruct</code> – struct <code>MyStruct</code> とちょうど同じ型。</li>
+            <li><code>where T: MyClass</code> – class <code>MyClass</code> とちょうど同じ型。</li>
+          </ul>
+        </li>
+        <li><strong>任意の具体型名</strong>
+          <ul>
+            <li>既存の具体型名であれば何でも指定できる（例: <code>where T: Pipe&lt;Int&gt;</code>）。</li>
+          </ul>
+        </li>
+      </ul>
 
-        <pre><code>// 値型専用ジェネリック
+      <pre><code>// 値型専用ジェネリック
 method Zero&lt;T&gt;(): T
   where T: struct
 {
@@ -584,16 +589,16 @@ method PrintUser&lt;T&gt;(User: T)
   // 実装は省略
 }</code></pre>
 
-        <h3>4.6.5 制約違反時の挙動</h3>
-        <ul>
-          <li>ジェネリック関数／型に与えた型引数が <code>where</code> の制約を満たさない場合、
-            それはコンパイルエラーとなる。
-          </li>
-          <li>複数の制約が指定されている場合、それらすべてを同時に満たす必要がある。</li>
-          <li>循環する制約や高度な typeclass 的構造は現時点ではサポートしない。</li>
-        </ul>
+      <h3>4.6.5 制約違反時の挙動</h3>
+      <ul>
+        <li>ジェネリック関数／型に与えた型引数が <code>where</code> の制約を満たさない場合、
+          それはコンパイルエラーとなる。
+        </li>
+        <li>複数の制約が指定されている場合、それらすべてを同時に満たす必要がある。</li>
+        <li>循環する制約や高度な typeclass 的構造は現時点ではサポートしない。</li>
+      </ul>
 
-        <pre><code>// コンパイルエラーの例:
+      <pre><code>// コンパイルエラーの例:
 
 // where T: Int なので、T は String にはできない
 method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
@@ -605,47 +610,9 @@ method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
 var Lines: Pipe&lt;String&gt; = ReadLines("log.txt");
 var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
 
-        <p class="small">
-          ジェネリクスの内部表現（モノモーフィック展開か、型タグ付き共有コードか等）は AloeVM が定義する。<br />
-          本言語仕様では、型安全な再利用と <code>where</code> ベースの制約チェックの振る舞いに焦点を当てる。
-        </p>
-      </section>
-
-      <h3 id="functypes">4.7 関数型 Func&lt;...:...&gt;</h3>
-      <p>
-        Aloe では、関数・ラムダの型を表すために <code>Func&lt;...:...&gt;</code> という記法を用いる。
-        <code>:</code> の左側に引数型リスト（カンマ区切り）、右側に戻り値の型を記述する。
-      </p>
-
-      <pre><code>// Int を受け取って String を返す関数
-Func&lt;Int:String&gt;
-
-// String, Int を受け取って Task を返す関数
-Func&lt;String, Int:Task&gt;
-
-// String を受け取って Task&lt;Int&gt; を返す関数
-Func&lt;String:Task&lt;Int&gt;&gt;</code></pre>
-
-      <ul>
-        <li>引数がない場合は左側を空にし、<code>Func&lt;:ReturnType&gt;</code> と書く。</li>
-        <li>戻り値がない関数は、<code>Func&lt;Args:&gt;</code> または <code>Func&lt;Args:void&gt;</code> と書く。
-          この 2 つは等価であり、「値を返さない関数」であることを表す。
-        </li>
-        <li><code>void</code> は「戻り値がない」ことを示す専用のキーワードであり、
-          変数やフィールドの型としては使用できない（<code>let X: void</code> などはコンパイルエラー）。
-        </li>
-      </ul>
-
-      <pre><code>// Task を受け取って何も返さない関数
-Func&lt;Task:&gt;
-Func&lt;Task:void&gt;
-
-// 引数なしで Task&lt;Int&gt; を返す関数
-Func&lt;:Task&lt;Int&gt;&gt;</code></pre>
-
       <p class="small">
-        解説用には簡略表記として <code>A -&gt; B</code> を用いることがあるが、
-        正式な型表現としては <code>Func&lt;A:B&gt;</code> を用いる。
+        ジェネリクスの内部表現（モノモーフィック展開か、型タグ付き共有コードか等）は AloeVM が定義する。<br />
+        本言語仕様では、型安全な再利用と <code>where</code> ベースの制約チェックの振る舞いに焦点を当てる。
       </p>
     </section>
 
@@ -659,7 +626,7 @@ Func&lt;:Task&lt;Int&gt;&gt;</code></pre>
 
       <ul>
         <li><code>method</code> はトップレベル関数、または型にバインドされたメソッドを定義する。</li>
-        <li>戻り値の型を明示しない場合、そのメソッドは「値を返さない（void）」メソッドとみなされる。</li>
+        <li>戻り値を明示しない場合、そのメソッドは <code>Unit</code> を返すとみなされる。</li>
       </ul>
 
       <h3>5.2 bound によるメソッドバインディング</h3>
@@ -680,163 +647,6 @@ bound Pipe&lt;T&gt; {
       <p class="note">
         <code>Pipe&lt;T&gt;</code> に対しては、<code>bound</code> ブロックで宣言されるメソッドの
         戻り値に関する<strong>制約</strong>を導入する（詳細は 6.2 を参照）。
-      </p>
-
-      <h3>5.3 Task と await（非同期処理の基本）</h3>
-      <p>
-        Aloe は C# に類似した <strong>Task ベースの非同期モデル</strong> を採用するが、
-        言語レベルでは <code>async</code> キーワードはメソッドには使用しない。
-      </p>
-
-      <h4>5.3.1 Task / Task&lt;T&gt; 型</h4>
-      <ul>
-        <li><code>Task</code> は「値を返さない非同期処理」を表す。</li>
-        <li><code>Task&lt;T&gt;</code> は「将来 <code>T</code> 型の値を 1 度だけ返す非同期処理」を表す。</li>
-        <li><code>Task&lt;void&gt;</code> といった表現は<strong>存在しない</strong>。
-          値を返さない非同期処理は常に <code>Task</code> で表現する。
-        </li>
-      </ul>
-
-      <pre><code>// HTTP GET: 文字列を返す非同期処理
-method HttpGet(Url: String): Task&lt;String&gt; {
-  // 実装は VM / 標準ライブラリ側
-}
-
-// ログを書き出すだけの非同期処理
-method LogAsync(Message: String): Task {
-  // 実装は省略
-}</code></pre>
-
-      <h4>5.3.2 await 式</h4>
-      <pre><code>AwaitExpression ::= 'await' Expression</code></pre>
-
-      <p><code>await</code> は <code>Task</code> / <code>Task&lt;T&gt;</code> の完了を待ち、その結果を取り出すための式である。</p>
-
-      <ul>
-        <li><code>Expression</code> の型が <code>Task&lt;T&gt;</code> の場合、
-          <code>await Expression</code> の型は <code>T</code> になる。
-        </li>
-        <li><code>Expression</code> の型が <code>Task</code> の場合、
-          <code>await Expression</code> は「値を生成しない式」として扱われる
-          （文としてのみ使用するのが一般的である）。
-        </li>
-        <li>それ以外の型に対して <code>await</code> を適用した場合はコンパイルエラーとなる。</li>
-      </ul>
-
-      <h4>5.3.3 await が使用できる場所</h4>
-      <p>
-        <code>await</code> は、次のいずれかの条件を満たすコンテキスト内でのみ使用できる：
-      </p>
-      <ul>
-        <li>戻り値の型が <code>Task</code> または <code>Task&lt;T&gt;</code> である <code>method</code> 本体の中。</li>
-        <li><code>async { ... }</code> ブロックの中（5.4 節参照）。</li>
-        <li><code>async (...)</code> で始まるラムダ式の中（5.4 節参照）。</li>
-      </ul>
-
-      <p>
-        戻り値の型が <code>Task</code> / <code>Task&lt;T&gt;</code> ではないメソッド、
-        および非 <code>async</code> ブロック／ラムダの中で <code>await</code> が現れた場合はコンパイルエラーとなる。
-      </p>
-
-      <h4>5.3.4 非同期メソッドの例</h4>
-
-      <pre><code>// ユーザ情報を取得する非同期メソッド
-method FetchUser(Id: Int): Task&lt;User&gt; {
-  let Url: String = "https://api.example.com/users/" + Id.ToString();
-  let Json: String = await HttpGet(Url);
-  return ParseUser(Json);
-}
-
-// 呼び出し側も Task / Task&lt;T&gt; を返す
-method Main(): Task {
-  let U: User = await FetchUser(1);
-  Print(U.Name);
-}</code></pre>
-
-      <p class="note">
-        C# の <code>async</code> キーワードとは異なり、Aloe では
-        「戻り値の型が <code>Task</code> / <code>Task&lt;T&gt;</code> であり、かつ本体に <code>await</code> を含むメソッド」
-        は自動的にステートマシンとしてコンパイルされる。<br />
-        メソッド宣言に特別な修飾子を付ける必要はない。
-      </p>
-
-      <h3>5.4 async ブロックと async ラムダ</h3>
-
-      <h4>5.4.1 async ブロック（無名非同期ブロック）</h4>
-      <p>
-        Aloe では、引数を持たない無名の非同期処理を作るために <code>async { ... }</code> 構文を提供する。
-        これは式として評価され、その型は <code>Task</code> または <code>Task&lt;T&gt;</code> になる。
-      </p>
-
-      <pre><code>// 戻り値なし（Task）
-let Job: Task = async {
-  Log("start");
-  let Body: String = await HttpGet("https://example.com");
-  Log("length = " + Body.Length.ToString());
-};
-
-// 戻り値あり（Task&lt;Int&gt;）
-let GetLength: Task&lt;Int&gt; = async {
-  let Body: String = await HttpGet("https://example.com");
-  return Body.Length;
-};</code></pre>
-
-      <ul>
-        <li><code>async { ... }</code> ブロック内では <code>await</code> が使用できる。</li>
-        <li>ブロック内に <code>return Expr;</code> が現れる場合、その式 <code>Expr</code> の型を <code>T</code> として
-          全体の型は <code>Task&lt;T&gt;</code> となる。
-        </li>
-        <li>明示的な <code>return</code> がなく、最後に値を返さない場合は型は <code>Task</code> となる。</li>
-      </ul>
-
-      <h4>5.4.2 async ラムダ式</h4>
-      <p>
-        引数を持つ非同期関数を無名で定義するには <code>async (Params) { ... }</code> を用いる。
-      </p>
-
-      <pre><code>// 型: Func&lt;String:Task&lt;Int&gt;&gt;
-let FetchLength: Func&lt;String:Task&lt;Int&gt;&gt; =
-  async (Url: String) {
-    let Body: String = await HttpGet(Url);
-    return Body.Length;
-  };
-
-// 型: Func&lt;Task:&gt; （Task を受け取って何も返さない）
-let NotifyDone: Func&lt;Task:&gt; =
-  async (t: Task) {
-    Log("job finished");
-    await FlushLogAsync();
-  };</code></pre>
-
-      <ul>
-        <li><code>async (Params) { ... }</code> の結果型は、代入先や呼び出し先の型（<code>Func&lt;...:...&gt;</code>）から推論される。</li>
-        <li>その関数型の戻り値が <code>Task</code> / <code>Task&lt;T&gt;</code> のとき、
-          ラムダ本体の中では <code>await</code> が使用できる。
-        </li>
-        <li>戻り値が非 Task 型の <code>Func</code> に <code>async</code> ラムダを代入しようとした場合はコンパイルエラーとなる。</li>
-      </ul>
-
-      <h4>5.4.3 async ブロックと async ラムダの関係</h4>
-      <p>
-        <code>async { ... }</code> は、概念的には
-        「引数なしの <code>async () { ... }</code> ラムダ」のシンタックスシュガーとみなせる：
-      </p>
-
-      <pre><code>let T: Task&lt;Int&gt; = async {
-  let Body: String = await HttpGet("https://example.com");
-  return Body.Length;
-};
-
-// おおよそ次と同等とみなせる:
-let T2: Func&lt;:Task&lt;Int&gt;&gt; = async () {
-  let Body: String = await HttpGet("https://example.com");
-  return Body.Length;
-};</code></pre>
-
-      <p class="small">
-        実際のコンパイル単位（ステートマシン型の生成など）は実装依存だが、
-        言語仕様上は「<code>Task</code> / <code>Task&lt;T&gt;</code> を返し、内部で <code>await</code> を利用できる無名関数」
-        という点が重要である。
       </p>
     </section>
 
@@ -959,7 +769,7 @@ let T2: Func&lt;:Task&lt;Int&gt;&gt; = async () {
           </li>
           <li><strong>戻り値の型</strong>：
             <code>R</code> は <code>Pipe&lt;*&gt;</code> でない限り制約はない。
-            <code>T[]</code>、<code>Int</code>、<code>Bool</code> など任意の型を取れる。
+            <code>T[]</code>、<code>Int</code>、<code>Unit</code> など任意の型を取れる。
           </li>
         </ul>
 
@@ -1118,7 +928,7 @@ filter Map&lt;T, U&gt;(Selector: T -&gt; U) {
           <li><code>bound(input)</code> はパイプライン末尾で実行され、
             <code>input</code> を完全に消費し、任意の型 <code>R</code> の値を返す。
           </li>
-          <li><code>R</code> は <code>T[]</code>・<code>Int</code>・<code>Bool</code> など任意の型を取れるが、
+          <li><code>R</code> は <code>T[]</code>・<code>Int</code>・<code>Bool</code>・<code>Unit</code> など任意の型を取れるが、
             <strong><code>Pipe&lt;*&gt;</code> であってはならない</strong>。
           </li>
         </ul>
@@ -1605,9 +1415,292 @@ lock with (Conn) {
         本ドラフトでは特に、<br />
         <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係と宣言形式</strong>、<br />
         および
-        <strong>with / delete / lock / クラス継承 / readonly / clone / generics / Task / await と AloeVM のメモリモデルおよび非同期モデルとの関係</strong>
+        <strong>with / delete / lock / クラス継承 / readonly / clone / generics と AloeVM のメモリモデルとの関係</strong>
         を明確にすることに重点を置いている。
       </p>
+    </section>
+
+    <section id="event">
+      <h2>13. event 構文とイベントモデル</h2>
+
+      <h3>13.1 目的と位置づけ</h3>
+      <p>
+        Aloe の <code>event</code> 構文は、
+        「ここは外部コードからハンドラを登録できる通知ポイントである」という契約を
+        言語レベルで表現するためのものである。
+      </p>
+      <ul>
+        <li>外部コードはイベントにハンドラ（コールバック）を登録・解除できる。</li>
+        <li>イベントの発火（通知の実行）は、原則としてイベントを宣言した側のみが行える。</li>
+      </ul>
+      <p>
+        実装レベルでは、<code>event</code> は標準ライブラリ型 <code>Event&lt;TArgs&gt;</code> の
+        シンタックスシュガーとして扱われる。
+      </p>
+      <ul>
+        <li><code>event Clicked&lt;ClickedArgs&gt;;</code> は、
+          型 <code>Event&lt;ClickedArgs&gt;</code> のフィールドを 1 つ持つのと等価である。
+        </li>
+        <li>ただし通常のフィールドとは異なり、外部コードからの再代入や直接の <code>Raise</code> 呼び出しは
+          禁止される（コンパイルエラー）。</li>
+      </ul>
+
+      <h3>13.2 Event&lt;TArgs&gt; とハンドラ型</h3>
+
+      <h4>13.2.1 ハンドラ型</h4>
+      <p>
+        イベントハンドラの関数型は、標準型エイリアスとして次のように定義される：
+      </p>
+      <pre><code>type EventHandler&lt;TArgs&gt; = TArgs -&gt; Task;</code></pre>
+      <ul>
+        <li>引数: <code>TArgs</code>（イベント引数の型）</li>
+        <li>戻り値: <code>Task</code><br />
+          非同期ハンドラを自然にサポートするため、イベントハンドラは
+          「完了を表す <code>Task</code> を返す関数」としてモデル化される。
+        </li>
+      </ul>
+      <p class="note">
+        将来的には、<code>TArgs -&gt; Task&lt;TResult&gt;</code> 型のハンドラを扱う
+        <code>Event&lt;TArgs, TResult&gt;</code> のような拡張を検討する余地があるが、
+        バージョン 0.1 では <code>Task</code> 戻り値を基本とする。
+      </p>
+
+      <h4>13.2.2 Event&lt;TArgs&gt; の役割（概念）</h4>
+      <p>
+        <code>Event&lt;TArgs&gt;</code> は、イベントハンドラの集合とその一括実行ロジックを持つ型である。
+      </p>
+      <pre><code>type Event&lt;TArgs&gt; {
+  Handlers: List&lt;EventHandler&lt;TArgs&gt;&gt;;
+}
+
+bound Event&lt;TArgs&gt; {
+  method Add(Handler: EventHandler&lt;TArgs&gt;): Task {
+    Handlers.Add(Handler);
+  }
+
+  method Remove(Handler: EventHandler&lt;TArgs&gt;): Task {
+    // ハンドラの同一性判定の詳細は VM / ランタイム仕様に委ねる
+    Handlers.Remove(Handler);
+  }
+
+  method Raise(Args: TArgs): Task {
+    // すべてのハンドラを順番に await し、
+    // 全て終了したら完了する Task を返す
+    foreach (H in Handlers) {
+      await H(Args);
+    }
+  }
+}</code></pre>
+      <p class="note">
+        言語仕様としては、
+        <code>Event&lt;TArgs&gt;</code> が「イベント集合」の実体であり、
+        <code>event</code> 構文がそのフィールド宣言＋アクセス制御の糖衣構文である、
+        という関係性のみを定める。
+      </p>
+
+      <h3>13.3 event 宣言の文法</h3>
+
+      <h4>13.3.1 宣言位置</h4>
+      <p><code>event</code> は以下の場所で宣言できる：</p>
+      <ul>
+        <li><code>struct</code> 本体</li>
+        <li><code>class</code> 本体</li>
+        <li><code>interface</code> 本体</li>
+      </ul>
+      <p>
+        トップレベル（ファイル直下）や <code>trait</code> 内での宣言は、
+        バージョン 0.1 では定義しない。
+      </p>
+
+      <h4>13.3.2 文法（概要）</h4>
+      <pre><code>EventDeclaration ::=
+    'event' Identifier '&lt;' Type '&gt;' ';'</code></pre>
+      <p>例：</p>
+      <pre><code>struct Button {
+  event Clicked&lt;ClickedArgs&gt;;
+}</code></pre>
+      <p>
+        上記宣言は、意味的には次のフィールド宣言と等価である：
+      </p>
+      <pre><code>struct Button {
+  private Clicked: Event&lt;ClickedArgs&gt;;
+}</code></pre>
+      <p>ただし通常のフィールドと異なり、以下の制約が追加される：</p>
+      <ul>
+        <li>外部コードから <code>Clicked</code> への再代入はできない（コンパイルエラー）。</li>
+        <li>外部コードから <code>Clicked.Raise(...)</code> を直接呼び出すことはできない。</li>
+        <li>外部コードから <code>delete Clicked;</code> を行うことも禁止される。</li>
+      </ul>
+
+      <h3>13.4 イベント購読／解除構文（<code>+=</code> / <code>-=</code>）</h3>
+
+      <h4>13.4.1 文法</h4>
+      <pre><code>EventAddStatement    ::= PrimaryExpression '.' Identifier '+=' EventHandlerExpression ';'
+EventRemoveStatement ::= PrimaryExpression '.' Identifier '-=' EventHandlerExpression ';'</code></pre>
+      <ul>
+        <li><code>PrimaryExpression.Identifier</code> は <code>event</code> 宣言されたメンバでなければならない。</li>
+        <li><code>EventHandlerExpression</code> は型 <code>TArgs -&gt; Task</code> に暗黙変換可能な式でなければならない。</li>
+      </ul>
+
+      <h4>13.4.2 型ルール</h4>
+      <p>
+        <code>event X&lt;TArgs&gt;;</code> が宣言されているとき、
+      </p>
+      <ul>
+        <li><code>Target.X</code> の型は <code>Event&lt;TArgs&gt;</code> である。</li>
+        <li><code>Target.X += H;</code> が許可されるのは、
+          <code>H</code> の型が <code>TArgs -&gt; Task</code>（またはそれに暗黙変換可能）である場合のみ。</li>
+        <li><code>Target.X -= H;</code> についても同様の制約が適用される。</li>
+      </ul>
+
+      <h4>13.4.3 デシュガリング（意味的な等価コード）</h4>
+      <p>意味的には次のように解釈される：</p>
+      <pre><code>Target.X += H;
+// は意味的に:
+await Target.X.Add(H);</code></pre>
+      <pre><code>Target.X -= H;
+// は意味的に:
+await Target.X.Remove(H);</code></pre>
+      <p class="note">
+        <code>Add</code> / <code>Remove</code> を <code>Task</code> 戻り値とすることで、
+        <code>+=</code> / <code>-=</code> による購読／解除も非同期文として扱うことができる。
+        必要に応じて、将来バージョンで fire-and-forget なバリエーションを検討する。
+      </p>
+
+      <h3>13.5 イベントの発火（Raise）のルール</h3>
+
+      <h4>13.5.1 発火は定義側のみ許可</h4>
+      <p>
+        <code>event</code> 宣言されたメンバに対する <code>Raise</code> 呼び出しは、
+        次のスコープからのみ許可される：
+      </p>
+      <ul>
+        <li>そのイベントを宣言している <code>struct</code> / <code>class</code> のメソッド</li>
+        <li>同じ型に対する <code>bound</code> ブロック内のメソッド</li>
+      </ul>
+      <p>
+        それ以外のコード（外部モジュールや別クラス）からの
+        <code>Clicked.Raise(...)</code> 呼び出しはコンパイルエラーとなる。
+      </p>
+      <p class="note">
+        これにより、「イベントを公開している側だけが発火権限を持つ」という責務分離を保証できる。
+      </p>
+
+      <h4>13.5.2 発火の基本形</h4>
+      <pre><code>struct ClickedArgs {
+  ButtonId: String;
+}
+
+struct Button {
+  event Clicked&lt;ClickedArgs&gt;;
+}
+
+bound Button {
+  method OnNativeClick(Id: String): Task {
+    let Args: ClickedArgs = { ButtonId = Id };
+    await Clicked.Raise(Args);
+  }
+}</code></pre>
+
+      <h3>13.6 interface の event と実装</h3>
+      <p><code>interface</code> でも <code>event</code> を宣言できる。</p>
+      <pre><code>struct ClickedArgs {
+  ButtonId: String;
+}
+
+interface IButton {
+  event Clicked&lt;ClickedArgs&gt;;
+}</code></pre>
+      <p>
+        この場合、<code>IButton</code> を <code>implements</code> する <code>struct</code> / <code>class</code> は、
+        対応する <code>event</code> を必ず宣言しなければならない。
+      </p>
+      <pre><code>struct Button implements IButton {
+  event Clicked&lt;ClickedArgs&gt;;
+}</code></pre>
+      <ul>
+        <li>イベント名 <code>Clicked</code> が一致していない場合</li>
+        <li>型引数 <code>ClickedArgs</code> が異なる場合</li>
+      </ul>
+      <p>はいずれもインターフェース実装不備としてコンパイルエラーとなる。</p>
+
+      <h3>13.7 使用例</h3>
+
+      <h4>13.7.1 Button と Clicked イベント</h4>
+      <pre><code>struct ClickedArgs {
+  ButtonId: String;
+}
+
+struct Button {
+  event Clicked&lt;ClickedArgs&gt;;
+}
+
+bound Button {
+  method OnNativeClick(Id: String): Task {
+    let Args: ClickedArgs = { ButtonId = Id };
+    await Clicked.Raise(Args);
+  }
+}
+
+method SetupButton(): Task {
+  var Btn: Button = CreateButton("OK");
+
+  // 非同期ハンドラを登録
+  Btn.Clicked += async (Args: ClickedArgs): Task {
+    Print("Clicked: " + Args.ButtonId);
+  };
+
+  // 別のハンドラを登録
+  Btn.Clicked += async (Args: ClickedArgs): Task {
+    Log("button clicked");
+  };
+}</code></pre>
+
+      <h4>13.7.2 イベント解除</h4>
+      <pre><code>method SetupAndTearDown(Btn: Button): Task {
+  let Handler: ClickedArgs -&gt; Task =
+    async (Args: ClickedArgs): Task {
+      Print("temp handler");
+    };
+
+  // 登録
+  Btn.Clicked += Handler;
+
+  // 何か処理…
+
+  // 解除
+  Btn.Clicked -= Handler;
+}</code></pre>
+
+      <h3>13.8 with / lock と Event&lt;TArgs&gt; の組み合わせ（参考）</h3>
+      <p>
+        <code>Event&lt;TArgs&gt;</code> 自体も通常の参照型であるため、
+        必要に応じて <code>with</code> や <code>lock with</code> と組み合わせて
+        スレッドセーフに発火処理を行うこともできる。
+      </p>
+      <pre><code>struct Hub {
+  event MessageReceived&lt;String&gt;;
+}
+
+bound Hub {
+  method RaiseMessage(Msg: String): Task {
+    lock with (MessageReceived) {
+      await MessageReceived.Raise(Msg);
+    }
+  }
+}</code></pre>
+
+      <h3>13.9 まとめ</h3>
+      <ul>
+        <li><code>event</code> は <code>Event&lt;TArgs&gt;</code> の構文糖衣とアクセス制御ルールを提供する。</li>
+        <li>外部コードは <code>+=</code> / <code>-=</code> によるハンドラ登録・解除のみが可能であり、
+          イベントの発火や参照の差し替えはできない。</li>
+        <li>ハンドラは <code>TArgs -&gt; Task</code> 型で統一し、非同期前提のイベントモデルとする。</li>
+        <li>インターフェースにも <code>event</code> を宣言でき、イベント契約を型レベルで表現できる。</li>
+        <li>C# の <code>event</code> に似た使い勝手を提供しつつ、
+          <code>delegate</code> 型を言語に追加せず、
+          Aloe の関数型と <code>Task</code> を素直に利用する設計とする。</li>
+      </ul>
     </section>
 
   </main>
