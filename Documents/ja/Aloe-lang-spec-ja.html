@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス）</title>
-  <meta name="last-updated" content="2025-11-29T11:30:00+09:00" />
+  <meta name="last-updated" content="2025-11-29T12:00:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -137,7 +137,7 @@
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
     <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス</div>
-    <div class="updated">最終更新: 2025-11-29 11:30:00</div>
+    <div class="updated">最終更新: 2025-11-29 12:00:00</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. はじめに</a>
@@ -145,6 +145,7 @@
 
       <div class="section-title">言語の基本</div>
       <a href="#syntax">3. 基本文法</a>
+      <a href="#binding-cast">3.5 as バインドと to キャスト</a>
       <a href="#types">4. 型システム</a>
       <a href="#classes">4.5 クラスと継承</a>
       <a href="#generics">4.6 ジェネリクス</a>
@@ -157,6 +158,7 @@
       <a href="#pipe-defs">6.3 パイプ関連宣言</a>
       <a href="#pipe-operator">6.4 パイプ演算子 <code>|&gt;</code></a>
       <a href="#pipe-std">6.5 標準 Filter / Producer</a>
+      <a href="#switch-pipe">6.6 switch パイプ</a>
 
       <div class="section-title">構文拡張</div>
       <a href="#with">7. with 構文</a>
@@ -235,7 +237,7 @@
         </tr>
         <tr>
           <td>制御</td>
-          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code></td>
+          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code>, <code>switch</code>, <code>case</code>, <code>default</code></td>
         </tr>
         <tr>
           <td>関数</td>
@@ -243,7 +245,11 @@
         </tr>
         <tr>
           <td>補助</td>
-          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td>
+          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code>, <code>as</code>, <code>to</code></td>
+        </tr>
+        <tr>
+          <td>パイプ関連</td>
+          <td><code>producer</code>, <code>pipe</code>, <code>filter</code>, <code>consumer</code>, <code>bound</code></td>
         </tr>
       </table>
 
@@ -264,6 +270,126 @@ if (Count &gt; Threshold) {
 } else {
   Print("ok");
 }</code></pre>
+
+      <h3 id="binding-cast">3.5 as バインドと to キャスト</h3>
+
+      <h4>3.5.1 as バインド（要素名と型の付与）</h4>
+      <p>
+        <code>as</code> は、値に対して <strong>名前と（必要なら）型</strong> を結び付けるための構文である。<br />
+        主にパイプラインや <code>switch</code> パイプ内で「現在の要素」を参照しやすくする目的で使われる。
+      </p>
+
+      <p>基本形は次の 3 つである：</p>
+
+      <pre><code>// 1) 名前だけを付ける
+as A
+
+// 2) 名前と型を同時に付ける
+as A:Type
+
+// 3) 型だけを付ける（名前は暗黙。`.` で参照）
+as :Type</code></pre>
+
+      <ul>
+        <li><code>as</code> の直後には必ず 1 個のスペースを置く（<code>as A</code>, <code>as A:Type</code>, <code>as :Type</code>）。</li>
+        <li><code>A:Type</code> では、<code>A</code> と <code>:</code> の間、および <code>:</code> と <code>Type</code> の間にスペースを入れない。</li>
+        <li><code>as A:Type</code> は、「<code>A</code> という名前でこの値を <code>Type</code> として扱う」という宣言である。</li>
+        <li><code>as :Type</code> の場合、名前は暗黙とし、<strong><code>.</code> を「現在の要素」を指す省略記法</strong>として使う。
+          <br />（例: <code>.Status == 200</code> は「現在の要素の <code>Status</code> プロパティ」を意味する。）
+        </li>
+      </ul>
+
+      <p>
+        <code>as</code> は次の 2 箇所で使用できる：
+      </p>
+      <ul>
+        <li><strong>パイプラインの入力側：</strong> <code>SourceExpr as A</code>, <code>SourceExpr as A:Type</code> など。</li>
+        <li><strong><code>switch</code> パイプのヘッダ：</strong> <code>switch as A</code>, <code>switch as A:Type</code>, <code>switch as :Type</code> など。</li>
+      </ul>
+
+      <pre><code>// パイプラインの入り口でバインド
+Users as U
+  |&gt; Where (U.IsActive)
+  |&gt; Map   (U.Name)
+  |&gt; ToArray();
+
+// switch 側でのみバインド
+Events
+  |&gt; switch as E {
+       case E.Kind == "info":    LogInfo(E);
+       case E.Kind == "error":   LogError(E);
+       default:                  LogUnknown(E);
+     };</code></pre>
+
+      <p class="note">
+        <code>Source as A:Type</code> や <code>switch as A:Type</code> のように
+        <strong>名前と型を同時に指定する形（<code>as A:Type</code>）を仕様上の正規形</strong>とする。<br />
+        後述の <code>as A to Type</code> はこれの糖衣構文である。
+      </p>
+
+      <h4>3.5.2 to キャスト</h4>
+      <p>
+        <code>to</code> は、式を別の型（または「形」）として扱うための
+        <strong>キャスト演算子</strong> である。
+      </p>
+
+      <pre><code>Value to HttpResponse
+JsonText to { Id: Int; Name: String; }
+Items to List&lt;String&gt;</code></pre>
+
+      <ul>
+        <li>左辺は任意の式、右辺は <strong>型またはレコード形などの Shape</strong>。</li>
+        <li>コンパイラが静的に安全と判断できる場合は単なる型変換として扱い、
+          そうでない場合は実行時に失敗しうるキャストとして扱われる。
+        </li>
+        <li>キャスト失敗時に例外を投げるか、<code>Option</code> 風の型を返すかなどの詳細は AloeVM／標準ライブラリ側で定義される。</li>
+      </ul>
+
+      <pre><code>// Pipe の途中での利用例
+RawResponse
+  |&gt; to HttpResponse
+  |&gt; switch as R {
+       case R.Status == 200: HandleOk(R);
+       default:              HandleOther(R);
+     };</code></pre>
+
+      <h4>3.5.3 as A:Type と as A to Type の関係</h4>
+      <p>
+        <code>as</code> と <code>to</code> を同時に使うための糖衣構文として、次の形を許可する：
+      </p>
+
+      <pre><code>// 糖衣構文
+as A to Type
+
+// 正規形
+as A:Type</code></pre>
+
+      <ul>
+        <li><code>as A to Type</code> は、構文解析時に <strong><code>as A:Type</code> へ正規化される</strong>。</li>
+        <li>同様に、<code>Source as A to Type</code> は <code>Source as A:Type</code> と等価である。</li>
+        <li><code>switch as A to Type</code> も <code>switch as A:Type</code> に正規化される。</li>
+      </ul>
+
+      <pre><code>// 例: コレクション側での糖衣構文
+Responses as R to HttpResponse
+  |&gt; switch {
+       case R.Status == 200: HandleOk(R);
+       default:              HandleOther(R);
+     };
+
+// 例: switch 側での糖衣構文
+Responses
+  |&gt; switch as R to HttpResponse {
+       case R.Status == 200: HandleOk(R);
+       default:              HandleOther(R);
+     };</code></pre>
+
+      <p class="note">
+        <code>as</code> は「要素への名前・型のバインド」、<code>to</code> は「キャスト」という役割をそれぞれ持つが、<br />
+        <code>as A:Type</code> を正規形とすることで、<code>switch</code> パイプや Pipe / Filter モデルの中で
+        読み書きしやすい形に整理している。
+      </p>
+
     </section>
 
     <section id="types">
@@ -378,11 +504,9 @@ class Bad : Base, OtherBase {
 
       <ul>
         <li><code>interface</code> はメソッドシグネチャのみを定義し、実装は持たない
-          （デフォルト実装を許可するかどうかは今後の検討事項）。
-        </li>
+          （デフォルト実装を許可するかどうかは今後の検討事項）。</li>
         <li><code>trait</code> はメソッド実装を持てるミックスイン単位であり、
-          既存のクラスに振る舞いを追加するために用いる。
-        </li>
+          既存のクラスに振る舞いを追加するために用いる。</li>
         <li>クラスは <strong>1 つの基底クラス</strong> を持ち、複数の <code>interface</code> を実装し、
           複数の <code>trait</code> を <code>with</code> で適用できる。
         </li>
@@ -503,8 +627,7 @@ method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: T -&gt; U): Pipe&lt;U&gt
           および producer/filter/consumer 宣言は <code>&lt;T, U, ...&gt;</code> で型パラメータを受け取れる。
         </li>
         <li>型パラメータ名は一般的に大文字で始めることが推奨される
-          （<code>T</code>, <code>TItem</code>, <code>TKey</code> など）。
-        </li>
+          （<code>T</code>, <code>TItem</code>, <code>TKey</code> など）。</li>
         <li>型引数は利用箇所で具体的な型に束縛される。</li>
       </ul>
 
@@ -590,8 +713,7 @@ method PrintUser&lt;T&gt;(User: T)
       <h3>4.6.5 制約違反時の挙動</h3>
       <ul>
         <li>ジェネリック関数／型に与えた型引数が <code>where</code> の制約を満たさない場合、
-          それはコンパイルエラーとなる。
-        </li>
+          それはコンパイルエラーとなる。</li>
         <li>複数の制約が指定されている場合、それらすべてを同時に満たす必要がある。</li>
         <li>循環する制約や高度な typeclass 的構造は現時点ではサポートしない。</li>
       </ul>
@@ -807,8 +929,7 @@ method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
             これは必ず <code>Pipe&lt;*&gt;</code> 型でなければならない。
           </li>
           <li><code>bound(output)</code> はパイプライン接続時の振る舞いを定義する。
-            <code>output</code> の型は <code>out</code> に指定した型（例: <code>Pipe&lt;T&gt;</code>）。
-          </li>
+            <code>output</code> の型は <code>out</code> に指定した型（例: <code>Pipe&lt;T&gt;</code>）。</li>
         </ul>
 
         <p>
@@ -1074,6 +1195,147 @@ consumer Count&lt;T&gt; {
     |&gt; Map   (.Name)
     |&gt; ToArray();</code></pre>
       </section>
+
+      <section id="switch-pipe">
+        <h3>6.6 switch パイプ</h3>
+
+        <h4>6.6.1 概要</h4>
+        <p>
+          <code>switch</code> パイプは、パイプライン中の要素を条件によって
+          <strong>異なるパイプラインにルーティングするための制御用フィルタ</strong> である。<br />
+          要素ごとに <code>case</code> を上から順に評価し、最初にマッチした経路に流す。
+        </p>
+
+        <pre><code>Events
+  |&gt; switch as E {
+       case E.Kind == "info":    LogInfo(E);
+       case E.Kind == "error":   LogError(E);
+       default:                  LogUnknown(E);
+     };</code></pre>
+
+        <ul>
+          <li><code>case</code> の条件は <code>Bool</code> 型の式でなければならない。</li>
+          <li><code>default</code> はどの <code>case</code> にもマッチしなかった場合に実行される経路である。</li>
+          <li>すべての <code>case</code> と <code>default</code> は、<strong>同じ出力型</strong> を返さなければならない。
+            （<code>switch</code> 全体が 1 つのパイプ <code>TIn -&gt; TOut</code> として扱えるようにするため。）
+          </li>
+        </ul>
+
+        <h4>6.6.2 基本構文</h4>
+
+        <pre><code>Source
+  |&gt; switch {
+       case Condition1: Body1
+       case Condition2: Body2
+       default:         DefaultBody
+     };</code></pre>
+
+        <p>
+          ここで <code>BodyN</code> は、次のいずれかを取る：
+        </p>
+        <ul>
+          <li>単一の関数／コンシューマ／フィルタ呼び出し（例: <code>HandleOk()</code>）。</li>
+          <li><code>( ... )</code> で囲まれた「ミニパイプライン」：
+            <pre><code>case E.IsActive:
+  (
+    |&gt; Normalize()
+    |&gt; Save()
+  )</code></pre>
+          </li>
+        </ul>
+
+        <p class="note">
+          <code>switch</code> パイプの中身は、概念的には「現在の要素」を入力とした
+          小さなパイプラインの集合とみなせる。<br />
+          それぞれのパイプラインが同じ出力型を返す必要がある。
+        </p>
+
+        <h4>6.6.3 as バインドとの組み合わせ</h4>
+        <p>
+          <code>switch</code> ヘッダでは、3.5 節の <code>as</code> 構文を用いて
+          現在の要素に名前／型を与えられる。
+        </p>
+
+        <pre><code>// 名前だけ
+Source
+  |&gt; switch as Item {
+       case Item.Kind == "info":  LogInfo(Item);
+       default:                   LogUnknown(Item);
+     };
+
+// 名前＋型
+Responses
+  |&gt; switch as R:HttpResponse {
+       case R.Status == 200: HandleOk(R);
+       case R.Status == 401: HandleUnauthorized(R);
+       default:              HandleOther(R);
+     };
+
+// 型だけ（暗黙名＋`.` で参照）
+Responses
+  |&gt; switch as :HttpResponse {
+       case .Status == 200: HandleOk();
+       case .Status == 401: HandleUnauthorized();
+       default:             HandleOther();
+     };</code></pre>
+
+        <ul>
+          <li><code>switch as A</code> は「この <code>switch</code> の中では現在の要素を <code>A</code> という名前で参照する」という意味。</li>
+          <li><code>switch as A:Type</code> は「現在の要素を <code>Type</code> として扱い、<code>A</code> という名前で参照する」という意味。</li>
+          <li><code>switch as :Type</code> は名前を省略し、<code>.</code> を「現在の要素」の省略表現として使う。</li>
+        </ul>
+
+        <p class="note">
+          3.5 節で述べた通り、<code>switch as A to Type</code> という書き方は
+          <strong><code>switch as A:Type</code> の糖衣構文</strong> として扱われる。<br />
+          同様に、<code>Source as A to Type</code> は <code>Source as A:Type</code> に正規化される。
+        </p>
+
+        <h4>6.6.4 コレクション側の as と switch 側の as</h4>
+        <p>
+          コレクション／パイプラインの入力側での <code>as</code> と、
+          <code>switch</code> 側での <code>as</code> は両方使用できる。
+        </p>
+
+        <pre><code>// 入力側で A、switch 側で E として別名を付ける例
+Events as A
+  |&gt; Where (A.IsImportant)
+  |&gt; switch as E {
+       case E.Kind == "info":    LogInfo(E);
+       case E.Kind == "warning": LogWarning(E);
+       default:                  LogOther(E);
+     };</code></pre>
+
+        <ul>
+          <li>両方に <code>as</code> が指定された場合、<strong><code>switch</code> 側で指定した名前が
+            <code>switch</code> ブロック内で優先される</strong>（外側の名前をシャドウする）。
+          </li>
+          <li>スタイルガイドとしては、読みやすさのために「どちらか一方だけを使う」ことを推奨する。</li>
+        </ul>
+
+        <h4>6.6.5 default と網羅性</h4>
+        <ul>
+          <li><code>default</code> 節は、どの <code>case</code> にもマッチしない場合に実行される。</li>
+          <li>多くのケースでは、<strong><code>default</code> を必ず書く</strong>ことが推奨される。</li>
+          <li>将来的には、sealed クラスや enum と組み合わせて、
+            <code>default</code> のない <code>switch</code> に対して網羅性チェックと警告を出す仕様も検討している。
+          </li>
+        </ul>
+
+        <pre><code>Events
+  |&gt; switch as E {
+       case E.Kind == "info":    LogInfo(E);
+       case E.Kind == "error":   LogError(E);
+       default:                  LogOther(E);
+     };</code></pre>
+
+        <p class="small">
+          <code>switch</code> パイプは、Pipe / Filter モデル上に載った
+          「ルーティング用途の中間フィルタ」として設計されている。<br />
+          要素ごとにどのパイプラインを通すかを宣言的に書けるようにすることで、
+          ログ振り分け・HTTP 応答処理・イベントルーティングなどを簡潔に記述できる。
+        </p>
+      </section>
     </section>
 
     <section id="with">
@@ -1113,7 +1375,7 @@ with (Request) {
 }</code></pre>
 
       <ul>
-        <li><code>with (Expr) { ... }</code> における <code>Expr</code> は<strong>ちょうど 1 回</strong> 評価される。</li>
+        <li><code>with (Expr)</code> における <code>Expr</code> は<strong>ちょうど 1 回</strong> 評価される。</li>
         <li>ブロック内の単純な識別子への代入は、対象オブジェクトのメンバアクセスとして解釈される。</li>
       </ul>
 
@@ -1210,8 +1472,7 @@ Buf = NewBuffer();  // 再代入後は再び使用可能</code></pre>
       </p>
       <ul>
         <li><code>Var</code> が現在指しているオブジェクトに対する参照カウントを 1 減らす
-          （参照カウント方式を想定）。
-        </li>
+          （参照カウント方式を想定）。</li>
         <li><code>Var</code> 自体は「未初期化／削除済み」としてマークされる。</li>
         <li>オブジェクトの参照カウントが 0 になったとき、そのオブジェクトは GC の裁量で解放される。<br />
           <strong>つまり、<code>delete</code> を実行した瞬間に必ず破棄されるとは限らない。</strong>
