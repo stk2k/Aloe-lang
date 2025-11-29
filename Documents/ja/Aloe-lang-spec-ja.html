@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス）</title>
-  <meta name="last-updated" content="2025-11-29T12:00:00+09:00" />
+  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/using/lock/クラス継承/ジェネリクス）</title>
+  <meta name="last-updated" content="2025-11-29T12:30:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -136,8 +135,8 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス</div>
-    <div class="updated">最終更新: 2025-11-29 12:00:00</div>
+    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/using/lock/クラス継承/ジェネリクス</div>
+    <div class="updated">最終更新: 2025-11-29 12:30:00</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. はじめに</a>
@@ -162,13 +161,14 @@
       <a href="#with">7. with 構文</a>
       <a href="#delete">8. delete 構文</a>
       <a href="#lock">9. lock 構文と同期</a>
+      <a href="#using">10. using 構文（リソース管理 / RAII）</a>
 
       <div class="section-title">制御 / 実行時モデル</div>
-      <a href="#exceptions">10. 例外処理</a>
-      <a href="#runtime">11. 実行モデルとメモリ管理</a>
+      <a href="#exceptions">11. 例外処理</a>
+      <a href="#runtime">12. 実行モデルとメモリ管理</a>
 
       <div class="section-title">その他</div>
-      <a href="#limits">12. 制限事項と今後の展望</a>
+      <a href="#limits">13. 制限事項と今後の展望</a>
     </nav>
   </aside>
   <main class="content">
@@ -243,7 +243,7 @@
         </tr>
         <tr>
           <td>補助</td>
-          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td>
+          <td><code>with</code>, <code>using</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td>
         </tr>
       </table>
 
@@ -303,8 +303,7 @@ if (Count &gt; Threshold) {
       <ul>
         <li><code>enum</code> は常に内部的には <strong><code>Int</code></strong> として表現される。</li>
         <li><code>enum&lt;String&gt;</code> や <code>enum&lt;Byte&gt;</code> のような「ジェネリック enum」は
-          <strong>禁止</strong>される。
-        </li>
+          <strong>禁止</strong>される。</li>
         <li>ビットフラグ用途の enum は最大 32 個までのフラグに制限される。</li>
       </ul>
 
@@ -1343,10 +1342,151 @@ lock with (Conn) {
 // ここまで来たらロック解除＆with のライフタイムロックも解除される。</code></pre>
     </section>
 
-    <section id="exceptions">
-      <h2>10. 例外処理</h2>
+    <section id="using">
+      <h2>10. using 構文（リソース管理 / RAII）</h2>
 
-      <h3>10.1 try / catch / finally</h3>
+      <h3>10.1 概要</h3>
+      <p>
+        <code>using</code> 構文は、ファイル・ソケット・ロックガードなどの
+        <strong>外部リソース</strong>をスコープ単位で安全に解放するための構文である。<br />
+        C# の <code>using</code> や C++ における RAII（Resource Acquisition Is Initialization）と同様に、
+        <strong>ブロックの終了時に必ずクリーンアップ処理が実行される</strong> ことを保証する。
+      </p>
+
+      <p>
+        <code>with</code> が「メンバアクセスの省略と GC ルートによる <strong>生存保証</strong>」を担当するのに対し、
+        <code>using</code> は「スコープ終端での <strong>リソース解放</strong>」を担当する。
+        どの構文を使うかはプログラマーが選択する。
+      </p>
+
+      <pre><code>using (f:FileHandle = OpenFile("log.txt")) {
+  f.WriteLine("hello");
+  f.WriteLine("world");
+}
+// ここで必ず f.Dispose() が呼ばれる（あるいは同等の解放処理）</code></pre>
+
+      <h3>10.2 文法</h3>
+      <pre><code>UsingStatement ::=
+    'using' '(' Identifier ':' Type '=' Expression ')' Block
+  | 'using' '(' Expression ')' Block    // 省略形（暗黙一時変数）</code></pre>
+
+      <ul>
+        <li><code>using (x:Type = Expr) { Body }</code> は、<code>Expr</code> の評価結果を
+          <code>x</code> という名前で束縛し、<code>Body</code> 実行後にクリーンアップを行う。</li>
+        <li><code>using (Expr) { ... }</code> の省略形では、一時変数名はコンパイラ生成の隠し変数となる。</li>
+      </ul>
+
+      <h3>10.3 セマンティクス（デシュガリング）</h3>
+      <p>
+        <code>using (x:Type = Expr) { Body }</code> は、概念的には次のコードと等価である：
+      </p>
+
+      <pre><code>{
+  let x:Type = Expr;
+  try {
+    Body
+  } finally {
+    // x が「解放可能な型」であれば、その解放メソッドを呼ぶ
+    x.Dispose();   // 例えば IDisposable.Interface のメソッド
+  }
+}</code></pre>
+
+      <p>
+        <code>using (Expr) { Body }</code> も同様に、隠し変数 <code>__tmp</code> を用いて次のように解釈される：
+      </p>
+
+      <pre><code>{
+  let __tmp = Expr;
+  try {
+    Body   // Body 内からは __tmp を直接（またはドット省略などで）参照する
+  } finally {
+    __tmp.Dispose();
+  }
+}</code></pre>
+
+      <ul>
+        <li><code>Body</code> が正常終了した場合も、例外で中断した場合も、
+          <code>finally</code> 内のクリーンアップは必ず実行される。</li>
+        <li>クリーンアップメソッドの名前や契約（<code>Dispose</code> / <code>Release</code> 等）は、
+          trait / interface 側で定義される（10.4 節）。</li>
+      </ul>
+
+      <h3>10.4 using の対象となる型</h3>
+      <p>
+        using は、任意の型に対して使えるわけではなく、<strong>「解放可能」であること</strong>を示す
+        trait / interface を実装した型に対してのみ使用できる。
+        典型的には、次のような interface を用いる：
+      </p>
+
+      <pre><code>interface IDisposable {
+  method Dispose(): Unit;
+}</code></pre>
+
+      <ul>
+        <li>言語仕様上、<code>using</code> の対象となる式の静的型は、
+          <code>IDisposable</code>（またはそれに準じた「リソース解放用 trait」）を実装していなければならない。
+        </li>
+        <li>そのような型に対してのみ、コンパイラは <code>x.Dispose()</code> 相当のコード生成を行う。</li>
+        <li>どの trait / interface を「解放可能」とみなすか（例：<code>IDisposable</code> 固定にするか、
+          コンパイラオプションで切り替えるか等）は将来の仕様で補足する。
+        </li>
+      </ul>
+
+      <pre><code>class FileHandle implements IDisposable {
+  method Dispose(): Unit {
+    // OS ハンドルを閉じる
+  }
+}
+
+using (f:FileHandle = OpenFile("log.txt")) {
+  f.WriteLine("hello");
+} // 必ず f.Dispose() が呼ばれる</code></pre>
+
+      <h3>10.5 with / delete / lock との関係</h3>
+      <ul>
+        <li><strong>with との違い</strong>：
+          <ul>
+            <li><code>with</code> は GC ルートによる生存保証とメンバアクセスの省略のための構文であり、
+              リソース解放は行わない。
+            </li>
+            <li><code>using</code> はスコープ終端でのリソース解放に特化しており、
+              GC ルートの追加やメンバアクセスの省略は（必要なら別途 <code>with</code> と組み合わせて）行う。
+            </li>
+          </ul>
+        </li>
+        <li><strong>delete との違い</strong>：
+          <ul>
+            <li><code>delete</code> は変数から参照を取り除くだけであり、解放タイミングは GC に委ねられる。</li>
+            <li><code>using</code> は「このスコープを抜けたタイミングで必ずクリーンアップメソッドを呼ぶ」ことを保証する。</li>
+          </ul>
+        </li>
+        <li><strong>lock との組み合わせ</strong>：
+          <ul>
+            <li>排他制御 + リソース解放を同時に行いたい場合は、構文をネストして用いる：</li>
+          </ul>
+        </li>
+      </ul>
+
+      <pre><code>// ロックを保持している間に処理し、スコープ末尾でロックとリソースを解放
+using (g:LockGuard = LockGuard(mutex)) {
+  lock (mutex) {
+    DoSomething();
+  }
+}</code></pre>
+
+      <p class="note">
+        将来的には、<code>lock</code> 自体を <code>using</code> の糖衣構文として扱う案
+        （<code>lock mutex { ... }</code> が内部的に <code>using (g:LockGuard = LockGuard(mutex)) { ... }</code> に展開される）
+        も検討対象となり得る。<br />
+        本ドラフトでは、<code>using</code> はあくまで「解放可能な型に対する RAII ブロック」であり、
+        <code>with</code> / <code>delete</code> / <code>lock</code> はそれぞれ別用途の構文として定義している。
+      </p>
+    </section>
+
+    <section id="exceptions">
+      <h2>11. 例外処理</h2>
+
+      <h3>11.1 try / catch / finally</h3>
       <pre><code>try {
   DoSomething();
 } catch (ex: Error) {
@@ -1363,21 +1503,24 @@ lock with (Conn) {
     </section>
 
     <section id="runtime">
-      <h2>11. 実行モデルとメモリ管理</h2>
+      <h2>12. 実行モデルとメモリ管理</h2>
 
-      <h3>11.1 AloeVM の概要</h3>
+      <h3>12.1 AloeVM の概要</h3>
       <ul>
         <li>スタックベースのバイトコード VM。</li>
         <li>関数呼び出しはコールスタック上にフレームを積む。</li>
         <li>GC は参照カウント + スライディングコンパクションを用いる想定。</li>
       </ul>
 
-      <h3>11.2 メモリ管理（概要）</h3>
+      <h3>12.2 メモリ管理（概要）</h3>
       <ul>
         <li>オブジェクトはヒープ上に確保される。</li>
         <li>一定の条件を満たした時に GC が実行され、生存オブジェクトをスライドさせてメモリをコンパクトにする。</li>
         <li><code>with</code> はオブジェクトを生存させる一時的な GC ルートとして働き、
           <code>lock</code> と組み合わせることで読み取りバリアの最適化を可能にする。
+        </li>
+        <li><code>using</code> は GC とは独立に、<strong>スコープ終端でのクリーンアップ呼び出し</strong>を保証するための構文である。<br />
+          どのメソッドをクリーンアップとして呼ぶか（例：<code>Dispose</code>）は対応する trait / interface によって決まる。
         </li>
         <li>通常、メモリ管理のために <code>delete</code> を呼ぶ必要はない。
           参照を明示的に破棄したい場合のみ <code>delete</code> を使用する。
@@ -1390,22 +1533,22 @@ lock with (Conn) {
     </section>
 
     <section id="limits">
-      <h2>12. 制限事項と今後の展望</h2>
+      <h2>13. 制限事項と今後の展望</h2>
 
-      <h3>12.1 現在の制限事項</h3>
+      <h3>13.1 現在の制限事項</h3>
       <ul>
         <li>ジェネリクスの表現力は最小限であり、typeclass や高階ジェネリクスは定義されていない。</li>
         <li>モジュールシステムやパッケージ管理は本ドキュメントの範囲外である。</li>
         <li>メタプログラミング（マクロ・リフレクション等）は定義されていない。</li>
       </ul>
 
-      <h3>12.2 今後の展望</h3>
+      <h3>13.2 今後の展望</h3>
       <ul>
         <li>Pipe / Filter パイプラインの並列化や融合最適化。</li>
         <li>Wasm コンポーネントモデルとの統合。</li>
         <li>例外に加えて Result 型のようなエラー処理の導入。</li>
         <li>分散処理・ストリーミング向けの標準ライブラリ拡張。</li>
-        <li>必要に応じた所有権付きリソース型と <code>delete</code> の統合。</li>
+        <li>必要に応じた所有権付きリソース型と <code>delete</code>・<code>using</code> の統合。</li>
         <li>trait / interface / sealed / readonly とパターンマッチおよび網羅性チェックとの統合。</li>
       </ul>
 
@@ -1413,7 +1556,7 @@ lock with (Conn) {
         本ドラフトでは特に、<br />
         <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係と宣言形式</strong>、<br />
         および
-        <strong>with / delete / lock / クラス継承 / readonly / clone / generics と AloeVM のメモリモデルとの関係</strong>
+        <strong>with / using / delete / lock / クラス継承 / readonly / clone / generics と AloeVM のメモリモデルとの関係</strong>
         を明確にすることに重点を置いている。
       </p>
     </section>
@@ -1422,4 +1565,3 @@ lock with (Conn) {
 </div>
 </body>
 </html>
-
