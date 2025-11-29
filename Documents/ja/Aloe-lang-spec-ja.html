@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -931,29 +932,107 @@ Buf = NewBuffer();  // 再代入すれば、ここから先は再び利用可能
 
       <h3>9.1 概要</h3>
       <p>
-        <code>lock</code> 構文は、特定のオブジェクトをロックし、
-        そのロック区間中に排他制御や GC の read barrier 最適化を行うための構文である。
+        <code>lock</code> 構文は、特定の <strong>参照型オブジェクト</strong>に対するコードブロックの実行を
+        排他的に行うための構文である。
+        同時に AloeVM に対して、
+        「このブロックの実行中はロック対象オブジェクトを GC によって移動してはならない」という
+        <strong>ピン留め（pin）</strong> のヒントを与える。
       </p>
 
-      <pre><code>var SharedCounter: Int = 0;
+      <pre><code>class Counter {
+  Value: Int;
+}
 
-lock (SharedCounter) {
-  SharedCounter = SharedCounter + 1;
+var Shared: Counter = NewCounter();
+
+lock (Shared) {
+  Shared.Value = Shared.Value + 1;
 }</code></pre>
 
-      <h3>9.2 意味</h3>
+      <h3>9.2 構文と型制約</h3>
+
+      <pre><code>LockStatement ::= 'lock' '(' Expression ')' Block</code></pre>
+
       <ul>
-        <li><code>lock (Expr) { Body }</code> は、<code>Expr</code> で示されるロック対象に対し、
-          その区間で排他アクセスを保証する。
+        <li><code>Expression</code> は <strong>参照型（class インスタンスなど）の式</strong>でなければならない。
+          値型（<code>Int</code> や <code>struct</code> など）を指定した場合はコンパイルエラーとする。
         </li>
-        <li>ロックの取得・解放は VM 側で行われる。</li>
-        <li>スレッド間共有データに対する更新は、基本的に <code>lock</code> 内に限定することを推奨する。</li>
+        <li><code>Block</code> は通常のブロック文と同じ構文・スコープ規則に従う。</li>
+      </ul>
+
+      <h3>9.3 評価順序と再入ロック</h3>
+
+      <ol>
+        <li><code>lock (Expression)</code> の <code>Expression</code> 部分が 1 回だけ評価される。</li>
+        <li>評価結果の参照値に対して、VM はロックおよび GC ピン留めを取得する。</li>
+        <li>ロック取得後に <code>Block</code> 内の文が順に実行される。</li>
+        <li><code>Block</code> の実行が正常終了した場合も、例外により中断された場合も、
+          VM は必ずロックとピン留めを解放しなければならない（<strong>finally 相当の保証</strong>）。
+        </li>
+      </ol>
+
+      <h4>再入ロックの扱い</h4>
+      <ul>
+        <li>同一スレッドが同一オブジェクトに対して <code>lock</code> をネストすること（再入）は許可される。</li>
+        <li>この場合、実装は内部的なカウンタなどを用いて、
+          対応する <code>lock</code> / <code>unlock</code> がすべてペアになるまで
+          ロックおよびピン留めを維持してよい。
+        </li>
+        <li>異なるスレッドが同一オブジェクトをロックしようとした場合、
+          どちらか一方のみがロック取得に成功し、他方はロックが解放されるまで待機する。
+          待機戦略（ブロック／タイムアウトなど）は VM 仕様に委ねる。
+        </li>
+      </ul>
+
+      <h3>9.4 GC と read barrier との関係（情報的規定）</h3>
+      <p class="note">
+        本節は <strong>実装者向けの情報的な説明</strong>であり、
+        プログラムの意味論（正しさ）には直接影響しない。
+        実装はここで述べる最適化を行わなくてもよい。
+      </p>
+
+      <ul>
+        <li>VM は <code>lock</code> ブロックに入る際、ロック対象オブジェクトに対して
+          <strong>1 回だけ read barrier を適用</strong>し、最新の位置に解決したうえで
+          ロックおよびピン留めを取得してよい。
+        </li>
+        <li>ロック対象オブジェクトは、<strong>ブロック実行中は GC によって移動されない</strong>
+          （スライディングコンパクションの対象外になる）ことが期待される。
+        </li>
+        <li>その結果、<code>lock</code> ブロック内で「ロック対象オブジェクト自身」に対して行う
+          フィールドアクセスやメソッド呼び出しについては、
+          追加の read barrier を省略してもよい。
+        </li>
+        <li>一方、ロック対象から辿れる他オブジェクト（子オブジェクトなど）については、
+          通常通り read barrier の対象となる。
+          <strong>lock はオブジェクトグラフ全体ではなく、あくまで 1 つのオブジェクトをピン留めする</strong>
+          ものとして扱う。
+        </li>
+      </ul>
+
+      <h3>9.5 lock と with / delete の関係・利用ガイドライン</h3>
+      <ul>
+        <li><code>with</code> は GC ルートによる「解放ロック」、<code>lock</code> は
+          排他制御＋移動禁止の「同期ロック」として性質が異なるが、
+          同時に使うことで「生存保証されたオブジェクトに対する排他的な更新」を安全に書ける。
+        </li>
+        <li><code>lock</code> ブロック内で、ロック対象そのものに対して <code>delete</code> を行うことは
+          論理的には可能だが、実装・スタイルガイド的には強く非推奨とする。
+          （ロックで保護している最中に参照を捨てることは通常の用途と合致しない。）
+        </li>
+        <li>長時間の <code>lock</code> や、大きなオブジェクトグラフのルートをロックすることは、
+          GC のコンパクション効率を損なう可能性があるため、
+          <strong>クリティカルセクションの範囲は最小限に保つべき</strong>である。
+        </li>
       </ul>
 
       <p class="note">
-        AloeVM はスライディングコンパクション方式のメモリ管理を想定しており、
-        <code>lock</code> ブロック内では同一オブジェクトに対する read barrier チェックを
-        可能な限り 1 回に抑える最適化が実装されることを想定する。
+        まとめると、<code>lock</code> は
+        <strong>「参照型オブジェクトに対する排他制御」かつ
+        「そのオブジェクトをスライディングコンパクションから一時的に除外するヒント」</strong>
+        を VM に与える構文である。
+        言語レベルの意味論はシンプルな排他制御のみを要求し、
+        GC や read barrier に関する詳細は VM 仕様と実装に委ねる。
       </p>
     </section>
 
@@ -991,7 +1070,8 @@ lock (SharedCounter) {
         <li>オブジェクトはヒープ上に確保される。</li>
         <li>一定条件で GC が発動し、生存オブジェクトをスライドさせながらコンパクションする。</li>
         <li><code>with</code> 構文は一時的な GC ルートとしてオブジェクトを保護し、
-          <code>lock</code> 構文と組み合わせることで read barrier の回数を削減する最適化を行うことができる。
+          <code>lock</code> 構文は特定オブジェクトをコンパクションから一時的に除外しつつ
+          read barrier の回数を削減する最適化のヒントを与える。
         </li>
         <li>プログラマは通常、メモリ解放のために <code>delete</code> を使用する必要はなく、
           参照を切る意図を明示したいときに限って利用すればよい。
@@ -1035,3 +1115,4 @@ lock (SharedCounter) {
 </div>
 </body>
 </html>
+
