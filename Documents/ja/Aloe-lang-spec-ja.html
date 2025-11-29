@@ -3,7 +3,9 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer + delete/with/lock 更新版）</title>
+  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer + delete/with/lock/clone 更新版）</title>
+  <!-- 更新日メタデータ -->
+  <meta name="updated_at" content="2025-11-29" />
   <style>
     /* レイアウトだけ最低限。フォントはブラウザ標準任せにしておく */
     body {
@@ -130,7 +132,7 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer + delete/with/lock 更新</div>
+    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer + delete/with/lock/clone 更新</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. 概要</a>
@@ -223,10 +225,10 @@
       <h3>3.3 代表的なキーワード</h3>
       <table>
         <tr><th>カテゴリ</th><th>キーワード</th></tr>
-        <tr><td>宣言</td><td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code></td></tr>
+        <tr><td>宣言</td><td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>class</code>, <code>enum</code></td></tr>
         <tr><td>制御</td><td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code></td></tr>
         <tr><td>関数</td><td><code>method</code></td></tr>
-        <tr><td>補助</td><td><code>with</code>, <code>lock</code>, <code>delete</code></td></tr>
+        <tr><td>補助</td><td><code>with</code>, <code>lock</code>, <code>delete</code>, <code>clone</code></td></tr>
       </table>
 
       <h3>3.4 文と式</h3>
@@ -246,6 +248,45 @@ if (Count &gt; Threshold) {
 } else {
   Print("ok");
 }</code></pre>
+
+      <h3>3.5 clone 式</h3>
+      <p>
+        <code>clone</code> は、参照型オブジェクトの浅いコピー（shallow copy）を作成するための式である。
+      </p>
+
+      <pre><code>CloneExpression ::= 'clone' Expression</code></pre>
+
+      <ul>
+        <li><code>Expression</code> の型を <code>T</code> とするとき、<code>clone Expression</code> の型も <code>T</code> となる。</li>
+        <li>主な対象は <strong><code>class</code> 型および配列 <code>T[]</code></strong> であり、それ以外の型に対する <code>clone</code> はコンパイルエラーとしてよい（実装依存の拡張余地はある）。</li>
+      </ul>
+
+      <p>
+        実行時の意味（<code>class</code> 型の場合）は以下の通りである：
+      </p>
+      <ol>
+        <li><code>Expression</code> を評価し、オブジェクト参照 <code>o</code> を得る。</li>
+        <li><code>o</code> と同じ実行時型の新しいインスタンス <code>o'</code> をヒープ上に確保する。</li>
+        <li>その型の全フィールド <code>f</code> について、<code>o'.f = o.f;</code> を行う（<strong>浅いコピー</strong>）。</li>
+        <li><code>o'</code> の参照を評価結果として返す。</li>
+      </ol>
+
+      <pre><code>class User {
+  Name: String;
+  Age: Int;
+}
+
+var A: User = NewUser("alice", 20);
+var B: User = clone A;   // 新インスタンスを作成
+
+B.Name = "bob";
+// A.Name は "alice" のまま
+// B.Name は "bob"</code></pre>
+
+      <p class="note">
+        代入 <code>B = A;</code> は参照コピー（同じインスタンス共有）であり、
+        <code>B = clone A;</code> は新しいインスタンスを浅くコピーして返す点で意味が異なる。
+      </p>
     </section>
 
     <section id="types">
@@ -293,6 +334,99 @@ if (Count &gt; Threshold) {
   Warn  = 3;
   Error = 4;
 }</code></pre>
+
+      <h3>4.5 クラス（class）</h3>
+      <p>
+        <code>class</code> は参照型であり、常にヒープに確保される。
+      </p>
+
+      <pre><code>class User {
+  Name: String;
+  Age: Int;
+}</code></pre>
+
+      <h4>4.5.1 メモリモデル</h4>
+      <ul>
+        <li><code>class</code> のインスタンスは <code>new</code>（またはそれに相当する生成構文）によってヒープに配置される。</li>
+        <li><code>class</code> 型の変数は「オブジェクトそのもの」ではなく
+          「オブジェクトへの参照」を保持する。
+        </li>
+      </ul>
+
+      <h4>4.5.2 代入とコピーセマンティクス</h4>
+      <ul>
+        <li><code>class</code> 型の代入は <strong>参照コピー（浅いコピー）</strong> である。</li>
+      </ul>
+
+      <pre><code>class User {
+  Name: String;
+}
+
+var A: User = NewUser("alice");
+var B: User = A;   // 参照コピー（A と B は同じインスタンスを指す）
+
+B.Name = "bob";
+// A.Name も "bob" になる</code></pre>
+
+      <p>
+        オブジェクトの内容を複製したい場合は、<code>clone</code> 式を用いる（3.5 節参照）。
+      </p>
+
+      <h4>4.5.3 可変性と readonly</h4>
+
+      <h5>フィールドレベルの readonly</h5>
+      <ul>
+        <li>デフォルトではすべてのフィールドは可変であり、再代入可能である。</li>
+        <li>フィールドに <code>readonly</code> 修飾子を付与すると、そのフィールドは
+          初期化完了後は再代入不可となる（再代入はコンパイルエラー）。
+        </li>
+        <li>参照型フィールドに対する <code>readonly</code> は、
+          「フィールドが指す参照の再代入禁止」を意味し、
+          参照先オブジェクトの内部状態の変更までは禁止しない（シャローな immutability）。
+        </li>
+      </ul>
+
+      <pre><code>class Config {
+  readonly BaseUrl: String;
+  TimeoutSeconds: Int;
+}
+
+var C: Config = NewConfig("https://example.com", 5);
+C.TimeoutSeconds = 10;      // OK
+C.BaseUrl = "https://foo";  // コンパイルエラー</code></pre>
+
+      <h5>クラスレベルの readonly</h5>
+      <ul>
+        <li><code>class</code> 宣言に <code>readonly</code> を付与すると、そのクラスのすべてのフィールドは暗黙に <code>readonly</code> と見なされる。</li>
+      </ul>
+
+      <pre><code>readonly class AppSettings {
+  ApiKey: String;   // 暗黙に readonly
+  MaxRetry: Int;    // 暗黙に readonly
+}
+
+var S: AppSettings = LoadSettings();
+S.ApiKey = "xxx";    // コンパイルエラー
+S.MaxRetry = 5;      // コンパイルエラー</code></pre>
+
+      <p class="note">
+        上記の <code>readonly</code> はいずれも「フィールドの再代入禁止」を意味する。
+        参照先オブジェクトの内部状態まで不変とするかどうかは、将来の仕様拡張の余地として残す。
+        現時点では <strong>シャローな不変（shallow immutability）</strong> を前提とする。
+      </p>
+
+      <h3>4.6 clone 可能な型</h3>
+      <ul>
+        <li><code>clone</code> は主に以下の型に対して定義される：
+          <ul>
+            <li><code>class</code> 型</li>
+            <li>配列型 <code>T[]</code></li>
+          </ul>
+        </li>
+        <li>他の型に対する <code>clone</code> のサポートは、実装依存または将来の仕様拡張とする。</li>
+        <li>特に <code>Pipe&lt;T&gt;</code> に対する <code>clone</code> は、本ドラフトでは未定義とし、
+          コンパイルエラーとする実装方針を推奨する（pipe の複製・再利用戦略は別途検討）。</li>
+      </ul>
     </section>
 
     <section id="functions-methods">
@@ -378,7 +512,7 @@ bound Pipe&lt;T&gt; {
 
         <p class="note">
           <strong>パイプ世界</strong>とは、<code>Pipe&lt;T&gt;</code> を入力・出力とする
-          函数たち（producer / transformer / consumer）の合成領域を指す。
+          関数たち（producer / transformer / consumer）の合成領域を指す。
           この世界から外へ出るのが consumer である。
         </p>
       </section>
@@ -897,8 +1031,7 @@ Buf = NewBuffer();  // 再代入すれば、ここから先は再び利用可能
       </p>
       <ul>
         <li>変数 <code>Var</code> が現在指しているオブジェクトへの参照を 1 つ減らす
-          （参照カウンタ方式を想定）。
-        </li>
+          （参照カウンタ方式を想定）。</li>
         <li>変数 <code>Var</code> 自身は「未初期化／deleted」状態としてマークされる。</li>
         <li>参照カウンタが 0 になったオブジェクトは、GC のタイミングで解放される。
           <strong><code>delete</code> 実行時に即座にオブジェクトが破棄されるとは限らない</strong>。
@@ -932,107 +1065,29 @@ Buf = NewBuffer();  // 再代入すれば、ここから先は再び利用可能
 
       <h3>9.1 概要</h3>
       <p>
-        <code>lock</code> 構文は、特定の <strong>参照型オブジェクト</strong>に対するコードブロックの実行を
-        排他的に行うための構文である。
-        同時に AloeVM に対して、
-        「このブロックの実行中はロック対象オブジェクトを GC によって移動してはならない」という
-        <strong>ピン留め（pin）</strong> のヒントを与える。
+        <code>lock</code> 構文は、特定のオブジェクトをロックし、
+        そのロック区間中に排他制御や GC の read barrier 最適化を行うための構文である。
       </p>
 
-      <pre><code>class Counter {
-  Value: Int;
-}
+      <pre><code>var SharedCounter: Int = 0;
 
-var Shared: Counter = NewCounter();
-
-lock (Shared) {
-  Shared.Value = Shared.Value + 1;
+lock (SharedCounter) {
+  SharedCounter = SharedCounter + 1;
 }</code></pre>
 
-      <h3>9.2 構文と型制約</h3>
-
-      <pre><code>LockStatement ::= 'lock' '(' Expression ')' Block</code></pre>
-
+      <h3>9.2 意味</h3>
       <ul>
-        <li><code>Expression</code> は <strong>参照型（class インスタンスなど）の式</strong>でなければならない。
-          値型（<code>Int</code> や <code>struct</code> など）を指定した場合はコンパイルエラーとする。
+        <li><code>lock (Expr) { Body }</code> は、<code>Expr</code> で示されるロック対象に対し、
+          その区間で排他アクセスを保証する。
         </li>
-        <li><code>Block</code> は通常のブロック文と同じ構文・スコープ規則に従う。</li>
-      </ul>
-
-      <h3>9.3 評価順序と再入ロック</h3>
-
-      <ol>
-        <li><code>lock (Expression)</code> の <code>Expression</code> 部分が 1 回だけ評価される。</li>
-        <li>評価結果の参照値に対して、VM はロックおよび GC ピン留めを取得する。</li>
-        <li>ロック取得後に <code>Block</code> 内の文が順に実行される。</li>
-        <li><code>Block</code> の実行が正常終了した場合も、例外により中断された場合も、
-          VM は必ずロックとピン留めを解放しなければならない（<strong>finally 相当の保証</strong>）。
-        </li>
-      </ol>
-
-      <h4>再入ロックの扱い</h4>
-      <ul>
-        <li>同一スレッドが同一オブジェクトに対して <code>lock</code> をネストすること（再入）は許可される。</li>
-        <li>この場合、実装は内部的なカウンタなどを用いて、
-          対応する <code>lock</code> / <code>unlock</code> がすべてペアになるまで
-          ロックおよびピン留めを維持してよい。
-        </li>
-        <li>異なるスレッドが同一オブジェクトをロックしようとした場合、
-          どちらか一方のみがロック取得に成功し、他方はロックが解放されるまで待機する。
-          待機戦略（ブロック／タイムアウトなど）は VM 仕様に委ねる。
-        </li>
-      </ul>
-
-      <h3>9.4 GC と read barrier との関係（情報的規定）</h3>
-      <p class="note">
-        本節は <strong>実装者向けの情報的な説明</strong>であり、
-        プログラムの意味論（正しさ）には直接影響しない。
-        実装はここで述べる最適化を行わなくてもよい。
-      </p>
-
-      <ul>
-        <li>VM は <code>lock</code> ブロックに入る際、ロック対象オブジェクトに対して
-          <strong>1 回だけ read barrier を適用</strong>し、最新の位置に解決したうえで
-          ロックおよびピン留めを取得してよい。
-        </li>
-        <li>ロック対象オブジェクトは、<strong>ブロック実行中は GC によって移動されない</strong>
-          （スライディングコンパクションの対象外になる）ことが期待される。
-        </li>
-        <li>その結果、<code>lock</code> ブロック内で「ロック対象オブジェクト自身」に対して行う
-          フィールドアクセスやメソッド呼び出しについては、
-          追加の read barrier を省略してもよい。
-        </li>
-        <li>一方、ロック対象から辿れる他オブジェクト（子オブジェクトなど）については、
-          通常通り read barrier の対象となる。
-          <strong>lock はオブジェクトグラフ全体ではなく、あくまで 1 つのオブジェクトをピン留めする</strong>
-          ものとして扱う。
-        </li>
-      </ul>
-
-      <h3>9.5 lock と with / delete の関係・利用ガイドライン</h3>
-      <ul>
-        <li><code>with</code> は GC ルートによる「解放ロック」、<code>lock</code> は
-          排他制御＋移動禁止の「同期ロック」として性質が異なるが、
-          同時に使うことで「生存保証されたオブジェクトに対する排他的な更新」を安全に書ける。
-        </li>
-        <li><code>lock</code> ブロック内で、ロック対象そのものに対して <code>delete</code> を行うことは
-          論理的には可能だが、実装・スタイルガイド的には強く非推奨とする。
-          （ロックで保護している最中に参照を捨てることは通常の用途と合致しない。）
-        </li>
-        <li>長時間の <code>lock</code> や、大きなオブジェクトグラフのルートをロックすることは、
-          GC のコンパクション効率を損なう可能性があるため、
-          <strong>クリティカルセクションの範囲は最小限に保つべき</strong>である。
-        </li>
+        <li>ロックの取得・解放は VM 側で行われる。</li>
+        <li>スレッド間共有データに対する更新は、基本的に <code>lock</code> 内に限定することを推奨する。</li>
       </ul>
 
       <p class="note">
-        まとめると、<code>lock</code> は
-        <strong>「参照型オブジェクトに対する排他制御」かつ
-        「そのオブジェクトをスライディングコンパクションから一時的に除外するヒント」</strong>
-        を VM に与える構文である。
-        言語レベルの意味論はシンプルな排他制御のみを要求し、
-        GC や read barrier に関する詳細は VM 仕様と実装に委ねる。
+        AloeVM はスライディングコンパクション方式のメモリ管理を想定しており、
+        <code>lock</code> ブロック内では同一オブジェクトに対する read barrier チェックを
+        可能な限り 1 回に抑える最適化が実装されることを想定する。
       </p>
     </section>
 
@@ -1070,12 +1125,13 @@ lock (Shared) {
         <li>オブジェクトはヒープ上に確保される。</li>
         <li>一定条件で GC が発動し、生存オブジェクトをスライドさせながらコンパクションする。</li>
         <li><code>with</code> 構文は一時的な GC ルートとしてオブジェクトを保護し、
-          <code>lock</code> 構文は特定オブジェクトをコンパクションから一時的に除外しつつ
-          read barrier の回数を削減する最適化のヒントを与える。
+          <code>lock</code> 構文と組み合わせることで read barrier の回数を削減する最適化を行うことができる。
         </li>
         <li>プログラマは通常、メモリ解放のために <code>delete</code> を使用する必要はなく、
           参照を切る意図を明示したいときに限って利用すればよい。
         </li>
+        <li><code>clone</code> は、参照型オブジェクトの浅いコピーを作成するための構文であり、
+          生成されたオブジェクトも通常の GC 対象となる。</li>
       </ul>
 
       <p class="small">
@@ -1100,13 +1156,13 @@ lock (Shared) {
         <li>エラー処理と Result 型的な表現（例外以外のエラーハンドリング）。</li>
         <li>分散処理やストリーム処理向けの標準ライブラリ拡張。</li>
         <li><code>delete</code> と所有権付きリソース型の統合設計（必要になった場合）。</li>
+        <li><code>clone</code> 対応型の拡張と、Pipe / Filter 実行モデルとの整合性。</li>
       </ul>
 
       <p class="note">
-        本ドラフトは特に、
-        <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係、
-        ならびにそれらの宣言構文</strong> に加え、
-        <strong>with / delete / lock の振る舞いと AloeVM のメモリ管理モデルとの関係</strong>
+        本ドラフトは特に、<br />
+        <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係、ならびにそれらの宣言構文</strong> に加え、<br />
+        <strong>with / delete / lock / clone の振る舞いと AloeVM のメモリ管理モデルとの関係</strong>
         を明確化するために更新された版である。
       </p>
     </section>
