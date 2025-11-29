@@ -3,8 +3,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer + delete/with/lock/class 継承 更新版）</title>
-  <meta name="last-updated" content="2025-11-29T11:00" />
+  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer + delete/with/lock/class 継承/generics 更新版）</title>
+  <meta name="last-updated" content="2025-11-29T11:20" />
   <style>
     /* レイアウトだけ最低限。フォントはブラウザ標準任せにしておく */
     body {
@@ -136,8 +136,8 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer + delete/with/lock/class 継承 更新</div>
-    <div class="updated">最終更新: 2025-11-29 11:00</div>
+    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer + delete/with/lock/class 継承/generics 更新</div>
+    <div class="updated">最終更新: 2025-11-29 11:20</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. 概要</a>
@@ -147,6 +147,7 @@
       <a href="#syntax">3. 基本文法</a>
       <a href="#types">4. 型システム</a>
       <a href="#classes">4.5 クラスと継承</a>
+      <a href="#generics">4.6 ジェネリクス</a>
       <a href="#functions-methods">5. 関数とメソッド</a>
 
       <div class="section-title">パイプ / コレクション</div>
@@ -232,9 +233,9 @@
       <table>
         <tr><th>カテゴリ</th><th>キーワード</th></tr>
         <tr><td>宣言</td><td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code>, <code>class</code>, <code>interface</code>, <code>trait</code>, <code>sealed</code></td></tr>
-        <tr><td>制御</td><td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code></td></tr>
+        <tr><td>制御</td><td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code></td></tr>
         <tr><td>関数</td><td><code>method</code></td></tr>
-        <tr><td>補助</td><td><code>with</code>, <code>lock</code>, <code>delete</code>, <code>clone</code></td></tr>
+        <tr><td>補助</td><td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td></tr>
       </table>
 
       <h3>3.4 文と式</h3>
@@ -419,6 +420,138 @@ class KeywordToken : Token {
       <p class="small">
         本節では、クラスが「ヒープ確保の参照型」「単一継承のみ」「多重継承は interface + trait で表現」「sealed による継承禁止」という
         高レベルな設計方針を定める。詳細なメソッド解決順序や trait の競合解決ルールは、別途仕様で補う。
+      </p>
+    </section>
+
+    <section id="generics">
+      <h2>4.6 ジェネリクス</h2>
+
+      <h3>4.6.1 概要</h3>
+      <p>
+        Aloe は、型・関数・メソッド・Pipe 系宣言に対して、最低限のジェネリクス機構を提供する。
+        目的は、<strong>コレクションや Pipe / Filter を型安全に再利用可能にすること</strong>であり、
+        高度な型レベル計算は当面の対象外とする。
+      </p>
+
+      <pre><code>type Box&lt;T&gt; {
+  Value: T;
+}
+
+struct Pair&lt;TLeft, TRight&gt; {
+  Left: TLeft;
+  Right: TRight;
+}
+
+method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: T -&gt; U): Pipe&lt;U&gt; {
+  // 実装略
+}</code></pre>
+
+      <h3>4.6.2 ジェネリック型パラメータ</h3>
+      <ul>
+        <li>型・struct・class・interface・trait・method・producer / filter / consumer などは、<code>&lt;T, U, ...&gt;</code> で型パラメータを受け取ることができる。</li>
+        <li>型パラメータ名は先頭大文字（<code>T</code>, <code>TItem</code>, <code>TKey</code> など）を推奨する。</li>
+        <li>ジェネリック引数は、使用箇所で具体的な型に束縛される。</li>
+      </ul>
+
+      <pre><code>type List&lt;T&gt; {
+  Items: T[];
+}
+
+method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
+  // 実装略
+}</code></pre>
+
+      <h3>4.6.3 where による型制約（概要）</h3>
+      <p>
+        Aloe のジェネリクスは、<code>where</code> 句による型制約を <strong>オプション</strong> としてサポートする。
+        制約を付けない単純なジェネリクスが基本だが、0.1 の段階から一部の制約を利用できる。
+      </p>
+
+      <pre><code>method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
+  where T: Int
+{
+  // Int 専用の合計
+}</code></pre>
+
+      <p class="note">
+        ここでの <code>where</code> は <strong>コンパイル時の型チェック専用</strong> であり、
+        ランタイム上の表現（モノモルフィック展開・ボックス化など）の詳細は VM 仕様側で定義される。
+      </p>
+
+      <h3>4.6.4 サポートされる制約の種類</h3>
+      <p>
+        0.1 時点でサポート対象とする制約は以下の通りとする。
+      </p>
+
+      <ul>
+        <li><strong>値型 / 参照型 制約</strong>
+          <ul>
+            <li><code>where T: struct</code> … 値型でなければならない。</li>
+            <li><code>where T: class</code> … 参照型でなければならない。</li>
+          </ul>
+        </li>
+        <li><strong>プリミティブ型制約</strong>
+          <ul>
+            <li><code>where T: Int</code>, <code>where T: Float</code>, <code>where T: Bool</code> など、プリミティブ型名を直接指定する。</li>
+          </ul>
+        </li>
+        <li><strong>ユーザー定義型制約</strong>
+          <ul>
+            <li><code>where T: SomeTrait</code> … 特定の <code>trait</code> を実装している型。</li>
+            <li><code>where T: MyStruct</code> … 特定の <code>struct</code> 型。</li>
+            <li><code>where T: MyClass</code> … 特定の <code>class</code> 型。</li>
+          </ul>
+        </li>
+        <li><strong>任意の具象型名</strong>
+          <ul>
+            <li><code>where T: Pipe&lt;Int&gt;</code> のように、既存の具体型名をそのまま制約として用いることができる。</li>
+          </ul>
+        </li>
+      </ul>
+
+      <pre><code>// 値型専用
+method Zero&lt;T&gt;(): T
+  where T: struct
+{
+  // 実装略
+}
+
+// Int 専用 Pipe
+method Average&lt;T&gt;(Source: Pipe&lt;T&gt;): Float
+  where T: Int
+{
+  // 実装略
+}
+
+// UserInfo を表す struct 専用
+method PrintUser&lt;T&gt;(User: T)
+  where T: UserInfo
+{
+  // 実装略
+}</code></pre>
+
+      <h3>4.6.5 制約違反時の挙動</h3>
+      <ul>
+        <li>ジェネリック関数 / 型の呼び出し時に、<code>where</code> 句を満たさない型引数が指定された場合、コンパイルエラーとなる。</li>
+        <li>制約が複数指定されている場合は、そのすべてを満たす必要がある。</li>
+        <li>現時点では、循環する制約や高度な型クラス風の指定はサポートしない。</li>
+      </ul>
+
+      <pre><code>// コンパイルエラー例
+
+// where T: Int なので、T に String は使えない
+method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
+  where T: Int
+{
+  ...
+}
+
+var Lines: Pipe&lt;String&gt; = ReadLines("log.txt");
+var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
+
+      <p class="small">
+        ジェネリクスの内部表現（モノモルフィック展開 or 共有コード + 型タグなど）は AloeVM 側の実装詳細とし、
+        本仕様書では「型安全な再利用」と「where による制約チェック」の振る舞いのみを定義する。
       </p>
     </section>
 
@@ -1134,7 +1267,7 @@ lock (SharedCounter) {
 
       <h3>12.1 現時点の制限</h3>
       <ul>
-        <li>ジェネリックの表現力は最低限（高度な型クラスや高階ジェネリックは未定義）。</li>
+        <li>ジェネリクスの表現力は最低限（型クラスや高階ジェネリクスは未定義）。</li>
         <li>モジュールシステムやパッケージ管理は本仕様書では扱わない。</li>
         <li>メタプログラミング機能（マクロ・リフレクションなど）は未定義。</li>
       </ul>
@@ -1153,7 +1286,7 @@ lock (SharedCounter) {
         本ドラフトは特に、
         <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係、</strong>
         ならびにそれらの宣言構文に加え、
-        <strong>with / delete / lock / class 継承の振る舞いと AloeVM のメモリ管理モデルとの関係</strong>
+        <strong>with / delete / lock / class 継承 / generics の振る舞いと AloeVM のメモリ管理モデルとの関係</strong>
         を明確化するために更新された版である。
       </p>
     </section>
@@ -1163,3 +1296,5 @@ lock (SharedCounter) {
 </body>
 </html>
 
+
+なので「ジェネリクスどこ行った問題」は、↑の 4.6 節＋キーワードテーブルの `where` 追加で復活させました。もし元のジェネリクス節で入れていた細かい文言で「これも戻したい」というのがあれば、それも足します。
