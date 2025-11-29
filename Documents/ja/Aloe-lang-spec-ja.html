@@ -3,9 +3,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer + delete/with/lock/clone/generics/where 更新版）</title>
-  <!-- 更新日メタデータ -->
-  <meta name="updated_at" content="2025-11-29" />
+  <title>Aloe 言語仕様書（ドラフト、日本語・pipe/filter/producer/consumer + delete/with/lock/class 継承 更新版）</title>
+  <meta name="last-updated" content="2025-11-29T11:00" />
   <style>
     /* レイアウトだけ最低限。フォントはブラウザ標準任せにしておく */
     body {
@@ -34,7 +33,12 @@
     .sidebar .tagline {
       font-size: 0.75rem;
       color: #9ca3af;
-      margin-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
+    }
+    .sidebar .updated {
+      font-size: 0.7rem;
+      color: #9ca3af;
+      margin-bottom: 0.8rem;
     }
     .sidebar nav a {
       display: block;
@@ -132,9 +136,8 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">
-      ドラフト版 / Pipe・Filter・Producer・Consumer + delete/with/lock/clone/generics/where 更新
-    </div>
+    <div class="tagline">ドラフト版 / Pipe・Filter・Producer・Consumer + delete/with/lock/class 継承 更新</div>
+    <div class="updated">最終更新: 2025-11-29 11:00</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. 概要</a>
@@ -143,9 +146,8 @@
       <div class="section-title">言語の基本</div>
       <a href="#syntax">3. 基本文法</a>
       <a href="#types">4. 型システム</a>
-      <a href="#types-generics">4.6 ジェネリクス</a>
-      <a href="#types-constraints">4.7 型制約（where）</a>
-      <a href="#functions-methods">5. 関数とメソッド / trait</a>
+      <a href="#classes">4.5 クラスと継承</a>
+      <a href="#functions-methods">5. 関数とメソッド</a>
 
       <div class="section-title">パイプ / コレクション</div>
       <a href="#pipe-overview">6. Pipe / Filter モデル</a>
@@ -168,7 +170,6 @@
       <a href="#limits">12. 制限事項と今後の拡張</a>
     </nav>
   </aside>
-
   <main class="content">
 
     <section id="intro">
@@ -224,56 +225,16 @@
       <h3>3.2 トークン</h3>
       <ul>
         <li>識別子: 先頭は英字または <code>_</code>、続く文字に数字を含めてよい。</li>
-        <li>型名・トレイト名・ジェネリックパラメータなどは PascalCase を推奨する。</li>
         <li>キーワードは予約語として識別子に使用できない。</li>
       </ul>
 
       <h3>3.3 代表的なキーワード</h3>
       <table>
         <tr><th>カテゴリ</th><th>キーワード</th></tr>
-        <tr>
-          <td>宣言</td>
-          <td>
-            <code>let</code>,
-            <code>var</code>,
-            <code>type</code>,
-            <code>struct</code>,
-            <code>class</code>,
-            <code>enum</code>,
-            <code>trait</code>
-          </td>
-        </tr>
-        <tr>
-          <td>制御</td>
-          <td>
-            <code>if</code>, <code>else</code>,
-            <code>while</code>, <code>for</code>,
-            <code>break</code>, <code>continue</code>,
-            <code>return</code>,
-            <code>try</code>, <code>catch</code>, <code>finally</code>
-          </td>
-        </tr>
-        <tr>
-          <td>関数系</td>
-          <td>
-            <code>method</code>,
-            <code>producer</code>,
-            <code>pipe</code>,
-            <code>filter</code>,
-            <code>consumer</code>
-          </td>
-        </tr>
-        <tr>
-          <td>補助構文</td>
-          <td>
-            <code>with</code>,
-            <code>lock</code>,
-            <code>delete</code>,
-            <code>clone</code>,
-            <code>where</code>,
-            <code>readonly</code>
-          </td>
-        </tr>
+        <tr><td>宣言</td><td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code>, <code>class</code>, <code>interface</code>, <code>trait</code>, <code>sealed</code></td></tr>
+        <tr><td>制御</td><td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code></td></tr>
+        <tr><td>関数</td><td><code>method</code></td></tr>
+        <tr><td>補助</td><td><code>with</code>, <code>lock</code>, <code>delete</code>, <code>clone</code></td></tr>
       </table>
 
       <h3>3.4 文と式</h3>
@@ -304,7 +265,7 @@ if (Count &gt; Threshold) {
         <tr><td><code>Bool</code></td><td><code>true</code> / <code>false</code></td></tr>
         <tr><td><code>Int</code></td><td>符号付き整数（ビット幅は実装依存。32bit を想定）</td></tr>
         <tr><td><code>Float</code></td><td>浮動小数（32 または 64bit、実装依存）</td></tr>
-        <tr><td><code>String</code></td><td>UTF-8 文字列（内部表現は実装依存。論理的には参照型とみなす）</td></tr>
+        <tr><td><code>String</code></td><td>UTF-8 文字列（内部表現は実装依存）</td></tr>
       </table>
 
       <h3>4.2 配列・コレクション</h3>
@@ -320,28 +281,11 @@ if (Count &gt; Threshold) {
   IsActive: Bool;
 }</code></pre>
       <ul>
-        <li><code>struct</code> は値型であり、代入時にコピーされる（浅いコピー）。</li>
-        <li>ネストされた参照型フィールドは共有される（シャローコピー）。</li>
+        <li><code>struct</code> は値型であり、代入時にコピーされる。</li>
+        <li>シャローコピーのセマンティクスとし、ネストされた参照型の共有は VM 側仕様に依存する。</li>
       </ul>
 
-      <h3>4.4 クラス（class）</h3>
-      <pre><code>class Buffer {
-  Data: Byte[];
-  Length: Int;
-}</code></pre>
-      <ul>
-        <li><code>class</code> は常にヒープ確保される <strong>参照型</strong> である。</li>
-        <li>代入は <strong>参照コピー</strong> となる（同じインスタンスを指す）。</li>
-        <li>フィールドはデフォルトで可変であり、<code>readonly</code> 指定により不変にできる。</li>
-        <li><code>readonly class</code> と宣言した場合、そのクラスの全フィールドは暗黙に readonly とみなされる。</li>
-      </ul>
-
-      <pre><code>readonly class Point {
-  X: Int;
-  Y: Int;
-}</code></pre>
-
-      <h3>4.5 列挙型（enum）</h3>
+      <h3>4.4 列挙型（enum）</h3>
       <ul>
         <li><code>enum</code> は内部表現を <strong>常に <code>Int</code></strong> とする。</li>
         <li><code>enum&lt;String&gt;</code> や <code>enum&lt;Byte&gt;</code> のような
@@ -357,187 +301,129 @@ if (Count &gt; Threshold) {
   Warn  = 3;
   Error = 4;
 }</code></pre>
+    </section>
 
-      <section id="types-generics">
-        <h3>4.6 ジェネリクス</h3>
+    <section id="classes">
+      <h2>4.5 クラスと継承（class / interface / trait / sealed）</h2>
 
-        <p>
-          Aloe は、構造体・クラス・別名型・メソッド・Pipe 系宣言に対して
-          <strong>ジェネリクス（型パラメータ化）</strong>をサポートする。
-        </p>
+      <h3>4.5.1 クラス（class）の基本</h3>
+      <ul>
+        <li><code>class</code> は常に <strong>ヒープ確保される参照型</strong> である。</li>
+        <li>代入は <strong>参照コピー（浅いコピー）</strong> とする。</li>
+        <li><code>clone</code> キーワードにより、オブジェクトのコピー（新しい参照）を生成できる。</li>
+      </ul>
 
-        <h4>4.6.1 基本構文</h4>
-        <pre><code>struct Pair&lt;TLeft, TRight&gt; {
-  Left:  TLeft;
-  Right: TRight;
+      <pre><code>class User {
+  Name: String;
+  Age: Int;
 }
 
-class List&lt;T&gt; {
-  // 内部表現は実装依存
+var A: User = NewUser();
+var B: User = A;        // 参照コピー（A と B は同じインスタンスを指す）
+
+var C: User = clone A;  // 新しいインスタンスを生成して、その参照を返す（浅いコピー）</code></pre>
+
+      <p class="note">
+        <strong>浅いコピー</strong> とは、フィールドの値をそのままコピーするだけであり、
+        フィールドが参照型である場合は参照自体がコピーされることを意味する。
+        深いコピーや特殊なクローン動作が必要な型は、将来的にユーザー定義の <code>Clone</code> メソッドなどで拡張する余地を残す。
+      </p>
+
+      <h3>4.5.2 クラス継承（単一継承）</h3>
+      <p>
+        Aloe の <code>class</code> は <strong>単一継承</strong> のみを許可する。
+        すなわち、あるクラスは継承元クラスを 1 つだけ指定できる。
+      </p>
+
+      <pre><code>class Base {
+  Id: Int;
 }
 
-type Option&lt;T&gt; = union {
-  None;
-  Some(T);
-};</code></pre>
-
-        <ul>
-          <li>型パラメータ名は PascalCase を推奨する（例: <code>T</code>, <code>TItem</code>）。</li>
-          <li>使用時は <code>Pair&lt;Int, String&gt;</code>, <code>List&lt;User&gt;</code> のように型引数を明示する。</li>
-          <li>型引数を省略した <code>List</code> のような記述はコンパイルエラーとする。</li>
-        </ul>
-
-        <h4>4.6.2 ジェネリックメソッド</h4>
-        <pre><code>method Identity&lt;T&gt;(Value: T): T {
-  return Value;
+class Derived : Base {
+  Name: String;
 }
 
-method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;, Default: T): T {
-  // 疑似コード:
-  // for (item in Source) return item;
-  // return Default;
+// 以下はコンパイルエラー（クラスの多重継承は禁止）
+class Bad : Base, OtherBase {
 }</code></pre>
 
-        <ul>
-          <li>呼び出し側で <code>Identity&lt;Int&gt;(10)</code> のように明示指定できる。</li>
-          <li>実引数から一意に型パラメータが推論できる場合は、
-            <code>Identity("hello")</code> のように型引数省略を許可してよい。
-          </li>
-          <li>推論できない場合（例: <code>MakePair(1, 2.0)</code>）はコンパイルエラーとする。</li>
-        </ul>
+      <ul>
+        <li>クラス階層は木（あるいは鎖）構造となり、ダイヤモンド継承は発生しない。</li>
+        <li>クラス継承は「状態と振る舞いの再利用」を目的とする。</li>
+      </ul>
 
-        <h4>4.6.3 Pipe との組み合わせ</h4>
-        <pre><code>type Pipe&lt;T&gt; {
-  // 実装依存の内部フィールド
+      <h3>4.5.3 interface と trait</h3>
+      <p>
+        Aloe は、クラスの多重継承を行わない代わりに、
+        <strong>interface</strong> と <strong>trait</strong> によって振る舞いの組み合わせを表現する。
+      </p>
+
+      <ul>
+        <li><code>interface</code> はメソッドシグネチャのみを定義する契約型であり、実装は持たない（デフォルト実装を導入するかどうかは将来検討）。</li>
+        <li><code>trait</code> はメソッド実装を持つミックスイン用の単位であり、既存クラスに振る舞いを追加するために使用する。</li>
+        <li>1 つのクラスは、<strong>1 つの基底クラス</strong>に加えて、複数の <code>interface</code> を実装し、複数の <code>trait</code> を <code>with</code> で付与できる。</li>
+      </ul>
+
+      <pre><code>interface IDisposable {
+  method Dispose(): Unit;
 }
 
-bound Pipe&lt;T&gt; {
-  method Map&lt;U&gt;(Selector: T -&gt; U): Pipe&lt;U&gt; {
-    // 実装略
+trait Printable {
+  method PrintSelf(): Unit {
+    Print(this.ToString());
+  }
+}
+
+class FileHandle : BaseFile implements IDisposable with Printable {
+  method Dispose(): Unit {
+    // リソース解放処理
   }
 
-  method Where(Predicate: T -&gt; Bool): Pipe&lt;T&gt; {
-    // 実装略
+  method ToString(): String {
+    return "FileHandle(...)";
   }
 }</code></pre>
 
-        <p class="note">
-          <strong>制約：</strong><br />
-          <code>bound Pipe&lt;T&gt;</code> ブロック内に宣言されるメソッドは、
-          戻り値型として <strong>必ず <code>Pipe&lt;*&gt;</code> を返さなければならない</strong>。
-          つまり <code>Pipe&lt;T&gt; -&gt; Pipe&lt;U&gt;</code> 形式の transformer 限定とする。
-        </p>
-      </section>
+      <p class="note">
+        <code>interface</code> と <code>trait</code> の詳細な構文・継承ルール・競合解決（複数 trait から同名メソッドを得た場合の扱い）は、
+        本ドラフトでは方向性のみを示し、完全な仕様は今後の検討事項とする。
+      </p>
 
-      <section id="types-constraints">
-        <h3>4.7 型制約（where）</h3>
+      <h3>4.5.4 sealed による継承禁止</h3>
+      <p>
+        あるクラスからの継承を禁止する場合は、<code>sealed</code> 修飾子を用いる。
+      </p>
 
-        <p>
-          ジェネリクスの型パラメータには、<code>where</code> 句によって
-          <strong>型制約</strong>を与えることができる。
-          制約はすべて <strong>AND（積集合）</strong> として解釈される。
-        </p>
-
-        <h4>4.7.1 構文</h4>
-        <pre><code>struct Box&lt;T&gt;
-  where T: struct
-{
-  Value: T;
+      <pre><code>sealed class Token {
+  Kind: TokenKind;
+  Text: String;
 }
 
-class RefBox&lt;T&gt;
-  where T: class
-{
-  Value: T;
-}
-
-method Parse&lt;T&gt;(Text: String): T
-  where T: Int
-{
-  // Int 専用実装
+// 以下はコンパイルエラー（Token は sealed）
+class KeywordToken : Token {
 }</code></pre>
 
-        <p>一般形：</p>
-        <pre><code>// 型・メソッド・Pipe 系宣言に共通
-// TypeName&lt;T1, T2, ...&gt;
-//   where T1: 制約1, 制約2
-//   where T2: 制約3
-// { ... }</code></pre>
+      <ul>
+        <li><code>sealed class</code> は、他のクラスから継承してはならない。</li>
+        <li><code>sealed</code> クラスであっても、<code>interface</code> を実装したり、<code>trait</code> を <code>with</code> で付与することは許可される。</li>
+        <li>将来的に、sealed クラスと union / パターンマッチの網羅性チェックを結びつける設計も検討される。</li>
+      </ul>
 
-        <h4>4.7.2 サポートされる制約の種類</h4>
-        <p>0.1 では、次の種類の制約をサポートする。</p>
+      <h3>4.5.5 readonly とクラス</h3>
+      <ul>
+        <li>クラスのフィールドはデフォルトで可変とする。</li>
+        <li>フィールドに <code>readonly</code> 修飾子を付けることで、そのフィールドを不変にできる（代入はコンストラクタ等に制限される想定）。</li>
+        <li><code>readonly class</code> を将来的に導入し、クラス全体を強制的に読み取り専用として扱う設計も候補に含める。</li>
+      </ul>
 
-        <ol>
-          <li>
-            <strong>Kind 制約</strong><br />
-            <code>where T: struct</code> / <code>where T: class</code><br />
-            <ul>
-              <li><code>struct</code>: T は値型でなければならない（プリミティブ値型・<code>struct</code>・<code>enum</code> など）。</li>
-              <li><code>class</code>: T は参照型でなければならない（<code>class</code> 型・<code>String</code>・<code>Pipe&lt;T&gt;</code>・配列など）。</li>
-            </ul>
-          </li>
-          <li>
-            <strong>プリミティブ型制約</strong><br />
-            <code>where T: Bool</code>, <code>where T: Int</code>,
-            <code>where T: Float</code>, <code>where T: String</code> など。<br />
-            <ul>
-              <li>T はそのプリミティブ型（またはその単純な別名型）でなければならない。</li>
-              <li>例: <code>type MyInt = Int;</code> のような別名を認めるかどうかは実装で決めてよい。</li>
-            </ul>
-          </li>
-          <li>
-            <strong>trait 制約</strong><br />
-            <code>where T: SomeTrait</code><br />
-            <ul>
-              <li><code>SomeTrait</code> は <code>trait</code> 宣言で定義されたトレイトである。</li>
-              <li>T は <code>SomeTrait</code> を実装していなければならない。</li>
-              <li>複数トレイトの AND 制約（<code>where T: Printable, Serializable</code>）も可能。</li>
-            </ul>
-          </li>
-          <li>
-            <strong>具象型制約（struct/class/enum/union）</strong><br />
-            <code>where T: MyStruct</code>, <code>where T: MyClass</code>, <code>where T: MyUnion</code> など。<br />
-            <ul>
-              <li>継承を導入しない前提では「T はその型と一致していること」を要求する。</li>
-              <li>継承を導入する場合、<code>MyClass</code> のサブクラスも許可する設計もあり得るが、
-                本ドラフトでは <strong>継承無し・一致のみ</strong> として扱う。
-              </li>
-            </ul>
-          </li>
-          <li>
-            <strong>具象ジェネリック型制約</strong><br />
-            <code>where T: Pipe&lt;Int&gt;</code>, <code>where T: List&lt;User&gt;</code> など。<br />
-            <ul>
-              <li>T はその具体的なジェネリック型と一致していなければならない。</li>
-              <li>継承やサブタイプを導入しない前提では「完全一致」のみ有効。</li>
-            </ul>
-          </li>
-        </ol>
-
-        <h4>4.7.3 複数制約と整合性</h4>
-        <ul>
-          <li>同じ型パラメータに複数の制約を与えた場合、それらはすべて満たされなければならない（AND）。</li>
-          <li>制約同士が論理的に矛盾する場合（例: <code>where T: struct, MyClass</code>）はコンパイルエラーとする。</li>
-          <li>プリミティブ型制約と Kind 制約の組み合わせ（例: <code>where T: Int, struct</code>）は冗長だが有効とみなしてよい。</li>
-        </ul>
-
-        <pre><code>trait Printable {
-  method ToString(): String;
-}
-
-// 参照型かつ Printable なものだけを受け取る
-method LogAll&lt;T&gt;(Items: Pipe&lt;T&gt;)
-  where T: class, Printable
-{
-  Items
-    |&gt; Map(.ToString())
-    |&gt; ForEach(Print);
-}</code></pre>
-      </section>
+      <p class="small">
+        本節では、クラスが「ヒープ確保の参照型」「単一継承のみ」「多重継承は interface + trait で表現」「sealed による継承禁止」という
+        高レベルな設計方針を定める。詳細なメソッド解決順序や trait の競合解決ルールは、別途仕様で補う。
+      </p>
     </section>
 
     <section id="functions-methods">
-      <h2>5. 関数とメソッド / trait</h2>
+      <h2>5. 関数とメソッド</h2>
 
       <h3>5.1 method 宣言</h3>
       <pre><code>method Add(a: Int, b: Int): Int {
@@ -549,17 +435,7 @@ method LogAll&lt;T&gt;(Items: Pipe&lt;T&gt;)
         <li>返り値が無い場合は <code>Unit</code> 型と見なす。</li>
       </ul>
 
-      <h3>5.2 trait</h3>
-      <pre><code>trait Printable {
-  method ToString(): String;
-}</code></pre>
-      <ul>
-        <li><code>trait</code> はメソッドシグネチャと既定実装を持ち得る再利用可能な部品である。</li>
-        <li>struct / class は複数の trait を実装できる。</li>
-        <li>ジェネリクスの <code>where T: Printable</code> 制約の対象となる。</li>
-      </ul>
-
-      <h3>5.3 bound によるメソッドバインド</h3>
+      <h3>5.2 bound によるメソッドバインド</h3>
       <p>
         Aloe では、既存の型にメソッドを「後付け」でバインドするために <code>bound</code> を導入する。
       </p>
@@ -578,23 +454,6 @@ bound Pipe&lt;T&gt; {
         本仕様では特に <code>Pipe&lt;T&gt;</code> に対する <code>bound</code> に、
         <strong>戻り値制限</strong> を設ける（6.2 章参照）。
       </p>
-
-      <h3>5.4 clone キーワード</h3>
-      <p>
-        <code>clone</code> は、対象オブジェクトのコピーを生成し、その参照を返すためのキーワードである。
-      </p>
-
-      <pre><code>var Original: Buffer = NewBuffer();
-
-var Copy: Buffer = clone Original;  // 新しい Buffer インスタンス（浅いコピー）</code></pre>
-
-      <ul>
-        <li><code>clone Expr</code> は、主に <code>class</code> 型や配列などの「参照型」に対して意味を持つ。</li>
-        <li>コピーの深さ（浅いコピー／深いコピー）は型ごとに定義されるが、
-          デフォルトは <strong>浅いコピー</strong> とする。
-        </li>
-        <li><code>struct</code> 値のコピーは、通常の代入で十分なため <code>clone</code> の使用は必須ではない。</li>
-      </ul>
     </section>
 
     <section id="pipe-overview">
@@ -646,7 +505,7 @@ var Copy: Buffer = clone Original;  // 新しい Buffer インスタンス（浅
 
         <p class="note">
           <strong>パイプ世界</strong>とは、<code>Pipe&lt;T&gt;</code> を入力・出力とする
-          関数たち（producer / transformer / consumer）の合成領域を指す。
+          函数たち（producer / transformer / consumer）の合成領域を指す。
           この世界から外へ出るのが consumer である。
         </p>
       </section>
@@ -728,6 +587,7 @@ method ToArray&lt;T&gt;(Source: Pipe&lt;T&gt;): T[] { ... }
 
 // 行数を数える consumer
 method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
+
       </section>
 
       <section id="pipe-defs">
@@ -759,8 +619,14 @@ method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
           </li>
           <li><code>bound(output)</code> ブロックは、
             実際にパイプライン先頭に結合されたときの処理を記述する。
+            <code>output</code> の型は <code>out</code> に指定した型（<code>Pipe&lt;T&gt;</code>）である。
           </li>
         </ul>
+
+        <p>
+          コンストラクタ引数（<code>Params...</code>）は、
+          <code>bound</code> ブロック内からそのまま参照できる。
+        </p>
 
         <pre><code>producer ReadLines(Path: String) {
   out: Pipe&lt;String&gt;;
@@ -784,6 +650,15 @@ method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
     // パイプ同士の結合や、中継・変換処理
   }
 }</code></pre>
+
+        <ul>
+          <li><code>PipeName</code> はパイプ名。</li>
+          <li><code>in</code> は「上流」から受け取るデータの型。</li>
+          <li><code>out</code> は「下流」へ流すデータの型。</li>
+          <li><code>bound(input, output)</code> では、
+            <code>input</code> から <code>output</code> へデータを流す実装を書く。
+          </li>
+        </ul>
 
         <p class="note">
           Pipe 定義は、外部世界との接続（ソケット・HTTP）や、
@@ -813,6 +688,17 @@ method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
     // input から output へどのように要素を流すかを記述
   }
 }</code></pre>
+
+        <ul>
+          <li><code>FilterName</code> はフィルタ名。</li>
+          <li><code>in</code> / <code>out</code> にはこのフィルタが扱う入出力型を指定する。</li>
+          <li>Pipe / Filter モデルにおける「中間フィルタ」の場合、
+            <code>in</code> / <code>out</code> はどちらも <code>Pipe&lt;*&gt;</code> になる。
+          </li>
+          <li><code>bound(input, output)</code> では、
+            <code>input</code> から <code>output</code> への変換処理を書く。
+          </li>
+        </ul>
 
         <pre><code>filter Where&lt;T&gt;(Predicate: T -&gt; Bool) {
   in:  Pipe&lt;T&gt;;
@@ -847,6 +733,19 @@ filter Map&lt;T, U&gt;(Selector: T -&gt; U) {
     // input をすべて消費し、何かしらの値を return する
   }
 }</code></pre>
+
+        <ul>
+          <li><code>ConsumerName</code> はコンシューマ名。</li>
+          <li><code>in</code> には、この consumer が受け取るデータの型を指定する。
+            Pipe / Filter モデルでは、<strong>通常は <code>Pipe&lt;T&gt;</code> を指定する</strong>。
+          </li>
+          <li><code>bound(input)</code> は、パイプライン終端に結合されたときに実行される本体で、
+            <code>input</code> を最後まで消費し、任意の型 <code>R</code> の値を <code>return</code> する。
+          </li>
+          <li><code>R</code> は <code>T[]</code> / <code>Int</code> / <code>Bool</code> / <code>Unit</code> など任意だが、
+            <strong><code>Pipe&lt;*&gt;</code> であってはならない</strong>。
+          </li>
+        </ul>
 
         <pre><code>consumer ToArray&lt;T&gt; {
   in: Pipe&lt;T&gt;;
@@ -883,6 +782,7 @@ consumer Count&lt;T&gt; {
             <li><strong>consumer</strong>：<code>Pipe&lt;T&gt;</code> → 任意の非 <code>Pipe</code> 型（パイプ世界からの出口）</li>
           </ul>
         </p>
+
       </section>
 
       <section id="pipe-operator">
@@ -1234,10 +1134,9 @@ lock (SharedCounter) {
 
       <h3>12.1 現時点の制限</h3>
       <ul>
-        <li>ジェネリクスの型制約は本章で述べた範囲に限定される（より高度な制約は将来の拡張）。</li>
+        <li>ジェネリックの表現力は最低限（高度な型クラスや高階ジェネリックは未定義）。</li>
         <li>モジュールシステムやパッケージ管理は本仕様書では扱わない。</li>
         <li>メタプログラミング機能（マクロ・リフレクションなど）は未定義。</li>
-        <li>クラス継承の有無や階層構造は別途検討中（本ドラフトでは継承なしモデルを前提に記述している）。</li>
       </ul>
 
       <h3>12.2 今後の検討課題</h3>
@@ -1247,15 +1146,15 @@ lock (SharedCounter) {
         <li>エラー処理と Result 型的な表現（例外以外のエラーハンドリング）。</li>
         <li>分散処理やストリーム処理向けの標準ライブラリ拡張。</li>
         <li><code>delete</code> と所有権付きリソース型の統合設計（必要になった場合）。</li>
-        <li>より表現力の高い型制約（trait ベースの型クラス的デザインなど）。</li>
+        <li>trait / interface / sealed とパターンマッチの統合（網羅性チェックなど）。</li>
       </ul>
 
       <p class="note">
-        本ドラフトは特に、<br />
-        <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係、
-        ならびにそれらの宣言構文</strong> に加え、<br />
-        <strong>with / delete / lock / clone と AloeVM のメモリ管理モデルとの関係</strong>、<br />
-        および <strong>ジェネリクスと where 型制約</strong> を明確化するために更新された版である。
+        本ドラフトは特に、
+        <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係、</strong>
+        ならびにそれらの宣言構文に加え、
+        <strong>with / delete / lock / class 継承の振る舞いと AloeVM のメモリ管理モデルとの関係</strong>
+        を明確化するために更新された版である。
       </p>
     </section>
 
