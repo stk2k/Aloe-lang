@@ -1,8 +1,9 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe Language Specification (Draft – Pipe/Filter/producer/consumer + delete/with/lock/class inheritance/generics)</title>
+  <title>Aloe Language Specification (Draft – Pipe/Filter/producer/consumer + delete/with/lock/class inheritance/generics/events)</title>
   <meta name="last-updated" content="2025-11-29T12:00:00+09:00" />
   <style>
     /* Minimal layout only. Let the browser decide fonts. */
@@ -135,7 +136,7 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe Language Specification</h1>
-    <div class="tagline">Draft / Pipe, Filter, Producer, Consumer + delete/with/lock/class inheritance/generics</div>
+    <div class="tagline">Draft / Pipe, Filter, Producer, Consumer + delete/with/lock/class inheritance/generics/events</div>
     <div class="updated">Last updated: 2025-11-29 12:00:00</div>
     <nav>
       <div class="section-title">Overview</div>
@@ -168,6 +169,7 @@
 
       <div class="section-title">Misc</div>
       <a href="#limits">12. Limitations and Future Work</a>
+      <a href="#events">13. Events</a>
     </nav>
   </aside>
   <main class="content">
@@ -232,7 +234,7 @@
         <tr><th>Category</th><th>Keywords</th></tr>
         <tr>
           <td>Declarations</td>
-          <td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code>, <code>class</code>, <code>interface</code>, <code>trait</code>, <code>sealed</code></td>
+          <td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code>, <code>class</code>, <code>interface</code>, <code>trait</code>, <code>sealed</code>, <code>event</code></td>
         </tr>
         <tr>
           <td>Control</td>
@@ -433,8 +435,7 @@ class KeywordToken : Token {
       <ul>
         <li><code>sealed class</code> cannot be used as a base class.</li>
         <li>Even if a class is <code>sealed</code>, it may still implement interfaces and
-          have traits applied via <code>with</code>.
-        </li>
+          have traits applied via <code>with</code>.</li>
         <li>In the future, we plan to combine sealed classes with unions and pattern matching
           to support exhaustiveness checking.</li>
       </ul>
@@ -1421,6 +1422,197 @@ lock with (Conn) {
         and<br />
         <strong>the relationships between with / delete / lock / class inheritance / readonly / clone / generics
         and the AloeVM memory model</strong>.
+      </p>
+    </section>
+
+    <section id="events">
+      <h2>13. Events</h2>
+
+      <h3>13.1 Motivation and Overview</h3>
+      <p>
+        Aloe provides an <code>event</code> construct to model push-style callbacks
+        (for example “something has changed” notifications) in a structured way,
+        similar to C# events.
+      </p>
+      <ul>
+        <li>Events are multi-cast: multiple handlers can be subscribed to a single event.</li>
+        <li>Handlers are ordinary methods whose signatures are checked by the type system.</li>
+        <li>Subscribers can only add/remove handlers; only the declaring type is allowed to raise the event.</li>
+      </ul>
+
+      <h3>13.2 Event Handler Types</h3>
+      <p>
+        Aloe does not introduce a special “delegate” declaration.
+        Event handler types are expressed using normal function types.
+      </p>
+
+      <pre><code>// Example: event args type
+struct ValueChangedEventArgs {
+  OldValue: Int;
+  NewValue: Int;
+}
+
+// Event handler type (informal notation):
+// (Sender: Counter, Args: ValueChangedEventArgs) -&gt; Unit</code></pre>
+
+      <p class="note">
+        The exact grammar of function types (multiple parameters, named parameters, etc.)
+        is defined in the core type system.
+        For events, the common convention is:
+        <ul>
+          <li>First parameter: the sender (the instance raising the event).</li>
+          <li>Second parameter: an “event args” struct that carries additional data.</li>
+          <li>Return type: no meaningful value (the handler is used for side effects).</li>
+        </ul>
+      </p>
+
+      <h3>13.3 Event Declarations</h3>
+      <p>
+        Events can be declared as members of classes or structs using the <code>event</code> keyword.
+        An event has a name and a handler type.
+      </p>
+
+      <pre><code>class Counter {
+  Value: Int;
+
+  // Event raised when Value changes
+  event Changed: (Sender: Counter, Args: ValueChangedEventArgs) -&gt; Unit;
+
+  method Increment() {
+    let Old = Value;
+    Value = Value + 1;
+    RaiseChanged(Old, Value);
+  }
+
+  method RaiseChanged(Old: Int, New: Int) {
+    let Args: ValueChangedEventArgs;
+    Args.OldValue = Old;
+    Args.NewValue = New;
+
+    // Raising the event (details in 13.5)
+    Changed(this, Args);
+  }
+}</code></pre>
+
+      <ul>
+        <li>Only the declaring type (here: <code>Counter</code>) is allowed to invoke
+          <code>Changed(...)</code> directly.</li>
+        <li>From outside, code can subscribe/unsubscribe, but not call the event.</li>
+      </ul>
+
+      <h3>13.4 Subscribing and Unsubscribing</h3>
+      <p>
+        Handlers are attached to events using <code>+=</code> and removed using <code>-=</code>,
+        following C#-like syntax.
+      </p>
+
+      <pre><code>method LogCounterChange(Sender: Counter, Args: ValueChangedEventArgs): Unit {
+  Print("Counter changed: " + Args.OldValue + " -&gt; " + Args.NewValue);
+}
+
+var C: Counter;
+
+// Subscribe
+C.Changed += LogCounterChange;
+
+// Unsubscribe
+C.Changed -= LogCounterChange;</code></pre>
+
+      <ul>
+        <li>The right-hand side of <code>+=</code> / <code>-=</code> must be a function value
+          (for example a named method or a lambda)
+          whose type is compatible with the event’s handler type.</li>
+        <li>If the types are incompatible, it is a compile-time error.</li>
+        <li>Subscribing the same handler multiple times is allowed;
+          each subscription represents a separate entry in the internal handler list.</li>
+      </ul>
+
+      <p class="note">
+        <strong>Informal runtime model:</strong><br />
+        Each event is backed by an internal list of handlers.
+        <code>+=</code> appends to this list, and <code>-=</code> removes the first matching entry.
+        The exact data structure is implementation-dependent.
+      </p>
+
+      <h3>13.5 Raising Events</h3>
+      <p>
+        Inside the declaring type, raising an event is expressed as an ordinary call
+        to the event name with the appropriate arguments.
+        The runtime dispatches the call to all subscribed handlers.
+      </p>
+
+      <pre><code>class Counter {
+  Value: Int;
+  event Changed: (Sender: Counter, Args: ValueChangedEventArgs) -&gt; Unit;
+
+  method Increment() {
+    let Old = Value;
+    Value = Value + 1;
+
+    let Args: ValueChangedEventArgs;
+    Args.OldValue = Old;
+    Args.NewValue = Value;
+
+    // Raise the event
+    Changed(this, Args);
+  }
+}</code></pre>
+
+      <ul>
+        <li>When an event is raised, all handlers currently subscribed are invoked in
+          <strong>subscription order</strong> (the first handler added is called first).</li>
+        <li>If there are no handlers, raising the event is a no-op.</li>
+        <li>If a handler throws an exception, the default behavior in version 0.1 is:
+          <ul>
+            <li>Stop invoking subsequent handlers.</li>
+            <li>Propagate the exception as if it was thrown directly from the event call site.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <p class="warning">
+        This means that one faulty handler can prevent later handlers from running.
+        If you need “best effort” semantics (invoke all handlers and collect errors),
+        you should wrap the event call in a <code>try</code>/<code>catch</code> block
+        and handle exceptions explicitly.
+      </p>
+
+      <h3>13.6 Lambdas and Inline Handlers</h3>
+      <p>
+        Lambdas can be used as inline event handlers as long as their parameter and
+        (implicit) return types match the event’s handler type.
+      </p>
+
+      <pre><code>var C: Counter;
+
+C.Changed += (Sender: Counter, Args: ValueChangedEventArgs) {
+  Print("Inline handler: " + Args.NewValue);
+};</code></pre>
+
+      <ul>
+        <li>If the return type is omitted in a lambda, it is assumed to be “no return value”,
+          which matches handlers that are intended for side effects only.</li>
+        <li>Capturing local variables from the enclosing scope in an event handler is allowed;
+          lifetime and GC behavior follow the normal closure rules of Aloe.</li>
+      </ul>
+
+      <h3>13.7 Events and Lifetime</h3>
+      <p>
+        Event subscriptions extend the lifetime of captured objects as long as
+        the event source is alive and still holds references to the handlers.
+      </p>
+      <ul>
+        <li>For instance, if a long-lived object publishes events and a short-lived object subscribes,
+          the subscription may keep the short-lived object alive longer than expected.</li>
+        <li>This is the same “event subscription leak” pattern as in other managed languages.</li>
+        <li>In Aloe, unsubscribing via <code>-=</code> when the subscriber is no longer needed
+          is the recommended pattern.</li>
+      </ul>
+
+      <p class="note">
+        Future versions of the language may introduce “weak events” or other patterns
+        to mitigate subscription leaks.
+        Version 0.1 intentionally keeps the model close to C# for familiarity.
       </p>
     </section>
 
