@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event）</title>
-  <meta name="last-updated" content="2025-11-29T12:40:00+09:00" />
+  <meta name="last-updated" content="2025-11-29T13:00:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -136,7 +136,7 @@
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
     <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/event</div>
-    <div class="updated">最終更新: 2025-11-29 12:40:00</div>
+    <div class="updated">最終更新: 2025-11-29 13:00:00</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. はじめに</a>
@@ -391,17 +391,17 @@ class Bad : Base, OtherBase {
       </ul>
 
       <pre><code>interface IDisposable {
-  method Dispose(): Unit;
+  method Dispose();
 }
 
 trait Printable {
-  method PrintSelf(): Unit {
+  method PrintSelf() {
     Print(this.ToString());
   }
 }
 
 class FileHandle : BaseFile implements IDisposable with Printable {
-  method Dispose(): Unit {
+  method Dispose() {
     // リソース解放処理
   }
 
@@ -495,7 +495,7 @@ struct Pair&lt;TLeft, TRight&gt; {
   Right: TRight;
 }
 
-method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: T -&gt; U): Pipe&lt;U&gt; {
+method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: Func&lt;T:U&gt;): Pipe&lt;U&gt; {
   // 実装は省略
 }</code></pre>
 
@@ -626,7 +626,8 @@ var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
 
       <ul>
         <li><code>method</code> はトップレベル関数、または型にバインドされたメソッドを定義する。</li>
-        <li>戻り値を明示しない場合、そのメソッドは <code>Unit</code> を返すとみなされる。</li>
+        <li>戻り値を明示しない場合、そのメソッドは「戻り値なし」（void）として扱われる。</li>
+        <li>Aloe には <code>Unit</code> 型は存在せず、戻り値なしは型としては表現されない。</li>
       </ul>
 
       <h3>5.2 bound によるメソッドバインディング</h3>
@@ -639,7 +640,7 @@ var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
 }
 
 bound Pipe&lt;T&gt; {
-  method Where(Predicate: T -&gt; Bool): Pipe&lt;T&gt; {
+  method Where(Predicate: Func&lt;T:Bool&gt;): Pipe&lt;T&gt; {
     // 実装は省略
   }
 }</code></pre>
@@ -648,6 +649,17 @@ bound Pipe&lt;T&gt; {
         <code>Pipe&lt;T&gt;</code> に対しては、<code>bound</code> ブロックで宣言されるメソッドの
         戻り値に関する<strong>制約</strong>を導入する（詳細は 6.2 を参照）。
       </p>
+
+      <h3>5.3 関数型の表現（Func&lt;...:...&gt;）</h3>
+      <p>
+        Aloe では、関数型はすべて <code>Func&lt;...:...&gt;</code> 記法で表現する。
+        <code>-&gt;</code> を用いた関数型表記は言語仕様として存在しない。
+      </p>
+      <ul>
+        <li><code>Func&lt;T:U&gt;</code> は「引数 <code>T</code> を受け取り、<code>U</code> を返す関数」を表す。</li>
+        <li><code>Func&lt;A, B:R&gt;</code> は「引数 <code>A</code> と <code>B</code> を受け取り、<code>R</code> を返す関数」を表す。</li>
+        <li>戻り値なし（void）の関数は <code>Func&lt;T:&gt;</code> または <code>Func&lt;T:void&gt;</code> のように書ける。</li>
+      </ul>
     </section>
 
     <section id="pipe-overview">
@@ -720,7 +732,7 @@ bound Pipe&lt;T&gt; {
             パイプ世界（<code>Pipe&lt;T&gt;</code>）に「流し込む」。
           </li>
           <li><strong>型</strong>：
-            形としては <code>X -&gt; Pipe&lt;T&gt;</code> を取る。
+            形としては <code>Func&lt;X:Pipe&lt;T&gt;&gt;</code> を取る。
             producer は常に <code>Pipe&lt;*&gt;</code> を出力するよう設計される。
           </li>
         </ul>
@@ -728,7 +740,7 @@ bound Pipe&lt;T&gt; {
         <h4>6.2.2 Transformer（中間フィルタ）</h4>
         <ul>
           <li><strong>定義</strong>：
-            型 <code>Pipe&lt;T&gt; -&gt; Pipe&lt;U&gt;</code> を持つ関数／メソッド。</li>
+            型 <code>Func&lt;Pipe&lt;T&gt;:Pipe&lt;U&gt;&gt;</code> を持つ関数／メソッド。</li>
           <li><strong>役割</strong>：
             パイプ世界の内部でデータを変換・フィルタ・ソートする。パイプ世界の外には出ない。
           </li>
@@ -743,15 +755,15 @@ bound Pipe&lt;T&gt; {
           <strong>制約：</strong><br />
           <code>bound Pipe&lt;T&gt;</code> ブロック内で宣言されるメソッドは、<br />
           戻り値として <strong>必ず <code>Pipe&lt;*&gt;</code></strong> を返さなければならない。<br />
-          つまり、型は <code>Pipe&lt;T&gt; -&gt; Pipe&lt;U&gt;</code> でなければならない。
+          つまり、型は <code>Func&lt;Pipe&lt;T&gt;:Pipe&lt;U&gt;&gt;</code> でなければならない。
         </div>
 
         <pre><code>bound Pipe&lt;T&gt; {
   // OK: transformer
-  method Where(Predicate: T -&gt; Bool): Pipe&lt;T&gt; { ... }
+  method Where(Predicate: Func&lt;T:Bool&gt;): Pipe&lt;T&gt; { ... }
 
   // OK: 要素型を変更する
-  method Map&lt;U&gt;(Selector: T -&gt; U): Pipe&lt;U&gt; { ... }
+  method Map&lt;U&gt;(Selector: Func&lt;T:U&gt;): Pipe&lt;U&gt; { ... }
 
   // NG: 戻り値が Pipe ではないため、コンパイルエラーとすべき
   // method Count(): Int { ... }
@@ -761,7 +773,7 @@ bound Pipe&lt;T&gt; {
 
         <ul>
           <li><strong>定義</strong>：
-            型 <code>Pipe&lt;T&gt; -&gt; R</code> を持ち、<code>R</code> が <code>Pipe&lt;*&gt;</code> ではない関数／オブジェクト。
+            型 <code>Func&lt;Pipe&lt;T&gt;:R&gt;</code> を持ち、<code>R</code> が <code>Pipe&lt;*&gt;</code> ではない関数／オブジェクト。
           </li>
           <li><strong>役割</strong>：
             パイプ世界から外部世界への出口として、パイプをすべて消費し、
@@ -769,7 +781,7 @@ bound Pipe&lt;T&gt; {
           </li>
           <li><strong>戻り値の型</strong>：
             <code>R</code> は <code>Pipe&lt;*&gt;</code> でない限り制約はない。
-            <code>T[]</code>、<code>Int</code>、<code>Unit</code> など任意の型を取れる。
+            <code>T[]</code>、<code>Int</code>、<code>Unit</code>、<code>Bool</code> など任意の型を取れる。
           </li>
         </ul>
 
@@ -886,7 +898,7 @@ method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
           <li><code>bound(input, output)</code> は両者の間の変換処理を記述する。</li>
         </ul>
 
-        <pre><code>filter Where&lt;T&gt;(Predicate: T -&gt; Bool) {
+        <pre><code>filter Where&lt;T&gt;(Predicate: Func&lt;T:Bool&gt;) {
   in:  Pipe&lt;T&gt;;
   out: Pipe&lt;T&gt;;
 
@@ -898,7 +910,7 @@ method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
   }
 }
 
-filter Map&lt;T, U&gt;(Selector: T -&gt; U) {
+filter Map&lt;T, U&gt;(Selector: Func&lt;T:U&gt;) {
   in:  Pipe&lt;T&gt;;
   out: Pipe&lt;U&gt;;
 
@@ -964,7 +976,7 @@ consumer Count&lt;T&gt; {
           <ul>
             <li><strong>producer</strong>：外部世界 → <code>Pipe&lt;*&gt;</code>（常に <code>Pipe</code> を出力）</li>
             <li><strong>pipe</strong>：異種ストリーム間および外部 I/O との橋渡し</li>
-            <li><strong>filter</strong>：主に <code>Pipe&lt;T&gt; -&gt; Pipe&lt;U&gt;</code> の変換</li>
+            <li><strong>filter</strong>：主に <code>Pipe&lt;T&gt;</code> → <code>Pipe&lt;U&gt;</code> の変換</li>
             <li><strong>consumer</strong>：<code>Pipe&lt;T&gt;</code> → 非 <code>Pipe</code> 型（パイプ世界からの出口）</li>
           </ul>
         </p>
@@ -986,7 +998,7 @@ consumer Count&lt;T&gt; {
         <pre><code>G(F(Expr))</code></pre>
 
         <ul>
-          <li><code>F</code> が型 <code>A -&gt; B</code> を持ち、<code>G</code> が型 <code>B -&gt; C</code> を持つとき、
+          <li><code>F</code> が型 <code>Func&lt;A:B&gt;</code> を持ち、<code>G</code> が型 <code>Func&lt;B:C&gt;</code> を持つとき、
             <code>Expr |&gt; F |&gt; G</code> の型は <code>C</code> になる。
           </li>
           <li>この演算子はあらゆる型に適用可能であり、<code>Pipe&lt;T&gt;</code> に限定されない。</li>
@@ -1009,9 +1021,9 @@ consumer Count&lt;T&gt; {
   |&gt; ToArray();</code></pre>
 
         <ul>
-          <li><code>ReadLines</code>：producer（<code>String -&gt; Pipe&lt;String&gt;</code>）</li>
-          <li><code>Where</code>・<code>Map</code>：transformer（<code>Pipe&lt;T&gt; -&gt; Pipe&lt;U&gt;</code>）</li>
-          <li><code>ToArray</code>：consumer（<code>Pipe&lt;User&gt; -&gt; User[]</code>）</li>
+          <li><code>ReadLines</code>：producer（<code>Func&lt;String:Pipe&lt;String&gt;&gt;</code>）</li>
+          <li><code>Where</code>・<code>Map</code>：transformer（<code>Func&lt;Pipe&lt;T&gt;:Pipe&lt;U&gt;&gt;</code>）</li>
+          <li><code>ToArray</code>：consumer（<code>Func&lt;Pipe&lt;User&gt;:User[]&gt;</code>）</li>
           <li>パイプ式全体の型は <code>ToArray</code> の戻り値である <code>User[]</code> となる。</li>
         </ul>
 
@@ -1027,13 +1039,13 @@ consumer Count&lt;T&gt; {
         <h3>6.5 標準 Filter と Producer</h3>
 
         <h4>6.5.1 代表的な transformer（filter）</h4>
-        <pre><code>filter Where&lt;T&gt;(Predicate: T -&gt; Bool) {
+        <pre><code>filter Where&lt;T&gt;(Predicate: Func&lt;T:Bool&gt;) {
   in:  Pipe&lt;T&gt;;
   out: Pipe&lt;T&gt;;
   bound(input, output) { ... }
 }
 
-filter Map&lt;T, U&gt;(Selector: T -&gt; U) {
+filter Map&lt;T, U&gt;(Selector: Func&lt;T:U&gt;) {
   in:  Pipe&lt;T&gt;;
   out: Pipe&lt;U&gt;;
   bound(input, output) { ... }
@@ -1451,7 +1463,7 @@ lock with (Conn) {
       <p>
         イベントハンドラの関数型は、標準型エイリアスとして次のように定義される：
       </p>
-      <pre><code>type EventHandler&lt;TArgs&gt; = TArgs -&gt; Task;</code></pre>
+      <pre><code>type EventHandler&lt;TArgs&gt; = Func&lt;TArgs:Task&gt;;</code></pre>
       <ul>
         <li>引数: <code>TArgs</code>（イベント引数の型）</li>
         <li>戻り値: <code>Task</code><br />
@@ -1460,7 +1472,7 @@ lock with (Conn) {
         </li>
       </ul>
       <p class="note">
-        将来的には、<code>TArgs -&gt; Task&lt;TResult&gt;</code> 型のハンドラを扱う
+        将来的には、<code>Func&lt;TArgs:Task&lt;TResult&gt;&gt;</code> 型のハンドラを扱う
         <code>Event&lt;TArgs, TResult&gt;</code> のような拡張を検討する余地があるが、
         バージョン 0.1 では <code>Task</code> 戻り値を基本とする。
       </p>
@@ -1539,7 +1551,7 @@ bound Event&lt;TArgs&gt; {
 EventRemoveStatement ::= PrimaryExpression '.' Identifier '-=' EventHandlerExpression ';'</code></pre>
       <ul>
         <li><code>PrimaryExpression.Identifier</code> は <code>event</code> 宣言されたメンバでなければならない。</li>
-        <li><code>EventHandlerExpression</code> は型 <code>TArgs -&gt; Task</code> に暗黙変換可能な式でなければならない。</li>
+        <li><code>EventHandlerExpression</code> は型 <code>Func&lt;TArgs:Task&gt;</code> に暗黙変換可能な式でなければならない。</li>
       </ul>
 
       <h4>13.4.2 型ルール</h4>
@@ -1549,7 +1561,7 @@ EventRemoveStatement ::= PrimaryExpression '.' Identifier '-=' EventHandlerExpre
       <ul>
         <li><code>Target.X</code> の型は <code>Event&lt;TArgs&gt;</code> である。</li>
         <li><code>Target.X += H;</code> が許可されるのは、
-          <code>H</code> の型が <code>TArgs -&gt; Task</code>（またはそれに暗黙変換可能）である場合のみ。</li>
+          <code>H</code> の型が <code>Func&lt;TArgs:Task&gt;</code>（またはそれに暗黙変換可能）である場合のみ。</li>
         <li><code>Target.X -= H;</code> についても同様の制約が適用される。</li>
       </ul>
 
@@ -1658,7 +1670,7 @@ method SetupButton(): Task {
 
       <h4>13.7.2 イベント解除</h4>
       <pre><code>method SetupAndTearDown(Btn: Button): Task {
-  let Handler: ClickedArgs -&gt; Task =
+  let Handler: Func&lt;ClickedArgs:Task&gt; =
     async (Args: ClickedArgs): Task {
       Print("temp handler");
     };
@@ -1695,7 +1707,7 @@ bound Hub {
         <li><code>event</code> は <code>Event&lt;TArgs&gt;</code> の構文糖衣とアクセス制御ルールを提供する。</li>
         <li>外部コードは <code>+=</code> / <code>-=</code> によるハンドラ登録・解除のみが可能であり、
           イベントの発火や参照の差し替えはできない。</li>
-        <li>ハンドラは <code>TArgs -&gt; Task</code> 型で統一し、非同期前提のイベントモデルとする。</li>
+        <li>ハンドラは <code>Func&lt;TArgs:Task&gt;</code> 型で統一し、非同期前提のイベントモデルとする。</li>
         <li>インターフェースにも <code>event</code> を宣言でき、イベント契約を型レベルで表現できる。</li>
         <li>C# の <code>event</code> に似た使い勝手を提供しつつ、
           <code>delegate</code> 型を言語に追加せず、
