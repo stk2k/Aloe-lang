@@ -24,6 +24,8 @@ I/O とデータ変換を第一級機能として設計しています。
   https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-lang-spec-ja.html
 - AloeVM 仕様書（日本語・HTML）  
   https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-vm-spec-ja.html
+- AloeVM オペコード仕様書（日本語・HTML）  
+  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-vm-opcode-ja.html
 
 ---
 

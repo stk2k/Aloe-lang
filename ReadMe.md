@@ -24,6 +24,8 @@ Current focus:
   https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html
 - AloeVM specification (HTML)  
   https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-spec-en.html
+- AloeVM opcode specification (HTML)  
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-opcode-en.html
 
 ---
 
