@@ -155,7 +155,7 @@
       <a href="#pipe-type">6.1 Pipe&lt;T&gt; 型</a>
       <a href="#pipe-roles">6.2 Producer / Transformer / Consumer</a>
       <a href="#pipe-defs">6.3 パイプ関連宣言</a>
-      <a href="#pipe-operator">6.4 パイプ演算子 <code>|&gt;</code></a>
+      <a href="#pipe-operator">6.4 パイプ演算子 <code>|</code> と糖衣構文 <code>|&gt;</code></a>
       <a href="#pipe-std">6.5 標準 Filter / Producer</a>
 
       <div class="section-title">構文拡張</div>
@@ -350,35 +350,7 @@ var C: User = clone A;  // 浅いコピーされた新しいインスタンス�
         <code>clone</code> の上に追加することで表現できる。
       </p>
 
-      <h3>4.5.2 共通基底クラス Object と ToString / Dump</h3>
-      <p>
-        Aloe のすべてのクラス型は、暗黙に共通基底クラス <code>Object</code> を継承する。
-        （ユーザーが明示的に <code>: Object</code> と書く必要はない。）
-      </p>
-      <ul>
-        <li>
-          <code>Object</code> は参照型のルートであり、次のメソッドを提供する：
-          <ul>
-            <li><code>method ToString(): String</code></li>
-            <li><code>method Dump(): String</code></li>
-          </ul>
-        </li>
-        <li>
-          <code>ToString()</code> の既定実装は、そのインスタンスの<strong>型名</strong>を返す。<br />
-          クラスは必要に応じてこれを override し、人間が読みやすい文字列表現を返してもよい。
-        </li>
-        <li>
-          <code>Dump()</code> の既定実装は、そのインスタンスの<strong>デバッグ向け表現</strong>を返す。
-          具体的な文字列表現は実装依存とするが、クラスはフィールド内容などを含めた詳細なダンプを行うよう
-          override してもよい。
-        </li>
-        <li>
-          <code>Dump()</code> は、組み込み consumer <code>dump</code>（6.5.3 節）から呼び出されることを前提とした
-          「var_dump 相当」の文字列生成用途を想定している。
-        </li>
-      </ul>
-
-      <h3>4.5.3 クラス継承（単一継承）</h3>
+      <h3>4.5.2 クラス継承（単一継承）</h3>
       <p>
         Aloe の <code>class</code> は <strong>単一継承</strong> のみをサポートする。<br />
         つまり、クラスが指定できる基底クラスはちょうど 1 つである。
@@ -401,7 +373,7 @@ class Bad : Base, OtherBase {
         <li>クラス継承は状態と振る舞いの再利用のためのメカニズムである。</li>
       </ul>
 
-      <h3>4.5.4 interface と trait</h3>
+      <h3>4.5.3 interface と trait</h3>
       <p>
         クラスに対して多重継承を許可する代わりに、
         Aloe では <strong>interface</strong> と <strong>trait</strong> を使って振る舞いの合成を行う。
@@ -445,7 +417,7 @@ class FileHandle : BaseFile implements IDisposable with Printable {
         本ドラフトでは完全には定義しない。ここでは方向性のみを示す。
       </p>
 
-      <h3>4.5.5 sealed クラス</h3>
+      <h3>4.5.4 sealed クラス</h3>
       <p>
         特定のクラスからの継承を禁止するために、Aloe は <code>sealed</code> 修飾子を提供する。
       </p>
@@ -469,7 +441,7 @@ class KeywordToken : Token {
         </li>
       </ul>
 
-      <h3>4.5.6 readonly とクラス</h3>
+      <h3>4.5.5 readonly とクラス</h3>
       <ul>
         <li>クラスのフィールドはデフォルトで可変である。</li>
         <li>フィールドに <code>readonly</code> 修飾子を付けると、そのフィールドは不変になる：
@@ -701,10 +673,10 @@ bound Pipe&lt;T&gt; {
       </p>
 
       <pre><code>ReadLines("access.log")
-  |&gt; Where (.StartsWith("[ERROR]"))
-  |&gt; Map   (ParseLogLine)
-  |&gt; Where (.Level == LogLevel.Error)
-  |&gt; ToArray();</code></pre>
+  | Where (.StartsWith("[ERROR]"))
+  | Map   (ParseLogLine)
+  | Where (.Level == LogLevel.Error)
+  | ToArray();</code></pre>
 
       <p>
         概念的には、上記は次のようなネストした呼び出しと等価である：
@@ -717,7 +689,7 @@ bound Pipe&lt;T&gt; {
       ...),
     ...));</code></pre>
 
-      <p>Aloe の <code>|&gt;</code> 演算子は、このような関数合成のためのシンタックスシュガーである。</p>
+      <p>Aloe のパイプ演算子 <code>|</code> は、このような関数合成のためのシンタックスシュガーである。</p>
 
       <section id="pipe-type">
         <h3>6.1 Pipe&lt;T&gt; 型</h3>
@@ -1013,14 +985,14 @@ consumer Count&lt;T&gt; {
       </section>
 
       <section id="pipe-operator">
-        <h3>6.4 パイプ演算子 <code>|&gt;</code></h3>
+        <h3>6.4 パイプ演算子 <code>|</code> と糖衣構文 <code>|&gt;</code></h3>
 
-        <h4>6.4.1 言語レベルでの定義</h4>
+        <h4>6.4.1 言語レベルでの定義（基底演算子 <code>|</code>）</h4>
         <p>
-          Aloe の <code>|&gt;</code> は、<strong>単純な関数合成</strong> のためのシンタックスシュガーとして定義される。
+          Aloe のパイプ演算子 <code>|</code> は、<strong>単純な関数合成</strong> のためのシンタックスシュガーとして定義される。
         </p>
 
-        <pre><code>Expr |&gt; F |&gt; G</code></pre>
+        <pre><code>Expr | F | G</code></pre>
 
         <p>は、正確には次と等価である：</p>
 
@@ -1028,7 +1000,7 @@ consumer Count&lt;T&gt; {
 
         <ul>
           <li><code>F</code> が型 <code>Func&lt;A:B&gt;</code> を持ち、<code>G</code> が型 <code>Func&lt;B:C&gt;</code> を持つとき、
-            <code>Expr |&gt; F |&gt; G</code> の型は <code>C</code> になる。
+            <code>Expr | F | G</code> の型は <code>C</code> になる。
           </li>
           <li>この演算子はあらゆる型に適用可能であり、<code>Pipe&lt;T&gt;</code> に限定されない。</li>
         </ul>
@@ -1041,13 +1013,40 @@ consumer Count&lt;T&gt; {
           演算子そのものではない。
         </div>
 
-        <h4>6.4.2 Pipe&lt;T&gt; と <code>|&gt;</code> の利用</h4>
+        <h4>6.4.2 <code>|&gt;</code> と <code>| with</code> の関係（糖衣構文）</h4>
+        <p>
+          Aloe には、基底演算子 <code>|</code> のほかに、見た目を簡潔に書くための
+          糖衣構文 <code>|&gt;</code> が存在する。<br />
+          文法上、次のように定義される：
+        </p>
+
+        <pre><code>Expr |&gt; Something</code></pre>
+
+        <p>は、まず次の形に展開される：</p>
+
+        <pre><code>Expr | with Something</code></pre>
+
+        <p>
+          さらに、<code>| with</code> 自体は <code>|</code> を用いた通常のパイプ合成として解釈される。<br />
+          したがって、最終的には <code>|</code> を使ったコードと同じ意味になる。
+        </p>
+
+        <div class="note">
+          直感的には、
+          <strong><code>|</code> が「素の関数合成」</strong>、
+          <strong><code>|&gt;</code> が「<code>with</code> を経由して書き心地をそろえた見た目」</strong>
+          という位置づけになる。<br />
+          パーサ上は <code>|&gt;</code> を <code>| with</code> として扱い、
+          型チェック／実行時の意味は <code>|</code> による合成と同一である。
+        </div>
+
+        <h4>6.4.3 Pipe&lt;T&gt; と <code>|</code> / <code>|&gt;</code> の利用</h4>
 
         <pre><code>ReadLines("users.json")
-  |&gt; Where (.Trim().Length &gt; 0)
-  |&gt; Map   (ParseUser)
-  |&gt; Where (.IsActive)
-  |&gt; ToArray();</code></pre>
+  | Where (.Trim().Length &gt; 0)
+  | Map   (ParseUser)
+  | Where (.IsActive)
+  | ToArray();</code></pre>
 
         <ul>
           <li><code>ReadLines</code>：producer（<code>Func&lt;String:Pipe&lt;String&gt;&gt;</code>）</li>
@@ -1056,11 +1055,37 @@ consumer Count&lt;T&gt; {
           <li>パイプ式全体の型は <code>ToArray</code> の戻り値である <code>User[]</code> となる。</li>
         </ul>
 
+        <p>
+          同じ処理を糖衣構文 <code>|&gt;</code> を使って書くこともできる：
+        </p>
+
+        <pre><code>ReadLines("users.json")
+  |&gt; Where (.Trim().Length &gt; 0)
+  |&gt; Map   (ParseUser)
+  |&gt; Where (.IsActive)
+  |&gt; ToArray();</code></pre>
+
+        <p>
+          これは文法的には
+        </p>
+
+        <pre><code>ReadLines("users.json")
+  | with Where (.Trim().Length &gt; 0)
+  | with Map   (ParseUser)
+  | with Where (.IsActive)
+  | with ToArray();</code></pre>
+
+        <p>
+          として解釈され、最終的には 6.4.1 で定義した <code>|</code> による関数合成と
+          同じ意味になる。
+        </p>
+
         <p class="warning">
           <strong>注意:</strong><br />
-          言語仕様上は、consumer の後にさらに <code>|&gt;</code> を続けてもよいが、
+          言語仕様上は、consumer の後にさらに <code>|</code> や <code>|&gt;</code> を続けてもよいが、
           スタイル的にはあまり推奨されない。<br />
-          例えば <code>ToArray() |&gt; ToArray()</code> のようなパターンは避けるべきである。
+          例えば <code>ToArray() | ToArray()</code> や
+          <code>ToArray() |&gt; ToArray()</code> のようなパターンは避けるべきである。
         </p>
       </section>
 
@@ -1100,87 +1125,22 @@ producer ReadLines(Path: String) {
         <h4>6.5.3 代表的な consumer</h4>
         <pre><code>consumer ToArray&lt;T&gt; {
   in: Pipe&lt;T&gt;;
-
-  bound(input) {
-    var buffer: List&lt;T&gt;;
-    // 疑似コード:
-    //   for each item in input:
-    //     buffer.add(item);
-    //   return buffer.toArray();
-    return buffer.toArray();
-  }
+  bound(input) { ... }   // 戻り値は T[]
 }
 
 consumer Count&lt;T&gt; {
   in: Pipe&lt;T&gt;;
-
-  bound(input) {
-    var c: Int = 0;
-    // 疑似コード:
-    //   for each item in input:
-    //     c = c + 1;
-    //   return c;
-    return c;
-  }
-}
-
-// デバッグ用の組み込み consumer
-consumer dump {
-  in: Object;
-
-  bound(input) {
-    // 実装依存:
-    // input が単一オブジェクト、コレクション、木構造などであることを判別し、
-    // 適切に input.Dump() または要素の Dump() を呼び出してデバッグ出力に書き出す。
-    // 戻り値は Unit（戻り値なし）として扱われる。
-  }
+  bound(input) { ... }   // 戻り値は Int
 }</code></pre>
-
-        <p>
-          <code>dump</code> は組み込み consumer であり、パイプラインの末尾で
-          <code>|&gt; dump</code> と書くことで、任意のオブジェクトの <code>Dump()</code> メソッドを使った
-          デバッグ表示を行う。
-        </p>
-        <ul>
-          <li>
-            入力が通常のオブジェクトである場合、そのオブジェクトに対してちょうど 1 回
-            <code>Dump()</code> を呼び出し、その結果の文字列を実装依存のデバッグ出力に書き出す。
-          </li>
-          <li>
-            入力がコレクション（<code>Pipe&lt;T&gt;</code> や配列など反復可能な型）である場合、
-            すべての要素に対して順番に <code>Dump()</code> を呼び出す。
-          </li>
-          <li>
-            入力が木構造またはそれに類するオブジェクトグラフである場合、
-            実装はノードを順番にたどりながら各ノードの <code>Dump()</code> を呼び出してよい。
-          </li>
-          <li>
-            オブジェクトグラフの走査中に循環参照（同一インスタンスを 2 回以上たどろうとする状態）が
-            検出された場合、その時点より下位の要素のダンプはスキップしなければならない。
-          </li>
-          <li>
-            ただし、コレクション全体としては処理を継続し、
-            循環を含んだ要素の次の要素以降についてはダンプを続行する。
-          </li>
-        </ul>
-        <p class="small">
-          実装は循環参照を検出した箇所で「<code>(cycle)</code>」などのマーカーを出力してもよいが、
-          その具体的な文言や表現は実装依存とする。
-        </p>
 
         <h4>6.5.4 使用例</h4>
         <pre><code>let ActiveUserNames: String[] =
   ReadLines("users.json")
-    |&gt; Where (.Trim().Length &gt; 0)
-    |&gt; Map   (ParseUser)
-    |&gt; Where (.IsActive)
-    |&gt; Map   (.Name)
-    |&gt; ToArray();
-
-// デバッグ目的でパイプラインの途中結果を確認する例
-ReadLines("users.json")
-  |&gt; Where (.Trim().Length &gt; 0)
-  |&gt; dump;   // 各行の Dump() を呼び出してデバッグ出力する</code></pre>
+    | Where (.Trim().Length &gt; 0)
+    | Map   (ParseUser)
+    | Where (.IsActive)
+    | Map   (.Name)
+    | ToArray();</code></pre>
       </section>
     </section>
 
