@@ -142,7 +142,6 @@
       font-weight: 600;
     }
     ul, ol { padding-left: 1.3rem; }
-
     @media (max-width: 800px) {
       .layout { flex-direction: column; }
       .sidebar {
@@ -201,365 +200,479 @@
 <body>
 <div class="layout">
   <aside class="sidebar">
-    <h1>AloeVM Spec</h1>
-    <small>(Current draft; subject to change/extension.)</small>
+    <h1>AloeVM Specification</h1>
+    <small>(Current draft. The contents may change or be extended in the future.)</small>
 
     <div class="nav-section">
       <div class="nav-section-title">Chapters</div>
       <ul class="nav-list">
         <li><a class="nav-link" data-target="vm-ch0">0. Overview</a></li>
         <li><a class="nav-link" data-target="vm-ch1">1. Execution Model</a></li>
-        <li><a class="nav-link" data-target="vm-ch2">2. Value Model</a></li>
-        <li><a class="nav-link" data-target="vm-ch3">3. Stack & Frames</a></li>
-        <li><a class="nav-link" data-target="vm-ch4">4. Instruction Set Overview</a></li>
-        <li><a class="nav-link" data-target="vm-ch5">5. Selected Instructions</a></li>
+        <li><a class="nav-link" data-target="vm-ch2">2. VM Value Model</a></li>
+        <li><a class="nav-link" data-target="vm-ch3">3. Call Stack and Frames</a></li>
+        <li><a class="nav-link" data-target="vm-ch4">4. Heap and Memory Management Policy</a></li>
+        <li><a class="nav-link" data-target="vm-ch5">5. Representation of Pipe / Filter</a></li>
         <li><a class="nav-link" data-target="vm-ch6">6. AloeBC Binary Format</a></li>
-        <li><a class="nav-link" data-target="vm-ch7">7. Modules & Linking</a></li>
-        <li><a class="nav-link" data-target="vm-ch8">8. Memory & GC</a></li>
-        <li><a class="nav-link" data-target="vm-ch9">9. Pipes & Filters in VM</a></li>
-        <li><a class="nav-link" data-target="vm-ch10">10. WASM Mapping</a></li>
-        <li><a class="nav-link" data-target="vm-ch11">11. Errors & Traps</a></li>
+        <li><a class="nav-link" data-target="vm-ch7">7. Instruction Set and WASM Mapping</a></li>
+        <li><a class="nav-link" data-target="vm-ch8">8. Open Issues / TODO</a></li>
       </ul>
     </div>
   </aside>
 
   <main class="content">
 
-    <!-- 0. Overview -->
+    <!-- 0. 概要 -->
     <section id="vm-ch0" class="chapter">
       <h2>0. Overview</h2>
       <p>
-        AloeVM is the execution engine for the Aloe language. It is designed as a stack-based virtual machine
-        with a bytecode format called <strong>AloeBC</strong>. AloeVM has two main deployment modes:
+        AloeVM is a <strong>stack-based virtual machine</strong> designed to execute the Aloe language.<br>
+        This document defines:
       </p>
       <ul>
-        <li><strong>Native AloeVM</strong> – implemented directly in a host language (e.g., C#), running AloeBC.</li>
-        <li><strong>WASM-native Aloe</strong> – Aloe source compiled directly to WebAssembly instructions
-          with a 1:1 mapping from AloeVM instructions to WASM opcodes (or short instruction macros), using
-          the WebAssembly runtime’s memory model and GC.</li>
+        <li>Execution model (stack machine / frame structure)</li>
+        <li>VM-level value model (primitives, structs, classes, enums, pipe/filter, etc.)</li>
+        <li>Heap and memory management policy</li>
+        <li>Representation of pipe / filter on the VM</li>
+        <li>AloeBC (Aloe bytecode) binary format</li>
+        <li>Policy for interoperability with WebAssembly (WASM)</li>
       </ul>
-      <p>
-        This document describes the VM-level model and the AloeBC binary format. Language-level semantics
-        (syntax, types, etc.) are defined in the separate “Aloe Language Specification” document.
-      </p>
       <div class="note">
-        Design goal: keep AloeVM close to WASM’s stack machine model, so that
-        <em>“AloeVM → WASM”</em> can be implemented mechanically, and in the long term
-        Aloe bytecode can be skipped for WASM-native builds.
+        AloeVM assumes two kinds of runtimes:
+        <ul>
+          <li>C# implementation (VM running on .NET)</li>
+          <li>WASM-native implementation (code compiled directly to WASM by aloe2wasm)</li>
+        </ul>
+        This specification mainly defines the behavior of the <strong>C# VM implementation + AloeBC</strong>.<br>
+        For the WASM side, it outlines a policy of “mapping the instruction set almost 1:1” and “delegating GC to the WASM runtime.”
       </div>
     </section>
 
-    <!-- 1. Execution Model -->
+    <!-- 1. 実行モデル -->
     <section id="vm-ch1" class="chapter">
       <h2>1. Execution Model</h2>
 
-      <h3>1.1 Stack machine</h3>
+      <h3>1.1 Model as a Stack Machine</h3>
       <ul>
-        <li>AloeVM is a classic stack-based machine:
-          <ul>
-            <li>Instructions consume operands from the operand stack.</li>
-            <li>Results are pushed back onto the operand stack.</li>
-          </ul>
-        </li>
-        <li>There is a separate <strong>call stack</strong> for frames (method calls).</li>
-        <li>The VM is <strong>structured</strong>: control flow uses blocks and branches similar to WASM.</li>
+        <li>The VM is a stack machine centered around an <strong>operand stack</strong>.</li>
+        <li>Arithmetic and comparison instructions pop values from the top of the stack and push the result back.</li>
+        <li>Local variables and arguments are stored in a <strong>frame-local area</strong>.</li>
       </ul>
 
-      <h3>1.2 Execution units</h3>
+      <h3>1.2 Unit of Execution</h3>
       <ul>
-        <li><strong>Module</strong>: unit of deployment (roughly “assembly”). Contains:
+        <li>The unit of execution is a “function (method)”, corresponding to Aloe methods and the main block.</li>
+        <li>Each function is registered in a <strong>function table</strong> in AloeBC, and each entry holds:
           <ul>
-            <li>Type table (classes, structs, interfaces, traits).</li>
-            <li>Constant pool (literals, metadata references, etc.).</li>
-            <li>Method table and method bodies.</li>
-            <li>Optional debug/extra metadata.</li>
-          </ul>
-        </li>
-        <li><strong>Function / method</strong>:
-          <ul>
-            <li>Has a signature: parameter types + return type.</li>
-            <li>Has local variable declarations.</li>
-            <li>Has a bytecode body (sequence of AloeVM instructions).</li>
+            <li>Code offset</li>
+            <li>Number of local variables</li>
+            <li>Number of arguments</li>
+            <li>Reference to an exception handler table</li>
           </ul>
         </li>
       </ul>
 
-      <h3>1.3 Program startup</h3>
+      <h3>1.3 Exception Handling Model</h3>
       <ul>
-        <li>The VM loads a root AloeBC module.</li>
-        <li>It locates the <code>main(args: string[])</code> entry point (according to language-level metadata).</li>
-        <li>It creates an initial frame for <code>main</code> and begins execution.</li>
+        <li>Aloe’s <code>try / catch / finally</code> is lowered to an exception handler table at VM level.</li>
+        <li>Exceptions are treated as <strong>object references</strong> in the VM, and the stack is unwound on throw.</li>
+        <li>In a WASM implementation, exceptions are mapped to the host’s exception model or to a combination of multi-value returns and error codes.</li>
+      </ul>
+
+      <h3>1.4 Execution Modes</h3>
+      <ul>
+        <li><strong>VM Execution Mode</strong>:
+          <ul>
+            <li>The C# VM implementation directly loads AloeBC and interprets or JIT-compiles instructions.</li>
+          </ul>
+        </li>
+        <li><strong>WASM Native Mode</strong>:
+          <ul>
+            <li>aloe2wasm converts AloeVM instruction sequences almost 1:1 into WASM instructions; AloeVM itself does not exist.</li>
+            <li>GC and low-level memory management are delegated to the WASM runtime (execution environment).</li>
+          </ul>
+        </li>
       </ul>
     </section>
 
-    <!-- 2. Value Model -->
+    <!-- 2. VM 値モデル -->
     <section id="vm-ch2" class="chapter">
-      <h2>2. Value Model</h2>
+      <h2>2. VM Value Model</h2>
 
-      <h3>2.1 VM value kinds</h3>
-      <p>At runtime, values on the operand stack are tagged with a small set of VM-level kinds:</p>
+      <h3>2.1 Categories of VM Values</h3>
+      <p>Conceptually, values handled on the VM are divided into the following categories:</p>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Kind</th><th>Description</th></tr>
+            <tr>
+              <th>Category</th>
+              <th>Examples</th>
+              <th>Notes</th>
+            </tr>
           </thead>
           <tbody>
-            <tr><td>I32</td><td>32-bit signed integer (covers Aloe <code>int</code>, enums, bitfield enums, booleans as 0/1).</td></tr>
-            <tr><td>F64</td><td>64-bit floating-point (covers Aloe <code>float</code> at VM level).</td></tr>
-            <tr><td>DEC</td><td>High-precision decimal (implementation-specific, e.g. 128-bit decimal).</td></tr>
-            <tr><td>BYTE</td><td>Unsigned 8-bit integer (0–255), used for <code>byte</code>.</td></tr>
-            <tr><td>CHAR</td><td>Unicode scalar value (implementation may store as 32-bit int internally).</td></tr>
-            <tr><td>REF_STRING</td><td>Reference to a string object in the heap.</td></tr>
-            <tr><td>REF_OBJECT</td><td>Reference to a class instance.</td></tr>
-            <tr><td>REF_STRUCT</td><td>Reference/handle to a struct instance (if stored on heap; small structs may be inlined).</td></tr>
-            <tr><td>REF_PIPE</td><td>Handle to a pipe instance (<code>pipe&lt;T&gt;</code>).</td></tr>
-            <tr><td>REF_FILTER</td><td>Handle to a filter instance (runtime representation of a <code>filter</code> definition).</td></tr>
-            <tr><td>REF_TASK</td><td>Handle to an async task.</td></tr>
-            <tr><td>NULL</td><td>Null reference (for any reference-kind type).</td></tr>
+            <tr>
+              <td>Integer (int32)</td>
+              <td><code>int</code>, <code>enum</code>, <code>bitfield enum</code></td>
+              <td>Signed 32-bit integer. Enums are always int-based.</td>
+            </tr>
+            <tr>
+              <td>Integer (other)</td>
+              <td><code>byte</code></td>
+              <td>May be internally packed into int32.</td>
+            </tr>
+            <tr>
+              <td>Floating point</td>
+              <td><code>float</code></td>
+              <td>32-bit IEEE754.</td>
+            </tr>
+            <tr>
+              <td>decimal</td>
+              <td><code>decimal</code></td>
+              <td>128-bit approximate representation with precision similar to C# decimal (implementation-dependent).</td>
+            </tr>
+            <tr>
+              <td>bool</td>
+              <td><code>bool</code></td>
+              <td>Internally 1 byte or int32. Comparison instructions can reuse those for int.</td>
+            </tr>
+            <tr>
+              <td>char</td>
+              <td><code>char</code></td>
+              <td>Unicode code point (implementation may be UTF-16 or UTF-32).</td>
+            </tr>
+            <tr>
+              <td>Object reference</td>
+              <td><code>class</code> instance, <code>string</code></td>
+              <td>Handle to a heap object (e.g., 64-bit ID).</td>
+            </tr>
+            <tr>
+              <td>Struct</td>
+              <td><code>struct</code></td>
+              <td>“Block of value” on the VM. Implementation may choose inline or boxed representation.</td>
+            </tr>
+            <tr>
+              <td>pipe</td>
+              <td><code>pipe&lt;T&gt;</code></td>
+              <td>Has a dedicated VM tag. Implementation may use OS pipes / sockets, etc.</td>
+            </tr>
+            <tr>
+              <td>filter</td>
+              <td><code>filter Foo</code></td>
+              <td>Has a dedicated VM tag. Wrapper of a function plus wiring information.</td>
+            </tr>
           </tbody>
         </table>
       </div>
-      <p>
-        At the language level, many of these are grouped (e.g. “class types”), but at VM level they are represented via
-        these core kinds plus type descriptors.
-      </p>
-
-      <h3>2.2 Type descriptors</h3>
-      <ul>
-        <li>Each runtime value with a reference kind is associated with a <strong>type descriptor ID</strong>:
-          <ul>
-            <li>Class ID, struct ID, interface ID, trait ID, etc.</li>
-          </ul>
-        </li>
-        <li>The VM keeps a type table in the module (and/or at runtime across modules).</li>
-        <li>Instructions that operate on fields or methods refer to these type IDs and their metadata indices.</li>
-      </ul>
-
-      <h3>2.3 Null handling</h3>
-      <ul>
-        <li><code>delete x;</code> at the language level becomes setting the corresponding stack slot or field to the <strong>NULL</strong> value.</li>
-        <li>Any attempt to dereference NULL (field access, method call) raises a <code>NullReferenceException</code>.</li>
-        <li>The type system itself is not null-aware; nullness is a runtime property only.</li>
-      </ul>
-    </section>
-
-    <!-- 3. Stack & Frames -->
-    <section id="vm-ch3" class="chapter">
-      <h2>3. Stack and Frames</h2>
-
-      <h3>3.1 Operand stack</h3>
-      <ul>
-        <li>Each frame has its own operand stack.</li>
-        <li>Instructions operate on the top of this stack (push/pop).</li>
-        <li>The maximum stack depth per method is provided in metadata and may be validated at load time.</li>
-      </ul>
-
-      <h3>3.2 Local variables</h3>
-      <ul>
-        <li>Each frame has a local variable array:
-          <ul>
-            <li>Slots for parameters (0..N-1).</li>
-            <li>Slots for <code>let</code>/<code>var</code> locals, temps, etc.</li>
-          </ul>
-        </li>
-        <li>Locals are addressed by index (0-based) in instructions like <code>LDLOC</code> / <code>STLOC</code>.</li>
-      </ul>
-
-      <h3>3.3 Call stack</h3>
-      <ul>
-        <li>Method calls push a new frame:
-          <ul>
-            <li>Program counter (PC) of caller.</li>
-            <li>Reference to current method metadata.</li>
-            <li>Local variable array + operand stack.</li>
-          </ul>
-        </li>
-        <li><code>RET</code> pops the current frame, returns a value (if any) to the caller’s operand stack.</li>
-      </ul>
-
-      <h3>3.4 Blocks and branches</h3>
-      <ul>
-        <li>AloeVM uses structured control flow:
-          <ul>
-            <li>Block-based constructs (<code>BLOCK</code>/<code>END</code>, <code>LOOP</code>/<code>END</code>).</li>
-            <li>Branch instructions target block depths rather than raw PCs, similar to WASM.</li>
-          </ul>
-        </li>
-        <li>This design simplifies the mapping to WebAssembly structured control flow.</li>
-      </ul>
-    </section>
-
-    <!-- 4. Instruction Set Overview -->
-    <section id="vm-ch4" class="chapter">
-      <h2>4. Instruction Set Overview</h2>
-
-      <p>
-        The exact opcode numbers are part of the AloeBC format and can evolve, but the conceptual groups are:
-      </p>
-
-      <h3>4.1 Constants and locals</h3>
-      <ul>
-        <li><code>PUSH_I32 constId</code> – push integer constant from constant pool.</li>
-        <li><code>PUSH_F64 constId</code> – push floating constant.</li>
-        <li><code>PUSH_DEC constId</code> – push decimal constant.</li>
-        <li><code>PUSH_STRING constId</code> – push string reference from constant pool (interned or allocated).</li>
-        <li><code>LDLOC index</code> – load local by index onto stack.</li>
-        <li><code>STLOC index</code> – pop value and store into local by index.</li>
-      </ul>
-
-      <h3>4.2 Arithmetic</h3>
-      <ul>
-        <li><code>ADD_I32</code>, <code>SUB_I32</code>, <code>MUL_I32</code>, <code>DIV_I32</code>, <code>REM_I32</code></li>
-        <li><code>ADD_F64</code>, <code>SUB_F64</code>, <code>MUL_F64</code>, <code>DIV_F64</code>, <code>REM_F64</code></li>
-        <li><code>ADD_DEC</code>, <code>SUB_DEC</code>, <code>MUL_DEC</code>, <code>DIV_DEC</code></li>
-        <li>Bit operations: <code>AND_I32</code>, <code>OR_I32</code>, <code>XOR_I32</code>, <code>SHL_I32</code>, <code>SHR_I32</code></li>
-      </ul>
-
-      <h3>4.3 Comparison and branching</h3>
-      <ul>
-        <li><code>EQ_I32</code>, <code>NE_I32</code>, <code>LT_I32</code>, <code>GT_I32</code>, <code>LE_I32</code>, <code>GE_I32</code> (similarly for F64, DEC).</li>
-        <li><code>BR blockDepth</code> – unconditional structured branch.</li>
-        <li><code>BR_IF blockDepth</code> – conditional branch (consumes a boolean from the stack).</li>
-        <li><code>RETURN</code> – return from current method.</li>
-      </ul>
-
-      <h3>4.4 Object and field access</h3>
-      <ul>
-        <li><code>NEWOBJ typeId, ctorId</code> – allocate new object of class type, call constructor.</li>
-        <li><code>NEWSTRUCT typeId, ctorId</code> – construct a struct value (may be heap-allocated or inlined).</li>
-        <li><code>LD_FIELD fieldId</code> – load instance field value.</li>
-        <li><code>ST_FIELD fieldId</code> – store instance field value.</li>
-      </ul>
-
-      <h3>4.5 Method calls</h3>
-      <ul>
-        <li><code>CALL methodId</code> – direct call to method.</li>
-        <li><code>CALL_VIRT slotId</code> – virtual call via vtable slot.</li>
-        <li><code>CALL_INTF ifaceId, slotId</code> – call via interface dispatch.</li>
-      </ul>
-
-      <h3>4.6 Pipes and filters</h3>
-      <ul>
-        <li><code>PIPE_CREATE typeDescriptorId</code> – create a new <code>pipe&lt;T&gt;</code>.</li>
-        <li><code>PIPE_WRITE</code> – write top-of-stack value into pipe, pop the value.</li>
-        <li><code>PIPE_CLOSE</code> – close a pipe (no further writes).</li>
-        <li><code>PIPE_NEXT</code> – read next item; push value or null sentinel.</li>
-        <li><code>PIPE_PEEK</code> – peek next item without consuming.</li>
-        <li><code>PIPE_TAKE</code> – take N items into a collection (according to language-level mapping).</li>
-        <li><code>FILTER_CREATE filterId</code> – create filter instance.</li>
-        <li><code>FILTER_BIND</code> – bind filter <code>in</code>/<code>out</code> to pipes and schedule execution.</li>
-      </ul>
-
-      <h3>4.7 Exceptions</h3>
-      <ul>
-        <li><code>THROW exceptionTypeId</code> – throw new exception.</li>
-        <li><code>RETHROW</code> – rethrow the current exception.</li>
-        <li>Exception handlers are defined in method metadata (try/catch/finally ranges).</li>
-      </ul>
 
       <div class="note">
-        This chapter is intentionally high-level. The exact opcode numbers and formats are defined in
-        Chapter 6 (AloeBC Binary Format), and additional instructions may be introduced later.
+        <strong>enum / bitfield enum</strong> are represented as <strong>int32</strong> at VM level.<br>
+        The valid bits for bitfield enums are limited to 0–31 (up to 32 bits).
       </div>
+
+      <h3>2.2 AloeObject and Heap Objects</h3>
+      <p>
+        In the C# VM implementation, heap objects are identified by an <strong>object ID (e.g., 64-bit integer)</strong>.
+      </p>
+      <ul>
+        <li>Object values on the VM:
+          <ul>
+            <li>Only <code>objectId: long</code> is pushed to stack or stored in locals (this is the <strong>AloeObject</strong>).</li>
+          </ul>
+        </li>
+        <li>The memory manager keeps metadata for object IDs:
+          <ul>
+            <li>Class / struct <strong>field list (reference slot definitions)</strong></li>
+            <li>Per-field <strong>value slots</strong> (primitive values or other object IDs)</li>
+            <li>Final field layout after trait composition</li>
+          </ul>
+        </li>
+        <li>Structs can also be handled in the same scheme:
+          <ul>
+            <li>Even for value types, when placed on the heap, they can be managed as “field list + value slots.”</li>
+            <li>Depending on VM optimization, they may be expanded inline on the stack instead.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>2.3 VM Tags for pipe / filter</h3>
+      <ul>
+        <li><code>pipe&lt;T&gt;</code> and <code>filter</code> each have a <strong>dedicated VM value tag</strong>, separate from class instances.</li>
+        <li>For WASM interoperability, their internal representation should be easily mappable to “ref types” (e.g., <code>externref</code>, <code>funcref</code>, <code>anyref</code>).</li>
+        <li>A pipe holds, conceptually, “reference to tail buffer + synchronization object,” and a filter holds “bound handler function + in/out metadata,” etc.</li>
+      </ul>
     </section>
 
-    <!-- 5. Selected Instructions -->
+    <!-- 3. コールスタックとフレーム -->
+    <section id="vm-ch3" class="chapter">
+      <h2>3. Call Stack and Frames</h2>
+
+      <h3>3.1 Frame Structure</h3>
+      <p>Each function call creates a “frame”. A frame contains at least:</p>
+      <ul>
+        <li>Return address (PC of the next instruction to execute)</li>
+        <li>Link to the previous frame</li>
+        <li>Local variable area</li>
+        <li>Argument area</li>
+        <li>Temporary value slots (if needed)</li>
+      </ul>
+
+      <h3>3.2 Calling Convention (Overview)</h3>
+      <ul>
+        <li>Call instructions (e.g., <code>CALL</code>) are executed with arguments already pushed on the stack.</li>
+        <li>After a frame is created, arguments are either moved into the local area or left on the stack and accessed via indices.</li>
+        <li>The return value is a single value on top of the stack.</li>
+        <li>Void functions do not push a return value.</li>
+      </ul>
+
+      <h3>3.3 Exception Frames</h3>
+      <ul>
+        <li>Based on the exception handler table, the VM decides how far to unwind the stack.</li>
+        <li>After unwinding, control jumps to the start of a catch block, and the exception object is passed to locals or the stack.</li>
+      </ul>
+    </section>
+
+    <!-- 4. ヒープとメモリ管理方針 -->
+    <section id="vm-ch4" class="chapter">
+      <h2>4. Heap and Memory Management Policy (C# VM Implementation)</h2>
+
+      <h3>4.1 Slot-Based Heap Layout</h3>
+      <ul>
+        <li>The heap in the C# VM implementation is managed as an array of fixed-size slots.</li>
+        <li>The number of bytes per slot is given by configuration <code>memory.slot_size_bytes</code>;
+          the default value when omitted is <strong>16 bytes</strong>.</li>
+        <li>All heap objects start at a slot boundary (slot start address) and occupy
+          one or more <strong>contiguous slots</strong>.
+          <ul>
+            <li>The “length” of an object is managed in units of slots (<code>lengthSlots</code>).</li>
+            <li>The actual byte size is <code>lengthSlots × slot_size_bytes</code>.</li>
+          </ul>
+        </li>
+        <li>Implementation-wise, the heap may be divided into one or more “arenas.”
+          <ul>
+            <li>Single arena: all objects are managed in one slot array.</li>
+            <li>As an optional optimization, separate arenas per size class (16/32/64 bytes, etc.) are allowed.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>4.2 Handles and Variable Table</h3>
+      <ul>
+        <li>As described in Chapter 2, heap objects are identified by <strong>object IDs (handles)</strong>.</li>
+        <li>Inside the VM, a <strong>variable table (or object table)</strong> is used to map handles to physical positions on the heap.
+          Typically, it holds the following information:
+          <ul>
+            <li>Owning arena ID</li>
+            <li>Index of the first slot (integer)</li>
+            <li>Number of occupied slots (<code>lengthSlots</code>)</li>
+            <li>Reference count (refcount)</li>
+            <li>Reference to type info (class/struct metadata ID)</li>
+          </ul>
+        </li>
+        <li>VM opcodes and runtime always operate on <strong>handles instead of raw pointers</strong>.
+          <ul>
+            <li>Physical memory is reached in two steps: handle → table → first slot address.</li>
+            <li>When an object is moved (compacted), only the slot index in the variable table needs to be updated.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>4.3 Lifetime Management via Reference Counting</h3>
+      <ul>
+        <li>Each heap object has a <strong>reference count</strong>.</li>
+        <li>Typical points where reference count changes:
+          <ul>
+            <li>Increment when a handle is stored into a local variable or a field.</li>
+            <li>Decrement when a variable goes out of scope or a field is overwritten by another value.</li>
+          </ul>
+        </li>
+        <li>When the reference count becomes 0, the object is considered “unreachable,” and the slots it occupies are handled as follows:
+          <ul>
+            <li>Zero out the slot contents (for easier logical treatment as “free”).</li>
+            <li>Update the slot state table (e.g., <code>slot_used[i] = false</code>) to mark them as free slots.</li>
+          </ul>
+        </li>
+        <li>Cyclic references (e.g., <code>A → B → A</code>) cannot be collected by reference counting alone,
+          so they are handled by <strong>language-level constraints or an auxiliary GC in future implementations</strong>:
+          <ul>
+            <li>Recommend language-level design that makes strong cycles difficult (ownership / weak references).</li>
+            <li>Optionally use low-priority mark-and-sweep to reclaim only cycles.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>4.4 Sliding Compaction on Access</h3>
+      <p>
+        To prevent fragmentation, the AloeVM heap performs a <strong>“sliding compaction on access”</strong> strategy.
+        When an object is accessed, it may be slid forward, and free slots are gradually accumulated towards the front.
+      </p>
+      <ul>
+        <li>Conceptually, an instruction that accesses a variable handle works as follows:
+          <ol>
+            <li>Look up the variable table from the handle to obtain <code>(arenaId, slotIndex, lengthSlots)</code>.</li>
+            <li>In the same arena, check whether all slots from <code>slotIndex - lengthSlots</code> to <code>slotIndex - 1</code>
+              are free (unused).
+              <ul>
+                <li>For simplicity, implementations may just check flags in the slot state table.</li>
+              </ul>
+            </li>
+            <li>If that range is entirely free:
+              <ul>
+                <li>Slide the object forward by <code>lengthSlots</code> slots (copy).</li>
+                <li>Zero out and mark as free the old region (<code>slotIndex … slotIndex + lengthSlots - 1</code>).</li>
+                <li>Update the variable table entry so that <code>slotIndex</code> becomes <code>slotIndex - lengthSlots</code>.</li>
+              </ul>
+            </li>
+            <li>Access the object fields from the new first slot.</li>
+          </ol>
+        </li>
+        <li>With this rule, the amount of memory touched per access is at most “its own size” (<code>lengthSlots</code> slots).
+          <ul>
+            <li>This avoids a stop-the-world GC that scans the entire heap at once, and instead <strong>distributes the cost of defragmentation across accesses</strong>.</li>
+          </ul>
+        </li>
+        <li>Because all objects start on slot boundaries, a consistent layout aligned on slot boundaries is maintained even after sliding.</li>
+        <li>This “sliding on access” is not mandatory. Implementations may:
+          <ul>
+            <li>Lower its frequency (e.g., only run it once every N accesses).</li>
+            <li>Impose a maximum number of slots that can be moved per access.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>4.5 Allocation Strategy</h3>
+      <ul>
+        <li>When allocating a new object, the memory manager performs:
+          <ol>
+            <li>Compute the required number of slots <code>lengthSlots</code> as <code>ceil(objectSizeBytes / slot_size_bytes)</code>.</li>
+            <li>Search the current arena, or multiple arenas, for <strong>enough contiguous free slots</strong>.</li>
+            <li>Place the object at the found first slot, and update the slot state table and variable table.</li>
+          </ol>
+        </li>
+        <li>Free slot management is implementation-dependent. Typical approaches:
+          <ul>
+            <li>Simple linear scan (for prototype phase)</li>
+            <li>Free list of ranges of contiguous slots</li>
+            <li>Bitmap plus first-fit / best-fit algorithms</li>
+          </ul>
+        </li>
+        <li>If no arena has sufficient contiguous free slots:
+          <ul>
+            <li>Temporarily increase the frequency of sliding-on-access to reduce fragmentation.</li>
+            <li>Or extend the heap by adding a new arena.</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>4.6 <code>delete</code> and Timing of Deallocation</h3>
+      <ul>
+        <li>Aloe’s <code>delete x;</code> means “disconnect the reference from variable <code>x</code> to its handle.” It does <strong>not guarantee</strong>
+          that physical memory is freed at that moment.</li>
+        <li>Objects whose reference count becomes 0 are processed for deallocation at the following timing:
+          <ul>
+            <li>Immediately when the counter hits 0, zero out and mark as free the slots occupied by that object.</li>
+            <li>Or process them gradually in a low-priority background task (implementation-dependent).</li>
+          </ul>
+        </li>
+        <li>Therefore, Aloe programs must not rely on “heap usage dropping immediately after <code>delete</code>.”
+          It is merely a <strong>logical declaration that “this object is no longer used”</strong>.</li>
+      </ul>
+
+      <h3>4.7 Memory Management in WASM Implementations</h3>
+      <div class="note">
+        In WASM native mode, AloeVM’s custom slot-based memory management and reference counting are not mandatory.<br>
+        GC and memory allocation/deallocation are <strong>delegated to the WASM runtime and host environment</strong>.
+      </div>
+      <ul>
+        <li>Aloe objects can be mapped directly to WASM <code>struct</code> / <code>array</code> / <code>ref</code> types.</li>
+        <li>Because WASM GC or host GCs (e.g., .NET, JVM, JS) are responsible, the slot layout and sliding-on-access described in this chapter
+          are internal details specific to the C# VM implementation.</li>
+        <li>Compilers such as aloe2wasm are recommended to respect AloeVM’s abstract memory model
+          while delegating actual GC behavior to the target environment.</li>
+      </ul>
+    </section>
+
+    <!-- 5. パイプ / フィルタ -->
     <section id="vm-ch5" class="chapter">
-      <h2>5. Selected Instruction Semantics</h2>
+      <h2>5. VM Representation of Pipe / Filter</h2>
 
-      <h3>5.1 Example: integer addition</h3>
-      <pre><code>
-// Stack before: [..., a, b]
-ADD_I32
-// Stack after:  [..., (a + b)]
-      </code></pre>
+      <h3>5.1 <code>pipe&lt;T&gt;</code></h3>
       <ul>
-        <li>Pops two I32 values, adds them with overflow checks (throws <code>OverflowException</code> on overflow).</li>
-        <li>Pushes the result as I32.</li>
+        <li>Represented as a value with a dedicated <strong>PIPE</strong> tag at VM level.</li>
+        <li>Internally assumed to hold:
+          <ul>
+            <li>Buffer (ring buffer / queue)</li>
+            <li>Synchronization primitives (locks / condition variables, etc.)</li>
+            <li>Type information of elements (reference to runtime type info)</li>
+          </ul>
+        </li>
+        <li>Implementations must be thread-safe so that multiple threads can access pipes safely.</li>
+        <li>Possible concrete implementations:
+          <ul>
+            <li>OS pipes / sockets</li>
+            <li>Ring buffer on a memory-mapped file</li>
+          </ul>
+        </li>
       </ul>
 
-      <h3>5.2 Example: method call</h3>
-      <pre><code>
-// call instance method M(this, arg1, arg2): R
-
-// Stack before: [..., this, arg1, arg2]
-CALL methodId
-// Stack after:  [..., result]   // if R != void
-// or           [...]           // if R == void
-      </code></pre>
+      <h3>5.2 <code>filter</code></h3>
       <ul>
-        <li>The VM looks up method metadata by <code>methodId</code>.</li>
-        <li>Creates a new frame, moves parameters into the callee’s locals, and starts executing at the callee’s entry point.</li>
-        <li>On <code>RETURN</code>, pops the frame and pushes the result onto the caller’s operand stack.</li>
+        <li>A filter is represented as a value with a dedicated FILTER tag.</li>
+        <li>Conceptually, a filter value is a structure that bundles:
+          <ul>
+            <li>Pointer to a bound function</li>
+            <li>Filter definition metadata (in/out types)</li>
+          </ul>
+        </li>
+        <li>User-defined filters are represented in the same way.</li>
       </ul>
 
-      <h3>5.3 Example: pipe next / take / peek</h3>
-      <pre><code>
-// p : pipe&lt;T&gt;
-
-// next
-LDLOC p
-PIPE_NEXT    // pushes T or NULL
-
-// take
-LDLOC p
-PUSH_I32 n
-PIPE_TAKE    // pushes list of up to n elements
-
-// peek
-LDLOC p
-PIPE_PEEK    // pushes next T or NULL, without consuming
+      <h3>5.3 Execution Model of Pipeline Statements</h3>
+      <pre><code class="language-aloe">
+A | filter(F) | B;
       </code></pre>
       <ul>
-        <li>These instructions implement the language-level <code>next()</code>, <code>take()</code>, <code>peek()</code> methods on <code>pipe&lt;T&gt;</code>.</li>
-        <li>EOF handling is VM-defined but must align with language semantics (e.g. nullable result, or raising <code>EndOfStreamException</code> for some APIs).</li>
-      </ul>
-
-      <h3>5.4 Example: filter binding</h3>
-      <pre><code>
-// Given: filter lineSplit { in: pipe&lt;string&gt;; out: pipe&lt;string&gt;; ... }
-
-// Pseudo bytecode for:
-// input | filter(lineSplit) | output;
-
-LDLOC inputPipe
-LDLOC outputPipe
-FILTER_CREATE lineSplitFilterId
-FILTER_BIND   // logically: run bound(inputPipe, outputPipe)
-      </code></pre>
-      <ul>
-        <li><code>FILTER_BIND</code> may run synchronously or schedule the filter on a worker, depending on implementation.</li>
-        <li>Once bound, the filter body’s <code>bound(in,out)</code> is invoked to move data from <code>in</code> to <code>out</code>.</li>
+        <li>The VM expands this statement into a sequence of “connection-construction instructions.”</li>
+        <li>Typical flow:
+          <ol>
+            <li>Resolve the output pipe of <code>A</code>.</li>
+            <li>Create an instance of <code>filter(F)</code> and start <code>bound(input, output)</code> as a separate task/thread.</li>
+            <li>Connect the output pipe to <code>B</code>.</li>
+          </ol>
+        </li>
+        <li>Some implementations may optimize by running multiple filters sequentially on a single thread.</li>
       </ul>
     </section>
 
-    <!-- 6. AloeBC Binary Format -->
+    <!-- 6. AloeBC バイナリ形式 -->
     <section id="vm-ch6" class="chapter">
       <h2>6. AloeBC Binary Format</h2>
 
-      <p>
-        AloeBC is the binary representation of AloeVM modules. It is designed to be simple and extensible,
-        with a clear magic header and versioning.
-      </p>
+      <h3>6.1 Overall Structure</h3>
+      <p>AloeBC (Aloe Byte Code) is a binary format that stores compilation results for AloeVM.</p>
 
-      <h3>6.1 File header</h3>
+      <h3>6.2 Header</h3>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>Offset</th><th>Size</th><th>Field</th><th>Description</th></tr>
+            <tr>
+              <th>Offset</th>
+              <th>Size</th>
+              <th>Field</th>
+              <th>Description</th>
+            </tr>
           </thead>
           <tbody>
             <tr>
               <td>0</td>
-              <td>6 bytes</td>
+              <td>6 byte</td>
               <td>Magic</td>
-              <td>ASCII literal <code>"ALOEBC"</code></td>
+              <td>ASCII string <code>"ALOEBC"</code></td>
             </tr>
             <tr>
               <td>6</td>
               <td>1 byte</td>
               <td>VersionMajor</td>
-              <td>Major version of the AloeBC format</td>
+              <td>Major version</td>
             </tr>
             <tr>
               <td>7</td>
@@ -571,487 +684,630 @@ FILTER_BIND   // logically: run bound(inputPipe, outputPipe)
               <td>8</td>
               <td>1 byte</td>
               <td>VersionBuild</td>
-              <td>Build/revision number</td>
+              <td>Build number</td>
             </tr>
             <tr>
               <td>9</td>
               <td>1 byte</td>
-              <td>Flags</td>
-              <td>Reserved for future use (e.g. endianness, compression). Currently 0.</td>
+              <td>Reserved</td>
+              <td>Reserved (0)</td>
             </tr>
             <tr>
               <td>10</td>
-              <td>4 bytes</td>
-              <td>SectionCount</td>
-              <td>Number of following sections (uint32, little-endian)</td>
+              <td>4 byte</td>
+              <td>HeaderSize</td>
+              <td>Total header size (little-endian)</td>
+            </tr>
+            <tr>
+              <td>14</td>
+              <td>4 byte</td>
+              <td>ConstPoolOffset</td>
+              <td>Offset of constant pool</td>
+            </tr>
+            <tr>
+              <td>18</td>
+              <td>4 byte</td>
+              <td>TypeTableOffset</td>
+              <td>Offset of type table</td>
+            </tr>
+            <tr>
+              <td>22</td>
+              <td>4 byte</td>
+              <td>FuncTableOffset</td>
+              <td>Offset of function table</td>
+            </tr>
+            <tr>
+              <td>26</td>
+              <td>4 byte</td>
+              <td>CodeSectionOffset</td>
+              <td>Offset of code section</td>
             </tr>
           </tbody>
         </table>
       </div>
+      <p>Little-endian is assumed.</p>
 
-      <h3>6.2 Section layout</h3>
-      <p>After the header, the file contains <strong>SectionCount</strong> sections:</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Size</th><th>Description</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>SectionId</td>
-              <td>1 byte</td>
-              <td>Section kind (see below)</td>
-            </tr>
-            <tr>
-              <td>Reserved</td>
-              <td>1 byte</td>
-              <td>Alignment / flags (currently 0)</td>
-            </tr>
-            <tr>
-              <td>Length</td>
-              <td>4 bytes</td>
-              <td>Length of section payload in bytes (uint32, little-endian)</td>
-            </tr>
-            <tr>
-              <td>Payload</td>
-              <td>Length bytes</td>
-              <td>Section-specific data</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>6.3 Section kinds</h3>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Id</th><th>Name</th><th>Description</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>0x01</td><td>TYPE</td><td>Type table (classes, structs, interfaces, traits).</td></tr>
-            <tr><td>0x02</td><td>CONST</td><td>Constant pool (literals, strings, etc.).</td></tr>
-            <tr><td>0x03</td><td>METHODSIG</td><td>Method signatures (parameter/return types).</td></tr>
-            <tr><td>0x04</td><td>METHODBODY</td><td>Method bodies (bytecode, max stack, locals, exception tables).</td></tr>
-            <tr><td>0x05</td><td>METADATA</td><td>Custom metadata (e.g. debug info, language-level attributes).</td></tr>
-            <tr><td>0x06</td><td>LINK</td><td>Import/export information for linking modules.</td></tr>
-            <tr><td>0x07</td><td>PIPEDEF</td><td>Reserved for pipe-related runtime metadata.</td></tr>
-            <tr><td>0x08</td><td>FILTERDEF</td><td>Filter definitions (in/out types, option enums, etc.).</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>6.4 Method body encoding (METHODBODY section)</h3>
-      <p>Each method body entry contains:</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
-          </thead>
-          <tbody>
-            <tr><td>MethodId</td><td>uint32</td><td>Index into the method table.</td></tr>
-            <tr><td>MaxStack</td><td>uint16</td><td>Maximum operand stack depth for this method.</td></tr>
-            <tr><td>LocalCount</td><td>uint16</td><td>Number of local variables (excluding parameters).</td></tr>
-            <tr><td>CodeSize</td><td>uint32</td><td>Length in bytes of the bytecode that follows.</td></tr>
-            <tr><td>Code</td><td>byte[CodeSize]</td><td>Sequence of opcodes and immediates.</td></tr>
-            <tr><td>ExceptionCount</td><td>uint16</td><td>Number of exception handler entries.</td></tr>
-            <tr><td>ExceptionTable</td><td>...</td><td>Handler entries (try/catch/finally ranges).</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h3>6.5 Versioning policy</h3>
+      <h3>6.3 Constant Pool (Overview)</h3>
       <ul>
-        <li>Backward-compatible changes (e.g., adding new section kinds that can be safely ignored by older VMs) increment <strong>VersionMinor</strong>.</li>
-        <li>Breaking changes (e.g., restructuring existing sections, changing opcode semantics) increment <strong>VersionMajor</strong>.</li>
-        <li><strong>VersionBuild</strong> is for implementation-specific revisions and does not change the logical format.</li>
+        <li>Centralized storage for string literals, numeric literals, type information, etc.</li>
+        <li>Each entry is a variable-length record composed of “tag + length + body.”</li>
+        <li>Examples of tags:
+          <ul>
+            <li>0x01: UTF-8 string</li>
+            <li>0x02: int32</li>
+            <li>0x03: float32</li>
+            <li>0x04: decimal</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h3>6.4 Type Table (Overview)</h3>
+      <ul>
+        <li>Assigns IDs to each Aloe type (class / struct / enum / bitfield enum / <code>pipe&lt;T&gt;</code>, etc.).</li>
+        <li>Enums / bitfield enums are flagged as <strong>int32 value types</strong> at VM level.</li>
+        <li>The number of valid bits (0–31) for a bitfield enum may be stored as metadata (for warnings, etc.).</li>
+      </ul>
+
+      <h3>6.5 Function Table / Code Section</h3>
+      <ul>
+        <li>Function table:
+          <ul>
+            <li>Function signature (argument types, return type)</li>
+            <li>Number of local variables</li>
+            <li>Offset and length in the code section</li>
+          </ul>
+        </li>
+        <li>Code section:
+          <ul>
+            <li>Stores VM instruction streams as byte arrays.</li>
+            <li>For details of the instruction set, see Chapter 7.</li>
+          </ul>
+        </li>
       </ul>
     </section>
 
-    <!-- 7. Modules & Linking -->
+    <!-- 7. 命令セットと WASM 対応 -->
     <section id="vm-ch7" class="chapter">
-      <h2>7. Modules and Linking</h2>
+      <h2>7. Instruction Set and WASM Mapping (Overview)</h2>
 
-      <h3>7.1 Imports and exports</h3>
+      <h3>7.1 Instruction Categories</h3>
+      <p>The instruction set is roughly divided into the following categories:</p>
       <ul>
-        <li>Each module can:
+        <li>Stack manipulation
           <ul>
-            <li><strong>Export</strong> types, methods, and constants.</li>
-            <li><strong>Import</strong> external symbols from other modules.</li>
+            <li>PUSH, POP, DUP, SWAP, etc.</li>
           </ul>
         </li>
-        <li>The LINK section encodes:
+        <li>Arithmetic / logical instructions
           <ul>
-            <li>Module-level identifier (name, version).</li>
-            <li>Export table (symbol kind + name + local index).</li>
-            <li>Import table (symbol kind + name + expected signature).</li>
+            <li>ADD, SUB, MUL, DIV, MOD</li>
+            <li>AND, OR, XOR, SHL, SHR</li>
           </ul>
         </li>
+        <li>Comparison instructions
+          <ul>
+            <li>CMPEQ, CMPNE, CMPLT, CMPLE, CMPGT, CMPGE</li>
+          </ul>
+        </li>
+        <li>Control flow
+          <ul>
+            <li>JMP, JMP_IF_TRUE, JMP_IF_FALSE</li>
+          </ul>
+        </li>
+        <li>Function calls
+          <ul>
+            <li>CALL, RET</li>
+          </ul>
+        </li>
+        <li>Object operations
+          <ul>
+            <li>NEWOBJ, GETFIELD, SETFIELD, etc.</li>
+          </ul>
+        </li>
+        <li>Array / collection operations (future)</li>
+        <li>pipe / filter operations (connect, read/write)</li>
       </ul>
 
-      <h3>7.2 Linking strategies</h3>
-      <ul>
-        <li><strong>Static link (ahead-of-time):</strong>
-          <ul>
-            <li>Multiple AloeBC modules linked into a single combined image.</li>
-            <li>Method and type IDs may be remapped to a global index space.</li>
-          </ul>
-        </li>
-        <li><strong>Dynamic link (at load time):</strong>
-          <ul>
-            <li>VM loads multiple modules and resolves imports against exports.</li>
-            <li>A simple table maps imported symbols to concrete method/type IDs.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>7.3 WASM-level linking</h3>
-      <p>
-        For WASM-native builds, it is desirable to link Aloe-generated WASM with other language WASM libraries:
-      </p>
-      <ul>
-        <li>The Aloe compiler can:
-          <ul>
-            <li>Emit WASM modules with explicit imports/exports.</li>
-            <li>Use existing WASM linkers/tooling to assemble a final executable module.</li>
-          </ul>
-        </li>
-        <li>This is conceptually separate from AloeBC linking and is specific to the WASM backend.</li>
-      </ul>
       <div class="note">
-        In the ideal WASM-native path, the VM interpreter is skipped and the resulting .wasm module
-        is executed directly by the host runtime.
-      </div>
-    </section>
-
-    <!-- 8. Memory & GC -->
-    <section id="vm-ch8" class="chapter">
-      <h2>8. Memory Management and GC</h2>
-
-      <h3>8.1 Overview</h3>
-      <ul>
-        <li>Aloe language semantics assume:
-          <ul>
-            <li>Objects are allocated on a managed heap.</li>
-            <li><code>delete</code> sets references to null but does not immediately free memory.</li>
-            <li>The VM (or underlying runtime) eventually reclaims unreachable objects.</li>
-          </ul>
-        </li>
-        <li>VM-level memory management differs between:
-          <ul>
-            <li>Native AloeVM implementations.</li>
-            <li>WASM-native execution, which can rely on WASM GC (where available).</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>8.2 Native AloeVM heap model</h3>
-      <p>
-        A typical native AloeVM can use a segmented heap model:
-      </p>
-      <ul>
-        <li>Heap is divided into <strong>blocks</strong> (fixed-size regions).</li>
-        <li>Within each block, objects are allocated via a bump-pointer allocator.</li>
-        <li>Objects are identified by an internal handle (e.g., 64-bit ID) stored in VM references.</li>
-      </ul>
-
-      <h3>8.3 Object metadata (conceptual)</h3>
-      <ul>
-        <li>The memory manager maintains a mapping from object handle to:
-          <ul>
-            <li>Type descriptor ID.</li>
-            <li>Block ID and offset.</li>
-            <li>Field layout information (number of reference/value slots).</li>
-            <li>Optional reference counts / GC flags.</li>
-          </ul>
-        </li>
-        <li>Structs and classes:
-          <ul>
-            <li>Struct values may be stored in-place (e.g., as raw bytes in the heap or inside another object).</li>
-            <li>Classes are always heap-allocated objects referenced by handles.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>8.4 GC policy (native AloeVM)</h3>
-      <p>
-        The language spec does not fully fix the GC algorithm, but recommends a pragmatic strategy:
-      </p>
-      <ul>
-        <li><strong>Block-level reclamation:</strong>
-          <ul>
-            <li>Track how many live objects exist in each heap block.</li>
-            <li>If a block’s live count becomes zero, the entire block can be reclaimed at once.</li>
-          </ul>
-        </li>
-        <li><strong>Compaction trigger:</strong>
-          <ul>
-            <li>If a block’s live object count falls below a small threshold (e.g. ≤ 10 objects), the VM is allowed to:
-              <ul>
-                <li>Move the remaining objects to a new block.</li>
-                <li>Update all references to those objects.</li>
-                <li>Free the original block.</li>
-              </ul>
-            </li>
-          </ul>
-        </li>
-        <li><strong>Reference tracking:</strong>
-          <ul>
-            <li>VM must track references from:
-              <ul>
-                <li>Stacks and locals of all VM threads/tasks.</li>
-                <li>Fields of heap objects.</li>
-                <li>Static/global variables and constant pools as needed.</li>
-              </ul>
-            </li>
-            <li>The exact algorithm (mark-sweep, reference counting, hybrid, etc.) is left to VM implementations.</li>
-          </ul>
-        </li>
-      </ul>
-      <div class="note">
-        The Aloe language spec does not expose GC details to user code.
-        User code only sees <code>delete</code> (nulling references) and exceptions such as
-        <code>OutOfMemoryException</code> when allocation fails.
+        The “numeric opcode values” and “exact binary layout” of instructions<br>
+        are defined in the provisional table in 7.4 below. These may change in future
+        due to optimizations or implementation constraints.
       </div>
 
-      <h3>8.5 WASM-native GC</h3>
+      <h3>7.2 1:1 Mapping Policy to WASM</h3>
       <ul>
-        <li>When Aloe is compiled directly to WASM with GC support:
-          <ul>
-            <li>Objects, arrays, etc. can be represented as WASM GC-managed references.</li>
-            <li>GC is then fully handled by the WASM runtime; AloeVM does not implement its own GC.</li>
-          </ul>
-        </li>
-        <li>Pipes and filters in WASM mode can be represented as <code>externref</code> / <code>funcref</code> values.</li>
-        <li>AloeVM bytecode may be bypassed entirely (source → WASM opcodes), but the observable behavior must match Aloe semantics.</li>
-      </ul>
-    </section>
-
-    <!-- 9. Pipes & Filters in VM -->
-    <section id="vm-ch9" class="chapter">
-      <h2>9. Pipes and Filters in AloeVM</h2>
-
-      <h3>9.1 Pipe representation</h3>
-      <ul>
-        <li>A <code>pipe&lt;T&gt;</code> is represented by a <strong>REF_PIPE</strong> handle.</li>
-        <li>VM implementation responsibilities:
-          <ul>
-            <li>Provide thread-safe operations on each pipe (write/next/peek/close).</li>
-            <li>Guarantee correct behavior in typical 1-producer / 1-consumer scenarios.</li>
-          </ul>
-        </li>
-        <li>For multi-threaded use:
-          <ul>
-            <li>Language semantics are defined for the 1–1 case.</li>
-            <li>Multi-producer / multi-consumer semantics are either undefined or implementation-specific.</li>
-          </ul>
-        </li>
+        <li>Basic arithmetic and comparison instructions are mapped 1:1 to WASM instructions such as <code>i32.add</code>, <code>i32.lt_s</code>, etc., wherever possible.</li>
+        <li>Stack operations conceptually match WASM’s stack machine, so they can be converted almost directly.</li>
+        <li>Exception handling is represented by WASM’s exception-handling extension or by a combination of error codes and structured blocks.</li>
+        <li>pipe / filter are typically implemented using WASM <code>ref</code> types plus host functions.</li>
       </ul>
 
-      <h3>9.2 Filter representation</h3>
+      <h3>7.3 Role of aloe2wasm</h3>
       <ul>
-        <li>Filters are not ordinary objects; they have dedicated VM value kind <strong>REF_FILTER</strong>.</li>
-        <li>A filter instance points to:
+        <li>Apart from the path “Aloe source → AloeBC → execution on AloeVM,” we also provide:
           <ul>
-            <li>Filter definition metadata (in/out types, options, bound method).</li>
-            <li>Runtime state, if any (e.g., partial buffers for line splitting).</li>
+            <li>A native WASM build path: “Aloe source → intermediate IR → WASM.”</li>
           </ul>
         </li>
+        <li>The closer AloeVM’s instruction set is to WASM’s, the simpler the compiler implementation becomes.</li>
+        <li>Ideally, we aim for a level where we can “serialize AloeVM instruction sequences as-is into WASM” to run them.</li>
       </ul>
 
-      <h3>9.3 Binding filters</h3>
+      <h3>7.4 Instruction Set Table (Draft)</h3>
       <p>
-        A typical filter definition at the language level:
+        This section defines a <strong>core instruction set</strong> required to implement a minimal AloeVM prototype.<br>
+        Opcodes are assumed to be 1 byte, denoted in hexadecimal (0xNN).
       </p>
-      <pre><code class="language-aloe">
-filter lineSplit {
-    in:  pipe&lt;string&gt;;
-    out: pipe&lt;string&gt;;
+      <p>
+        Stack effects are written like <code>… , A , B → … , R</code> (left: before execution, right: after execution).<br>
+        <code>…</code> represents the rest of the stack.
+      </p>
 
-    bound(input, output) {
-        foreach (chunk in input) {
-            let lines = chunk.split("\n");
-            foreach (line in lines) {
-                output.write(line);
-            }
-        }
-        output.close();
-    }
-}
-      </code></pre>
-      <p>At the VM level:</p>
-      <ul>
-        <li><code>FILTER_CREATE</code> creates a REF_FILTER handle linked to the <code>lineSplit</code> definition.</li>
-        <li><code>FILTER_BIND</code> connects concrete input/output pipes and invokes the <code>bound</code> method.</li>
-        <li>Execution strategy:
-          <ul>
-            <li>Either run synchronously in the caller thread,</li>
-            <li>Or schedule on an internal worker (e.g., task pool), depending on implementation and host environment.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>9.4 Standard filter library</h3>
-      <div class="note">
-        Details for individual standard filters (e.g., <code>utf8</code>, <code>json&lt;T&gt;</code>, <code>lineSplit</code>,
-        and their options like <code>JsonOptions.PrettyPrint</code>) are intentionally <strong>not</strong> part of this VM spec.
-        They are defined separately in the “Standard Filter Library Specification”.
-      </div>
-    </section>
-
-    <!-- 10. WASM Mapping -->
-    <section id="vm-ch10" class="chapter">
-      <h2>10. Mapping AloeVM to WebAssembly</h2>
-
-      <h3>10.1 Design goal</h3>
-      <ul>
-        <li>Keep AloeVM instructions close to WASM so that:
-          <ul>
-            <li>Each VM instruction corresponds to either a single WASM opcode or a short sequence.</li>
-            <li>For WASM-native builds, the compiler can skip AloeBC and emit WASM directly.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h3>10.2 Basic mapping examples</h3>
+      <h4>7.4.1 Stack Operations / Constant Loading</h4>
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>AloeVM</th><th>WASM (conceptual)</th></tr>
+            <tr>
+              <th>Category</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>Operand</th>
+              <th>Stack Effect</th>
+              <th>Description</th>
+            </tr>
           </thead>
           <tbody>
             <tr>
-              <td><code>ADD_I32</code></td>
-              <td><code>i32.add</code></td>
+              <td rowspan="4">Stack</td>
+              <td>NOP</td>
+              <td>0x00</td>
+              <td>None</td>
+              <td>… → …</td>
+              <td>Do nothing.</td>
             </tr>
             <tr>
-              <td><code>SUB_I32</code></td>
-              <td><code>i32.sub</code></td>
+              <td>POP</td>
+              <td>0x01</td>
+              <td>None</td>
+              <td>… , A → …</td>
+              <td>Discard the top of stack.</td>
             </tr>
             <tr>
-              <td><code>ADD_F64</code></td>
-              <td><code>f64.add</code></td>
+              <td>DUP</td>
+              <td>0x02</td>
+              <td>None</td>
+              <td>… , A → … , A , A</td>
+              <td>Duplicate the top of stack.</td>
             </tr>
             <tr>
-              <td><code>EQ_I32</code></td>
-              <td><code>i32.eq</code></td>
+              <td>SWAP</td>
+              <td>0x03</td>
+              <td>None</td>
+              <td>… , A , B → … , B , A</td>
+              <td>Swap the top two stack elements.</td>
             </tr>
             <tr>
-              <td><code>BR</code></td>
-              <td><code>br</code> (with appropriate label index)</td>
+              <td rowspan="7">Constants</td>
+              <td>LDC_I4_S</td>
+              <td>0x10</td>
+              <td>int8 (signed)</td>
+              <td>… → … , i32</td>
+              <td>Push a signed 8-bit immediate as an int32 (for small integers).</td>
             </tr>
             <tr>
-              <td><code>BR_IF</code></td>
-              <td><code>br_if</code></td>
+              <td>LDC_I4</td>
+              <td>0x11</td>
+              <td>int32</td>
+              <td>… → … , i32</td>
+              <td>Push a 32-bit integer immediate.</td>
             </tr>
             <tr>
-              <td><code>CALL</code></td>
-              <td><code>call</code></td>
+              <td>LDC_F</td>
+              <td>0x12</td>
+              <td>float32</td>
+              <td>… → … , f32</td>
+              <td>Push a 32-bit floating-point immediate.</td>
             </tr>
             <tr>
-              <td><code>RETURN</code></td>
-              <td><code>return</code></td>
+              <td>LDC_DEC</td>
+              <td>0x13</td>
+              <td>decimal (16 bytes)</td>
+              <td>… → … , decimal</td>
+              <td>Push a decimal immediate (may also be a constant-pool reference; implementation-dependent).</td>
+            </tr>
+            <tr>
+              <td>LDC_STR</td>
+              <td>0x14</td>
+              <td>uint16 (constant-pool index)</td>
+              <td>… → … , obj</td>
+              <td>Load a string from the constant pool and push a string object reference.</td>
+            </tr>
+            <tr>
+              <td>LDC_BOOL</td>
+              <td>0x15</td>
+              <td>byte (0 or 1)</td>
+              <td>… → … , bool</td>
+              <td>Push a bool immediate.</td>
+            </tr>
+            <tr>
+              <td>LDC_NULL</td>
+              <td>0x16</td>
+              <td>None</td>
+              <td>… → … , null</td>
+              <td>Push a null reference.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <h3>10.3 Ref types</h3>
-      <ul>
-        <li>Class, struct, string, pipe, filter references can be represented as:
-          <ul>
-            <li>WASM <code>externref</code> / <code>anyref</code> (host-managed objects), or</li>
-            <li>Indices into a linear memory table, with explicit memory loads/stores.</li>
-          </ul>
-        </li>
-        <li>WASM GC proposal allows direct GC-managed references for Aloe objects; otherwise, a manual heap can be implemented.</li>
-      </ul>
+      <h4>7.4.2 Local Variable / Argument Access</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>Operand</th>
+              <th>Stack Effect</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="3">Locals</td>
+              <td>LDLOC</td>
+              <td>0x20</td>
+              <td>uint16 (index)</td>
+              <td>… → … , V</td>
+              <td>Load the value of the local variable at the given index in the current frame.</td>
+            </tr>
+            <tr>
+              <td>STLOC</td>
+              <td>0x21</td>
+              <td>uint16 (index)</td>
+              <td>… , V → …</td>
+              <td>Store the top of stack into the local variable at the given index.</td>
+            </tr>
+            <tr>
+              <td>LDLOC_ADDR</td>
+              <td>0x22</td>
+              <td>uint16 (index)</td>
+              <td>… → … , ref</td>
+              <td>Push a reference (address) to the local variable (optional, for future optimization).</td>
+            </tr>
+            <tr>
+              <td rowspan="2">Arguments</td>
+              <td>LDARG</td>
+              <td>0x28</td>
+              <td>uint16 (index)</td>
+              <td>… → … , V</td>
+              <td>Load the value of the argument at the given index in the current frame.</td>
+            </tr>
+            <tr>
+              <td>STARG</td>
+              <td>0x29</td>
+              <td>uint16 (index)</td>
+              <td>… , V → …</td>
+              <td>Write the top of stack back to an argument slot (for <code>ref</code> arguments, etc.).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3>10.4 Native WASM path</h3>
-      <ul>
-        <li>In the ideal deployment:
-          <ul>
-            <li>Aloe compiler translates high-level Aloe constructs → AloeVM-like IR → WASM opcodes.</li>
-            <li>No bytecode interpreter is used at runtime.</li>
-            <li>Other WASM libraries (from different languages) are linked via WASM tooling.</li>
-          </ul>
-        </li>
-        <li>For debugging or legacy platforms, AloeBC + a WASM-based AloeVM interpreter are still possible:
-          <ul>
-            <li>AloeVM itself is compiled to WASM, reads AloeBC, and interprets it.</li>
-          </ul>
-        </li>
-      </ul>
+      <h4>7.4.3 Arithmetic, Comparison, Logic</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>Operand</th>
+              <th>Stack Effect</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="6">Arithmetic (int32)</td>
+              <td>ADD_I4</td>
+              <td>0x30</td>
+              <td>None</td>
+              <td>… , A , B → … , (A + B)</td>
+              <td>int32 addition.</td>
+            </tr>
+            <tr>
+              <td>SUB_I4</td>
+              <td>0x31</td>
+              <td>None</td>
+              <td>… , A , B → … , (A - B)</td>
+              <td>int32 subtraction.</td>
+            </tr>
+            <tr>
+              <td>MUL_I4</td>
+              <td>0x32</td>
+              <td>None</td>
+              <td>… , A , B → … , (A * B)</td>
+              <td>int32 multiplication.</td>
+            </tr>
+            <tr>
+              <td>DIV_I4</td>
+              <td>0x33</td>
+              <td>None</td>
+              <td>… , A , B → … , (A / B)</td>
+              <td>int32 division (division by zero throws an exception).</td>
+            </tr>
+            <tr>
+              <td>MOD_I4</td>
+              <td>0x34</td>
+              <td>None</td>
+              <td>… , A , B → … , (A % B)</td>
+              <td>int32 remainder.</td>
+            </tr>
+            <tr>
+              <td>NEG_I4</td>
+              <td>0x35</td>
+              <td>None</td>
+              <td>… , A → … , (-A)</td>
+              <td>Negation (sign flip).</td>
+            </tr>
+            <tr>
+              <td rowspan="3">Comparison</td>
+              <td>CMPEQ</td>
+              <td>0x40</td>
+              <td>None</td>
+              <td>… , A , B → … , bool</td>
+              <td>Equality comparison.</td>
+            </tr>
+            <tr>
+              <td>CMPNE</td>
+              <td>0x41</td>
+              <td>None</td>
+              <td>… , A , B → … , bool</td>
+              <td>Inequality comparison.</td>
+            </tr>
+            <tr>
+              <td>CMPLT_I4</td>
+              <td>0x42</td>
+              <td>None</td>
+              <td>… , A , B → … , bool</td>
+              <td>Signed comparison A &lt; B.</td>
+            </tr>
+            <tr>
+              <td rowspan="3">Logical / Bitwise</td>
+              <td>AND_I4</td>
+              <td>0x48</td>
+              <td>None</td>
+              <td>… , A , B → … , (A &amp; B)</td>
+              <td>Bitwise AND.</td>
+            </tr>
+            <tr>
+              <td>OR_I4</td>
+              <td>0x49</td>
+              <td>None</td>
+              <td>… , A , B → … , (A | B)</td>
+              <td>Bitwise OR.</td>
+            </tr>
+            <tr>
+              <td>XOR_I4</td>
+              <td>0x4A</td>
+              <td>None</td>
+              <td>… , A , B → … , (A ^ B)</td>
+              <td>Bitwise XOR.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.4 Control Flow, Calls, Exceptions</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>Operand</th>
+              <th>Stack Effect</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="3">Branching</td>
+              <td>JMP</td>
+              <td>0x50</td>
+              <td>int32 (relative offset)</td>
+              <td>… → …</td>
+              <td>Unconditional jump.</td>
+            </tr>
+            <tr>
+              <td>JMP_TRUE</td>
+              <td>0x51</td>
+              <td>int32 (relative offset)</td>
+              <td>… , cond → …</td>
+              <td>If <code>cond</code> is true, jump and POP the condition.</td>
+            </tr>
+            <tr>
+              <td>JMP_FALSE</td>
+              <td>0x52</td>
+              <td>int32 (relative offset)</td>
+              <td>… , cond → …</td>
+              <td>If <code>cond</code> is false, jump and POP the condition.</td>
+            </tr>
+            <tr>
+              <td rowspan="2">Calls</td>
+              <td>CALL</td>
+              <td>0x58</td>
+              <td>uint16 (function ID)</td>
+              <td>… , args → … , ret</td>
+              <td>Call a function in the function table. Argument count and types follow metadata.</td>
+            </tr>
+            <tr>
+              <td>RET</td>
+              <td>0x59</td>
+              <td>None</td>
+              <td>… , ret? → … , ret?</td>
+              <td>Exit the current frame and return to caller (with 0 or 1 return value).</td>
+            </tr>
+            <tr>
+              <td rowspan="2">Exceptions</td>
+              <td>THROW</td>
+              <td>0x5C</td>
+              <td>None</td>
+              <td>… , ex → (stack unwound)</td>
+              <td>Throw exception object <code>ex</code>.</td>
+            </tr>
+            <tr>
+              <td>RETHROW</td>
+              <td>0x5D</td>
+              <td>None</td>
+              <td>… , ex → (stack unwound)</td>
+              <td>Rethrow an exception from within a catch block.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.5 Object / Field / pipe / filter</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>Operand</th>
+              <th>Stack Effect</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="3">Object</td>
+              <td>NEWOBJ</td>
+              <td>0x60</td>
+              <td>uint16 (type ID), uint8 (arg count)</td>
+              <td>… , args → … , obj</td>
+              <td>Create an instance of the specified class/struct and call its constructor.</td>
+            </tr>
+            <tr>
+              <td>GETFIELD</td>
+              <td>0x61</td>
+              <td>uint16 (field ID)</td>
+              <td>… , obj → … , value</td>
+              <td>Get the value of a field from an object.</td>
+            </tr>
+            <tr>
+              <td>SETFIELD</td>
+              <td>0x62</td>
+              <td>uint16 (field ID)</td>
+              <td>… , obj , value → …</td>
+              <td>Set the value of a field on an object.</td>
+            </tr>
+            <tr>
+              <td rowspan="3">pipe</td>
+              <td>PIPE_NEW</td>
+              <td>0x70</td>
+              <td>uint16 (type ID)</td>
+              <td>… → … , pipe</td>
+              <td>Create a <code>pipe&lt;T&gt;</code> of type T.</td>
+            </tr>
+            <tr>
+              <td>PIPE_SEND</td>
+              <td>0x71</td>
+              <td>None</td>
+              <td>… , pipe , value → …</td>
+              <td>Write one element into a pipe (blocking/non-blocking behavior is implementation-dependent).</td>
+            </tr>
+            <tr>
+              <td>PIPE_RECV</td>
+              <td>0x72</td>
+              <td>None</td>
+              <td>… , pipe → … , value</td>
+              <td>Read one element from a pipe (behavior when no data is available is implementation-defined).</td>
+            </tr>
+            <tr>
+              <td rowspan="2">filter</td>
+              <td>FILTER_NEW</td>
+              <td>0x78</td>
+              <td>uint16 (filter definition ID)</td>
+              <td>… → … , filter</td>
+              <td>Create a filter instance based on a filter definition.</td>
+            </tr>
+            <tr>
+              <td>FILTER_BIND</td>
+              <td>0x79</td>
+              <td>None</td>
+              <td>… , filter , inPipe , outPipe → … , filter</td>
+              <td>Bind input/output pipes to a filter (for pipeline construction).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.6 Debug / Extension</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>Operand</th>
+              <th>Stack Effect</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Debug</td>
+              <td>BREAK</td>
+              <td>0x7F</td>
+              <td>None</td>
+              <td>… → …</td>
+              <td>Debugger breakpoint. May notify the host and pause execution.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        The instruction set table above is a <strong>draft for the minimal core</strong> used in a prototype implementation.<br>
+        The actual implementation may add, remove, or rearrange opcodes.<br>
+        As long as the “stack effects” and “semantics” remain compatible, consistency with the Aloe language specification is preserved.
+      </div>
     </section>
 
-    <!-- 11. Errors & Traps -->
-    <section id="vm-ch11" class="chapter">
-      <h2>11. Errors, Traps, and Exceptions</h2>
+    <!-- 8. 未決事項・TODO -->
+    <section id="vm-ch8" class="chapter">
+      <h2>8. Open Issues / TODO</h2>
 
-      <h3>11.1 VM-level traps</h3>
-      <p>
-        VM-level traps are unrecoverable faults at the AloeVM level (not language-level exceptions). Examples:
-      </p>
+      <h3>8.1 Unresolved Items</h3>
       <ul>
-        <li>Invalid opcode.</li>
-        <li>Stack overflow or stack underflow.</li>
-        <li>Corrupted metadata or type tables.</li>
-      </ul>
-      <p>
-        A VM-level trap typically terminates the current program (or aborts the current execution context)
-        and may map to a host-level error.
-      </p>
-
-      <h3>11.2 Language-level exceptions</h3>
-      <ul>
-        <li>Language-level exceptions (such as <code>NullReferenceException</code>, <code>OverflowException</code>,
-          <code>ZeroDivisionException</code>, etc.) are raised by VM instructions:
-          <ul>
-            <li>Dereferencing NULL → <code>NullReferenceException</code>.</li>
-            <li>Numeric overflow/underflow → <code>OverflowException</code>.</li>
-            <li>Division by zero → <code>ZeroDivisionException</code>.</li>
-            <li>Invalid format (JSON, etc.) → <code>FormatException</code>.</li>
-          </ul>
-        </li>
-        <li>These exceptions are handled by <code>try/catch/finally</code> constructs at the language level, backed
-          by exception tables in method metadata.</li>
+        <li>Final opcode assignments and exact binary format (the definitive version of the instruction set table in 7.4)</li>
+        <li>Concrete format of the exception handler table (range specification, catch types, etc.)</li>
+        <li>Inline expansion of structs and handling of box/unbox</li>
+        <li>Details of the slot arena configuration (single arena vs multiple size classes)</li>
+        <li>Algorithm when combining reference counting with cyclic detection (auxiliary GC)</li>
+        <li>Thread model for pipe / filter (one thread per filter vs shared worker threads)</li>
+        <li>Standard ABI for pipe / filter on WASM (interface with the host)</li>
       </ul>
 
-      <h3>11.3 Out-of-memory conditions</h3>
+      <h3>8.2 Possible Future Extensions</h3>
       <ul>
-        <li>If allocation fails (no free block and GC cannot reclaim enough space), the VM throws <code>OutOfMemoryException</code>.</li>
-        <li>In WASM-native mode, behavior depends on the WASM runtime:
-          <ul>
-            <li>Failure to grow memory, or host-level OOM, may also surface as <code>OutOfMemoryException</code> or a host trap.</li>
-          </ul>
-        </li>
+        <li>JIT compilation layer (native code for hot functions)</li>
+        <li>Debugger hooks (breakpoints, step execution, variable watch)</li>
+        <li>Profiler API (measure execution time, allocated memory, etc.)</li>
+        <li>Distributed execution (support for pipes spanning multiple processes/nodes)</li>
       </ul>
 
-      <h3>11.4 Guarantees</h3>
-      <ul>
-        <li>AloeVM guarantees:
-          <ul>
-            <li>Well-formed AloeBC files (matching the current version) are either:
-              <ul>
-                <li>Accepted and executed according to this spec, or</li>
-                <li>Rejected at load time with a clear reason (unsupported version, inconsistent metadata, etc.).</li>
-              </ul>
-            </li>
-            <li>Within a well-formed program, any undefined behavior at the language level must correspond to
-              either:
-              <ul>
-                <li>A language-level exception, or</li>
-                <li>A VM-level trap (in extreme cases such as engine bugs or internal inconsistencies).</li>
-              </ul>
-            </li>
-          </ul>
-        </li>
-      </ul>
-
-      <hr />
-      <p>
-        This concludes the current draft of the AloeVM Specification. Further chapters (e.g., a complete opcode table,
-        formal typing rules, formal semantics) can be added as the implementation evolves.
-      </p>
+      <div class="note">
+        The current contents of this specification aim to be sufficient to implement
+        a <strong>prototype Aloe compiler, C# AloeVM implementation, and aloe2wasm</strong>.<br>
+        However, details of the instruction set and memory management are expected to be refined through experimentation.
+      </div>
     </section>
 
   </main>

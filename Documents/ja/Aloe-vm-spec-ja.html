@@ -1,6 +1,3 @@
-修正版の AloeVM 仕様書（新しいスロット制メモリ管理を反映）を、HTML まるごと出します。
-第 4 章だけ差し替えてあります（参照カウント＋スロット／スライド方式）。
-
 ```html
 <!DOCTYPE html>
 <html lang="ja">
@@ -819,8 +816,8 @@ A | filter(F) | B;
       </ul>
 
       <div class="note">
-        命令セットの「数値（opcode）」「バイナリフォーマットとしての具体的ビット配置」は<br>
-        まだ確定しておらず、今後「命令セット表」として定義する予定。
+        命令セットの「数値（opcode）」と「バイナリフォーマットとしての具体的ビット配置」については、<br>
+        以下 7.4「命令セット表（ドラフト）」に暫定版を定義する。将来の最適化や実装上の都合により変更される可能性がある。
       </div>
 
       <h3>7.2 WASM への 1:1 マッピング方針</h3>
@@ -841,6 +838,452 @@ A | filter(F) | B;
         <li>このとき、AloeVM 命令セットと WASM 命令セットが近いほど、コンパイラ実装が単純になる。</li>
         <li>理想的には「AloeVM 命令列をそのまま WASM にシリアライズするだけ」で動作するレベルを目指す。</li>
       </ul>
+
+      <h3>7.4 命令セット表（ドラフト）</h3>
+      <p>
+        ここでは、AloeVM の最小実行系を実装するために必要となる <strong>コア命令群</strong> を暫定的に定義する。<br>
+        opcode は 1 byte を想定し、表記は 16 進数（0xNN）とする。
+      </p>
+      <p>
+        スタック効果は <code>… , A , B → … , R</code> のように記載する（左が実行前、右が実行後）。<br>
+        ここで <code>…</code> はスタックのそれ以外の部分を表す。
+      </p>
+
+      <h4>7.4.1 スタック操作・定数ロード</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>オペランド</th>
+              <th>スタック効果</th>
+              <th>説明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="4">スタック</td>
+              <td>NOP</td>
+              <td>0x00</td>
+              <td>なし</td>
+              <td>… → …</td>
+              <td>何もしない。</td>
+            </tr>
+            <tr>
+              <td>POP</td>
+              <td>0x01</td>
+              <td>なし</td>
+              <td>… , A → …</td>
+              <td>スタックトップを 1 つ捨てる。</td>
+            </tr>
+            <tr>
+              <td>DUP</td>
+              <td>0x02</td>
+              <td>なし</td>
+              <td>… , A → … , A , A</td>
+              <td>スタックトップを複製する。</td>
+            </tr>
+            <tr>
+              <td>SWAP</td>
+              <td>0x03</td>
+              <td>なし</td>
+              <td>… , A , B → … , B , A</td>
+              <td>スタックトップ 2 要素を入れ替える。</td>
+            </tr>
+            <tr>
+              <td rowspan="7">定数</td>
+              <td>LDC_I4_S</td>
+              <td>0x10</td>
+              <td>int8（符号付き）</td>
+              <td>… → … , i32</td>
+              <td>符号付き 8bit 即値を int32 として積む（小さな整数用）。</td>
+            </tr>
+            <tr>
+              <td>LDC_I4</td>
+              <td>0x11</td>
+              <td>int32</td>
+              <td>… → … , i32</td>
+              <td>32bit 整数即値を積む。</td>
+            </tr>
+            <tr>
+              <td>LDC_F</td>
+              <td>0x12</td>
+              <td>float32</td>
+              <td>… → … , f32</td>
+              <td>32bit 浮動小数点即値を積む。</td>
+            </tr>
+            <tr>
+              <td>LDC_DEC</td>
+              <td>0x13</td>
+              <td>decimal（16 byte）</td>
+              <td>… → … , decimal</td>
+              <td>decimal 即値を積む（定数プール参照でも可、実装依存）。</td>
+            </tr>
+            <tr>
+              <td>LDC_STR</td>
+              <td>0x14</td>
+              <td>uint16（定数プール index）</td>
+              <td>… → … , obj</td>
+              <td>定数プール中の文字列をロードし、string オブジェクト参照を積む。</td>
+            </tr>
+            <tr>
+              <td>LDC_BOOL</td>
+              <td>0x15</td>
+              <td>byte（0 or 1）</td>
+              <td>… → … , bool</td>
+              <td>bool 即値を積む。</td>
+            </tr>
+            <tr>
+              <td>LDC_NULL</td>
+              <td>0x16</td>
+              <td>なし</td>
+              <td>… → … , null</td>
+              <td>null 参照を積む。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.2 ローカル変数・引数アクセス</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>オペランド</th>
+              <th>スタック効果</th>
+              <th>説明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="3">ローカル</td>
+              <td>LDLOC</td>
+              <td>0x20</td>
+              <td>uint16（index）</td>
+              <td>… → … , V</td>
+              <td>現在フレームのローカル変数 index の値をロードする。</td>
+            </tr>
+            <tr>
+              <td>STLOC</td>
+              <td>0x21</td>
+              <td>uint16（index）</td>
+              <td>… , V → …</td>
+              <td>スタックトップの値をローカル変数 index にストアする。</td>
+            </tr>
+            <tr>
+              <td>LDLOC_ADDR</td>
+              <td>0x22</td>
+              <td>uint16（index）</td>
+              <td>… → … , ref</td>
+              <td>ローカル変数への参照（アドレス）を積む（将来の最適化用、オプション）。</td>
+            </tr>
+            <tr>
+              <td rowspan="2">引数</td>
+              <td>LDARG</td>
+              <td>0x28</td>
+              <td>uint16（index）</td>
+              <td>… → … , V</td>
+              <td>現在フレームの引数 index の値をロードする。</td>
+            </tr>
+            <tr>
+              <td>STARG</td>
+              <td>0x29</td>
+              <td>uint16（index）</td>
+              <td>… , V → …</td>
+              <td>スタックトップの値を引数スロットに書き戻す（ref 引数などを想定）。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.3 算術・比較・論理</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>オペランド</th>
+              <th>スタック効果</th>
+              <th>説明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="6">算術（int32）</td>
+              <td>ADD_I4</td>
+              <td>0x30</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A + B)</td>
+              <td>int32 加算。</td>
+            </tr>
+            <tr>
+              <td>SUB_I4</td>
+              <td>0x31</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A - B)</td>
+              <td>int32 減算。</td>
+            </tr>
+            <tr>
+              <td>MUL_I4</td>
+              <td>0x32</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A * B)</td>
+              <td>int32 乗算。</td>
+            </tr>
+            <tr>
+              <td>DIV_I4</td>
+              <td>0x33</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A / B)</td>
+              <td>int32 除算（0 除算は例外）。</td>
+            </tr>
+            <tr>
+              <td>MOD_I4</td>
+              <td>0x34</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A % B)</td>
+              <td>int32 剰余。</td>
+            </tr>
+            <tr>
+              <td>NEG_I4</td>
+              <td>0x35</td>
+              <td>なし</td>
+              <td>… , A → … , (-A)</td>
+              <td>符号反転。</td>
+            </tr>
+            <tr>
+              <td rowspan="3">比較</td>
+              <td>CMPEQ</td>
+              <td>0x40</td>
+              <td>なし</td>
+              <td>… , A , B → … , bool</td>
+              <td>等値比較。</td>
+            </tr>
+            <tr>
+              <td>CMPNE</td>
+              <td>0x41</td>
+              <td>なし</td>
+              <td>… , A , B → … , bool</td>
+              <td>不等比較。</td>
+            </tr>
+            <tr>
+              <td>CMPLT_I4</td>
+              <td>0x42</td>
+              <td>なし</td>
+              <td>… , A , B → … , bool</td>
+              <td>A &lt; B （符号付き）比較。</td>
+            </tr>
+            <tr>
+              <td rowspan="3">論理 / ビット</td>
+              <td>AND_I4</td>
+              <td>0x48</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A &amp; B)</td>
+              <td>ビット AND。</td>
+            </tr>
+            <tr>
+              <td>OR_I4</td>
+              <td>0x49</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A | B)</td>
+              <td>ビット OR。</td>
+            </tr>
+            <tr>
+              <td>XOR_I4</td>
+              <td>0x4A</td>
+              <td>なし</td>
+              <td>… , A , B → … , (A ^ B)</td>
+              <td>ビット XOR。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.4 制御フロー・関数呼び出し・例外</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>オペランド</th>
+              <th>スタック効果</th>
+              <th>説明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="3">分岐</td>
+              <td>JMP</td>
+              <td>0x50</td>
+              <td>int32（相対オフセット）</td>
+              <td>… → …</td>
+              <td>無条件ジャンプ。</td>
+            </tr>
+            <tr>
+              <td>JMP_TRUE</td>
+              <td>0x51</td>
+              <td>int32（相対オフセット）</td>
+              <td>… , cond → …</td>
+              <td>cond が true の場合にジャンプし、スタックから cond を POP する。</td>
+            </tr>
+            <tr>
+              <td>JMP_FALSE</td>
+              <td>0x52</td>
+              <td>int32（相対オフセット）</td>
+              <td>… , cond → …</td>
+              <td>cond が false の場合にジャンプし、スタックから cond を POP する。</td>
+            </tr>
+            <tr>
+              <td rowspan="2">呼び出し</td>
+              <td>CALL</td>
+              <td>0x58</td>
+              <td>uint16（関数 ID）</td>
+              <td>… , args → … , ret</td>
+              <td>関数テーブル中の関数を呼び出す。引数個数・型はメタ情報に従う。</td>
+            </tr>
+            <tr>
+              <td>RET</td>
+              <td>0x59</td>
+              <td>なし</td>
+              <td>… , ret? → … , ret?</td>
+              <td>現在フレームを終了し、呼び出し元へ戻る（戻り値は 0 または 1 個）。</td>
+            </tr>
+            <tr>
+              <td rowspan="2">例外</td>
+              <td>THROW</td>
+              <td>0x5C</td>
+              <td>なし</td>
+              <td>… , ex → （スタック巻き戻し）</td>
+              <td>例外オブジェクト ex をスローする。</td>
+            </tr>
+            <tr>
+              <td>RETHROW</td>
+              <td>0x5D</td>
+              <td>なし</td>
+              <td>… , ex → （スタック巻き戻し）</td>
+              <td>catch ブロック内から例外を再スローする。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.5 オブジェクト・フィールド・pipe/filter</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>オペランド</th>
+              <th>スタック効果</th>
+              <th>説明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td rowspan="3">オブジェクト</td>
+              <td>NEWOBJ</td>
+              <td>0x60</td>
+              <td>uint16（型 ID）、uint8（引数個数）</td>
+              <td>… , args → … , obj</td>
+              <td>指定クラス／構造体のインスタンスを生成し、コンストラクタを呼び出す。</td>
+            </tr>
+            <tr>
+              <td>GETFIELD</td>
+              <td>0x61</td>
+              <td>uint16（フィールド ID）</td>
+              <td>… , obj → … , value</td>
+              <td>オブジェクトのフィールド値を取得する。</td>
+            </tr>
+            <tr>
+              <td>SETFIELD</td>
+              <td>0x62</td>
+              <td>uint16（フィールド ID）</td>
+              <td>… , obj , value → …</td>
+              <td>オブジェクトのフィールドに値を設定する。</td>
+            </tr>
+            <tr>
+              <td rowspan="3">pipe</td>
+              <td>PIPE_NEW</td>
+              <td>0x70</td>
+              <td>uint16（型 ID）</td>
+              <td>… → … , pipe</td>
+              <td>指定型 T の <code>pipe&lt;T&gt;</code> を生成する。</td>
+            </tr>
+            <tr>
+              <td>PIPE_SEND</td>
+              <td>0x71</td>
+              <td>なし</td>
+              <td>… , pipe , value → …</td>
+              <td>pipe に 1 要素を書き込む（ブロック／非ブロックは実装依存）。</td>
+            </tr>
+            <tr>
+              <td>PIPE_RECV</td>
+              <td>0x72</td>
+              <td>なし</td>
+              <td>… , pipe → … , value</td>
+              <td>pipe から 1 要素を読み出す（データが無い場合の挙動は実装定義）。</td>
+            </tr>
+            <tr>
+              <td rowspan="2">filter</td>
+              <td>FILTER_NEW</td>
+              <td>0x78</td>
+              <td>uint16（filter 定義 ID）</td>
+              <td>… → … , filter</td>
+              <td>フィルタ定義に基づき filter インスタンスを生成する。</td>
+            </tr>
+            <tr>
+              <td>FILTER_BIND</td>
+              <td>0x79</td>
+              <td>なし</td>
+              <td>… , filter , inPipe , outPipe → … , filter</td>
+              <td>filter に入力／出力 pipe をバインドする（パイプライン構築用）。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h4>7.4.6 デバッグ・拡張用</h4>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ</th>
+              <th>Mnemonic</th>
+              <th>Opcode</th>
+              <th>オペランド</th>
+              <th>スタック効果</th>
+              <th>説明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>デバッグ</td>
+              <td>BREAK</td>
+              <td>0x7F</td>
+              <td>なし</td>
+              <td>… → …</td>
+              <td>デバッガ用ブレークポイント。実行時にホストへ通知し、停止することができる。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        上記の命令セット表は <strong>プロトタイプ実装用の最小コア</strong> を示すドラフトであり、<br>
+        実際の実装段階で opcode の追加・削除・再配置が発生する可能性がある。<br>
+        その場合でも、「スタック効果」と「意味論」が互換である限り、Aloe 言語仕様との整合性は保たれる。
+      </div>
     </section>
 
     <!-- 8. 未決事項・TODO -->
@@ -849,7 +1292,7 @@ A | filter(F) | B;
 
       <h3>8.1 まだ決まっていない事項</h3>
       <ul>
-        <li>各命令の opcode 割り当てと、正確なバイナリ形式（命令セット表）</li>
+        <li>各命令の opcode 割り当てと、正確なバイナリ形式（7.4 の命令セット表の「確定版」）</li>
         <li>例外ハンドラテーブルの具体的なフォーマット（範囲指定、catch 種別など）</li>
         <li>構造体の inline 展開と box/unbox の扱い</li>
         <li>スロットアリーナ構成の詳細（単一アリーナか複数サイズクラスか）</li>
