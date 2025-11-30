@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event）</title>
-  <meta name="last-updated" content="2025-11-30T12:00:00+09:00" />
+  <meta name="last-updated" content="2025-11-30T12:20:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -137,7 +137,7 @@
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
     <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/event</div>
-    <div class="updated">最終更新: 2025-11-30 12:00:00</div>
+    <div class="updated">最終更新: 2025-11-30 12:20:00</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. はじめに</a>
@@ -689,7 +689,18 @@ bound Pipe&lt;T&gt; {
       ...),
     ...));</code></pre>
 
-      <p>Aloe のパイプ演算子 <code>|</code> は、このような関数合成のためのシンタックスシュガーである。</p>
+      <p>
+        Aloe の<strong>パイプ演算子</strong>は <code>|</code> だけである。<br />
+        この仕様書の用語として、<strong>「パイプ式」または「パイプ演算子」</strong>と言った場合、
+        すべて <strong><code>|</code> を構文として直接含む式</strong>だけを指す。<br />
+        このあと出てくる <code>|&gt;</code> は、<strong><code>| with</code> を書きやすくするための糖衣構文</strong>であり、
+        自体はパイプ演算子とはみなさない。
+      </p>
+
+      <p>
+        以降、6.4 節で <code>|</code>（パイプ演算子）と <code>|&gt;</code>（糖衣構文）の関係を定義し、
+        6.2〜6.3 節で Pipe / Filter との対応づけを述べる。
+      </p>
 
       <section id="pipe-type">
         <h3>6.1 Pipe&lt;T&gt; 型</h3>
@@ -989,7 +1000,8 @@ consumer Count&lt;T&gt; {
 
         <h4>6.4.1 言語レベルでの定義（基底演算子 <code>|</code>）</h4>
         <p>
-          Aloe のパイプ演算子 <code>|</code> は、<strong>単純な関数合成</strong> のためのシンタックスシュガーとして定義される。
+          Aloe の<strong>パイプ演算子</strong>は <code>|</code> だけである。<br />
+          まず、基底となる演算子 <code>|</code> の意味を定義する。
         </p>
 
         <pre><code>Expr | F | G</code></pre>
@@ -1015,29 +1027,32 @@ consumer Count&lt;T&gt; {
 
         <h4>6.4.2 <code>|&gt;</code> と <code>| with</code> の関係（糖衣構文）</h4>
         <p>
-          Aloe には、基底演算子 <code>|</code> のほかに、見た目を簡潔に書くための
-          糖衣構文 <code>|&gt;</code> が存在する。<br />
-          文法上、次のように定義される：
+          この仕様では、<strong><code>|&gt;</code> はパイプ演算子ではない</strong>。<br />
+          <code>|&gt;</code> はあくまで <strong><code>| with</code> を書きやすくするための糖衣構文</strong>であり、
+          言語処理系（パーサ）はソースコード中の <code>|&gt;</code> を
+          一旦 <code>| with</code> に展開してから通常の構文解析と型チェックを行う。
         </p>
 
         <pre><code>Expr |&gt; Something</code></pre>
 
-        <p>は、まず次の形に展開される：</p>
+        <p>というコードがあった場合、パーサはこれをまず次の形に書き換える：</p>
 
         <pre><code>Expr | with Something</code></pre>
 
         <p>
-          さらに、<code>| with</code> 自体は <code>|</code> を用いた通常のパイプ合成として解釈される。<br />
-          したがって、最終的には <code>|</code> を使ったコードと同じ意味になる。
+          そのうえで、<code>| with</code> 自体を、6.4.1 で定義した基底演算子 <code>|</code> を用いた
+          通常のパイプ合成として解釈する。<br />
+          つまり、最終的には <strong><code>|</code> だけを使ったパイプ式</strong>として扱われる。
         </p>
 
         <div class="note">
-          直感的には、
-          <strong><code>|</code> が「素の関数合成」</strong>、
-          <strong><code>|&gt;</code> が「<code>with</code> を経由して書き心地をそろえた見た目」</strong>
-          という位置づけになる。<br />
-          パーサ上は <code>|&gt;</code> を <code>| with</code> として扱い、
-          型チェック／実行時の意味は <code>|</code> による合成と同一である。
+          まとめると：
+          <ul>
+            <li>「パイプ演算子」および「パイプ式」は <strong><code>|</code> を直接含む構文だけ</strong>を指す。</li>
+            <li><code>|&gt;</code> はソースコード上の見た目を簡潔にするだけの構文砂糖であり、
+              パーサ内部では <code>| with</code> → <code>|</code> という順に展開される。
+            </li>
+          </ul>
         </div>
 
         <h4>6.4.3 Pipe&lt;T&gt; と <code>|</code> / <code>|&gt;</code> の利用</h4>
@@ -1056,7 +1071,9 @@ consumer Count&lt;T&gt; {
         </ul>
 
         <p>
-          同じ処理を糖衣構文 <code>|&gt;</code> を使って書くこともできる：
+          同じ処理を糖衣構文 <code>|&gt;</code> を使って書くこともできる。
+          このときも、仕様上は一度 <code>| with</code> に展開され、
+          さらに基底演算子 <code>|</code> だけを使うパイプ式として扱われる。
         </p>
 
         <pre><code>ReadLines("users.json")
@@ -1066,7 +1083,7 @@ consumer Count&lt;T&gt; {
   |&gt; ToArray();</code></pre>
 
         <p>
-          これは文法的には
+          これは文法的には次のように解釈される（<strong>この段階ではまだ「パイプ式」と呼ばない</strong>）：
         </p>
 
         <pre><code>ReadLines("users.json")
@@ -1076,8 +1093,9 @@ consumer Count&lt;T&gt; {
   | with ToArray();</code></pre>
 
         <p>
-          として解釈され、最終的には 6.4.1 で定義した <code>|</code> による関数合成と
-          同じ意味になる。
+          そこからさらに、各 <code>| with</code> が 6.4.1 の規則に従って
+          基底演算子 <code>|</code> を用いた合成に変換された段階で、
+          初めて「パイプ式」として扱われる。
         </p>
 
         <p class="warning">
