@@ -1,9 +1,9 @@
-
+```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe Language Specification (Draft – pipe/filter/producer/consumer + delete/with/lock/class inheritance/generics/event)</title>
+  <title>Aloe Language Specification (Draft – pipe/filter/producer/consumer + delete/with/lock/class inheritance/generics/event/async)</title>
   <meta name="last-updated" content="2025-11-30T12:00:00+09:00" />
   <style>
     /* Minimal layout; leave fonts to browser defaults */
@@ -30,1519 +30,684 @@
       font-size: 1rem;
       margin: 0 0 0.25rem;
     }
-    .sidebar .tagline {
-      font-size: 0.75rem;
+    .sidebar p {
+      margin: 0 0 0.75rem;
+      font-size: 0.8rem;
       color: #9ca3af;
-      margin-bottom: 0.5rem;
-    }
-    .sidebar .updated {
-      font-size: 0.7rem;
-      color: #9ca3af;
-      margin-bottom: 0.8rem;
     }
     .sidebar nav a {
       display: block;
       font-size: 0.85rem;
-      padding: 0.15rem 0;
       color: #d1d5db;
       text-decoration: none;
+      padding: 0.2rem 0;
+      white-space: nowrap;
     }
     .sidebar nav a:hover {
       color: #ffffff;
-      text-decoration: underline;
-    }
-    .sidebar nav .section-title {
-      margin-top: 0.7rem;
-      font-size: 0.8rem;
-      font-weight: bold;
-      color: #9ca3af;
     }
     .content {
       flex: 1;
-      padding: 1.5rem 2rem;
+      padding: 1.5rem 2rem 3rem;
       box-sizing: border-box;
-      max-width: 1100px;
     }
-    h1, h2, h3, h4 {
-      margin-top: 1.6em;
-    }
-    h1 {
+    .content h1 {
       font-size: 1.6rem;
+      margin-top: 0;
     }
-    h2 {
+    .content h2 {
       font-size: 1.3rem;
+      margin-top: 2rem;
       border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 0.3rem;
+      padding-bottom: 0.25rem;
     }
-    h3 {
+    .content h3 {
       font-size: 1.1rem;
+      margin-top: 1.4rem;
+    }
+    .content p {
+      line-height: 1.6;
+      margin: 0.4rem 0;
+    }
+    .content ul, .content ol {
+      margin: 0.4rem 0 0.8rem 1.4rem;
     }
     code {
-      font-family: Consolas, Menlo, Monaco, monospace;
-      font-size: 0.9em;
+      font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+      font-size: 0.9rem;
       background: #f3f4f6;
-      padding: 0.1rem 0.25rem;
+      padding: 0.1rem 0.2rem;
       border-radius: 3px;
     }
     pre {
-      background: #111827;
-      color: #e5e7eb;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
       padding: 0.75rem 0.9rem;
-      border-radius: 6px;
       overflow-x: auto;
-      font-size: 0.85rem;
-      line-height: 1.5;
+      font-size: 0.9rem;
+      line-height: 1.4;
     }
     pre code {
       background: transparent;
       padding: 0;
     }
-    ul, ol {
-      padding-left: 1.3rem;
-    }
     table {
       border-collapse: collapse;
-      margin: 0.5rem 0;
-      font-size: 0.9rem;
+      margin: 0.5rem 0 1rem;
+      width: 100%;
+      max-width: 100%;
     }
     th, td {
-      border: 1px solid #d1d5db;
+      border: 1px solid #e5e7eb;
       padding: 0.3rem 0.5rem;
+      font-size: 0.9rem;
+      text-align: left;
     }
     th {
       background: #f3f4f6;
     }
-    .note {
-      background: #fef3c7;
-      border-left: 4px solid #f59e0b;
-      padding: 0.4rem 0.6rem;
-      margin: 0.7rem 0;
-      font-size: 0.9rem;
-    }
-    .warning {
-      background: #fee2e2;
-      border-left: 4px solid #ef4444;
-      padding: 0.4rem 0.6rem;
-      margin: 0.7rem 0;
-      font-size: 0.9rem;
-    }
-    .small {
-      font-size: 0.85rem;
-      color: #6b7280;
+    .tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      background: #e5e7eb;
+      color: #111827;
+      padding: 0.05rem 0.4rem;
+      border-radius: 999px;
+      margin-right: 0.25rem;
     }
   </style>
 </head>
 <body>
-<div class="layout">
-  <aside class="sidebar">
-    <h1>Aloe Language Specification</h1>
-    <div class="tagline">Draft / pipe · filter · producer · consumer + delete / with / lock / class inheritance / generics / event</div>
-    <div class="updated">Last updated: 2025-11-30 12:00:00</div>
-    <nav>
-      <div class="section-title">Overview</div>
-      <a href="#intro">1. Introduction</a>
-      <a href="#goals">2. Design goals</a>
-
-      <div class="section-title">Language basics</div>
-      <a href="#syntax">3. Basic syntax</a>
-      <a href="#types">4. Type system</a>
-      <a href="#classes">4.5 Classes and inheritance</a>
-      <a href="#generics">4.6 Generics</a>
-      <a href="#functions-methods">5. Functions and methods</a>
-
-      <div class="section-title">Pipe / collections</div>
-      <a href="#pipe-overview">6. Pipe / filter model</a>
-      <a href="#pipe-type">6.1 Pipe&lt;T&gt; type</a>
-      <a href="#pipe-roles">6.2 Producer / transformer / consumer</a>
-      <a href="#pipe-defs">6.3 Pipe-related declarations</a>
-      <a href="#pipe-operator">6.4 Operators <code>|</code> and <code>|&gt;</code></a>
-      <a href="#pipe-std">6.5 Standard filters / producers / consumers / dump</a>
-
-      <div class="section-title">Syntactic extensions</div>
-      <a href="#with">7. with syntax</a>
-      <a href="#delete">8. delete syntax</a>
-      <a href="#lock">9. lock syntax and synchronization</a>
-
-      <div class="section-title">Control / execution model</div>
-      <a href="#exceptions">10. Exception handling</a>
-      <a href="#runtime">11. Execution model and memory management</a>
-
-      <div class="section-title">Other</div>
-      <a href="#limits">12. Limitations and future extensions</a>
-
-      <div class="section-title">Events</div>
-      <a href="#event">13. event syntax and event model</a>
-    </nav>
-  </aside>
-  <main class="content">
-
-    <!-- 1. Introduction -->
-    <section id="intro">
-      <h1>1. Introduction</h1>
-      <p>
-        Aloe is an <strong>experimental programming language</strong> with static typing, simple syntax,
-        and a stack-based virtual machine (AloeVM). It is especially designed for
-        <strong>pipe / filter style dataflow</strong> and interoperability with WebAssembly.
-      </p>
-      <ul>
-        <li>Statically typed (types are checked at compile time).</li>
-        <li>C-like surface syntax but with an intentionally small feature set.</li>
-        <li>Focus on expressing “data flow and transformation” such as text processing, REST calls, logging, etc.</li>
-        <li>Assumes a stack-based VM (AloeVM) as the primary target, with a future Wasm backend in mind.</li>
-      </ul>
-      <p class="note">
-        This document is a <strong>draft language specification</strong>.<br />
-        There may be differences from the actual compiler / VM implementation.
-      </p>
-      <p class="note">
-        An important design principle is that
-        <strong>typical Aloe code should be writable without using delete / with / lock</strong>.<br />
-        Ordinary code is written with pipes and “almost immutable” data structures,
-        and races in concurrent execution are primarily avoided by the type system and pipeline design.
-      </p>
-    </section>
-
-    <!-- 2. Design Goals -->
-    <section id="goals">
-      <h2>2. Design goals</h2>
-
-      <h3>2.1 Goals</h3>
-      <ul>
-        <li><strong>Readability</strong>: the specification itself should be readable as documentation.</li>
-        <li><strong>Ease of implementation</strong>: implementable with a small compiler and VM.</li>
-        <li><strong>Consistency of pipe / filter</strong>: type-safe dataflow representation.</li>
-        <li><strong>Bridge to Wasm</strong>: easy to integrate with future Wasm component model.</li>
-      </ul>
-
-      <h3>2.2 Non-goals</h3>
-      <ul>
-        <li>Becoming a “do-everything” general purpose language.</li>
-        <li>Competing in raw execution performance with highly optimized JIT compilers.</li>
-        <li>Providing advanced metaprogramming mechanisms such as Rust-like macros at this stage.</li>
-      </ul>
-    </section>
-
-    <!-- 3. Basic Syntax -->
-    <section id="syntax">
-      <h2>3. Basic syntax</h2>
-
-      <h3>3.1 Source files</h3>
-      <ul>
-        <li>Source files are assumed to be encoded in UTF-8.</li>
-        <li>Line comments: <code>// comment</code></li>
-        <li>Block comments: <code>/* ... */</code></li>
-      </ul>
-
-      <h3>3.2 Tokens</h3>
-      <ul>
-        <li>Identifiers: first character is a letter or <code>_</code>, subsequent characters are letters, digits, or <code>_</code>.</li>
-        <li>Keywords are reserved and cannot be used as identifiers.</li>
-      </ul>
-
-      <h3>3.3 Representative keywords</h3>
-      <table>
-        <tr><th>Category</th><th>Keywords</th></tr>
-        <tr>
-          <td>Declarations</td>
-          <td><code>let</code>, <code>var</code>, <code>function</code>, <code>method</code>, <code>type</code>, <code>struct</code>, <code>enum</code>, <code>class</code>, <code>interface</code>, <code>trait</code>, <code>sealed</code></td>
-        </tr>
-        <tr>
-          <td>Control</td>
-          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code></td>
-        </tr>
-        <tr>
-          <td>Auxiliary</td>
-          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td>
-        </tr>
-      </table>
-
-      <h3>3.4 Statements and expressions</h3>
-      <ul>
-        <li>Most statements end with a semicolon <code>;</code>.</li>
-        <li>Blocks are enclosed in <code>{ ... }</code>.</li>
-        <li>Conditions in control constructs must have type <code>Bool</code>.</li>
-      </ul>
-
-      <pre><code>// Variable declarations
-let Threshold: Int = 10;
-var Count: Int = 0;
-
-// if statement
-if (Count &gt; Threshold) {
-  Print("over");
-} else {
-  Print("ok");
-}</code></pre>
-    </section>
-
-    <!-- 4. Type System -->
-    <section id="types">
-      <h2>4. Type system</h2>
-
-      <h3>4.1 Primitive types</h3>
-      <table>
-        <tr><th>Type</th><th>Description</th></tr>
-        <tr><td><code>Bool</code></td><td><code>true</code> / <code>false</code></td></tr>
-        <tr><td><code>Int</code></td><td>Signed integer (bit width is implementation-defined, assume 32 bits here).</td></tr>
-        <tr><td><code>Float</code></td><td>Binary floating point (bit width is implementation-defined).</td></tr>
-        <tr><td><code>Decimal</code></td><td>Decimal floating point. Intended for quantities sensitive to rounding such as monetary values. Internal representation and precision are implementation-defined, but the goal is to reduce errors in decimal arithmetic.</td></tr>
-        <tr><td><code>String</code></td><td>UTF-8 string (internal representation is implementation-defined).</td></tr>
-      </table>
-
-      <h3>4.2 Arrays and collections</h3>
-      <ul>
-        <li>Fixed-length arrays: <code>T[]</code></li>
-        <li>Variable-length and lazy sequences are represented by <code>Pipe&lt;T&gt;</code> (see section 6).</li>
-      </ul>
-
-      <h3>4.3 struct</h3>
-      <pre><code>struct User {
-  Id: Int;
-  Name: String;
-  IsActive: Bool;
-}</code></pre>
-      <ul>
-        <li><code>struct</code> is a value type, and assignment copies the value.</li>
-        <li>The copy is shallow; sharing behavior of nested reference-type fields is VM-dependent.</li>
-        <li>A <code>struct</code> may inherit from at most one other struct (single inheritance for structs).</li>
-        <li>A <code>struct</code> is <strong>not allowed</strong> to implement an <code>interface</code>.
-          (The detailed relationship with traits and generic constraints will be specified later.)</li>
-      </ul>
-
-      <h3>4.4 enum</h3>
-      <ul>
-        <li><code>enum</code> is internally represented as <strong><code>Int</code></strong> always.</li>
-        <li>“Generic enum” such as <code>enum&lt;String&gt;</code> or <code>enum&lt;Byte&gt;</code> is <strong>disallowed</strong>.</li>
-        <li>Bitfield-style enums are limited to at most 32 flags.</li>
-      </ul>
-
-      <pre><code>enum LogLevel {
-  Trace = 0;
-  Debug = 1;
-  Info  = 2;
-  Warn  = 3;
-  Error = 4;
-}</code></pre>
-    </section>
-
-    <!-- 4.5 Classes and Inheritance -->
-    <section id="classes">
-      <h2>4.5 Classes and inheritance (class / interface / trait / sealed / readonly)</h2>
-
-      <h3>4.5.1 Basic properties of class</h3>
-      <ul>
-        <li><code>class</code> is always a <strong>reference type allocated on the heap</strong>.</li>
-        <li>Assignment copies the <strong>reference (shallow copy)</strong>.</li>
-        <li>The <code>clone</code> keyword creates a shallow copy of an object and returns a new reference.</li>
-        <li>All classes are <strong>clone-able</strong>; there is no way to express “non-clonable” at the type level.<br />
-          If clone is discouraged, that should be enforced by API design or coding guidelines.</li>
-      </ul>
-
-      <pre><code>class User {
-  Name: String;
-  Age: Int;
-
-  method ToString(): String {
-    return "User(Name=" + Name + ", Age=" + Age + ")";
-  }
-
-  method Dump(): String {
-    // Detailed Dump specification is defined on Object
-    return ToString();
-  }
-}
-
-var A: User = NewUser();
-var B: User = A;        // copy of reference (A and B refer to the same instance)
-
-var C: User = clone A;  // separate instance with a shallow copy of fields</code></pre>
-
-      <p class="note">
-        A <strong>shallow copy</strong> means “copy field values as-is.”<br />
-        If a field itself is a reference type, the reference value is copied.
-        Types that require deep copies or custom clone logic should implement
-        user-defined <code>Clone</code> methods based on <code>clone</code>.
-      </p>
-
-      <h3>4.5.2 Class inheritance (single inheritance)</h3>
-      <p>
-        Aloe <code>class</code> supports <strong>single inheritance</strong> only.<br />
-        That is, a class can have exactly one base class.
-      </p>
-
-      <pre><code>class Base {
-  Id: Int;
-}
-
-class Derived : Base {
-  Name: String;
-}
-
-// The following is a compile error (multiple inheritance is forbidden)
-class Bad : Base, OtherBase {
-}</code></pre>
-
-      <ul>
-        <li>The class hierarchy forms a tree (or chain); diamond inheritance does not occur.</li>
-        <li>Class inheritance is a mechanism for reuse of state and behavior.</li>
-      </ul>
-
-      <h3>4.5.3 interface and trait</h3>
-      <p>
-        Instead of permitting multiple class inheritance,
-        Aloe uses <strong>interface</strong> and <strong>trait</strong> to compose behavior.
-      </p>
-
-      <ul>
-        <li><code>interface</code> defines only method signatures and no implementations
-          (whether default implementations are allowed is a separate design decision).</li>
-        <li><code>trait</code> is a mixin that can provide method implementations,
-          used to add behavior to existing classes and structs.</li>
-        <li>The only way to “retrofit” methods onto an existing type is via <strong>trait</strong>.<br />
-          We do not introduce a <code>bound</code> syntax equivalent to extension methods in other languages.</li>
-        <li>A class can have <strong>one base class</strong>, implement multiple <code>interface</code>s,
-          and apply multiple <code>trait</code>s.</li>
-      </ul>
-
-      <pre><code>interface IDisposable {
-  method Dispose();
-}
-
-trait Printable {
-  method PrintSelf() {
-    Print(this.ToString());
-  }
-}
-
-class FileHandle : BaseFile implements IDisposable with Printable {
-  method Dispose() {
-    // Resource cleanup
-  }
-
-  method ToString(): String {
-    return "FileHandle(...)";
-  }
-}</code></pre>
-
-      <p class="note">
-        The detailed rules for <code>interface</code> and <code>trait</code>
-        (inheritance, conflict resolution when multiple traits define the same method, etc.)
-        are not fully specified in this draft. Only the direction is shown here.
-      </p>
-
-      <h3>4.5.4 sealed classes</h3>
-      <p>
-        Aloe provides the modifier <code>sealed</code> to forbid inheritance from a specific class.
-      </p>
-
-      <pre><code>sealed class Token {
-  Kind: TokenKind;
-  Text: String;
-}
-
-// Compile error (Token is sealed)
-class KeywordToken : Token {
-}</code></pre>
-
-      <ul>
-        <li>A <code>sealed class</code> cannot be used as a base class.</li>
-        <li>Even for sealed classes, implementing interfaces and applying traits is allowed.</li>
-        <li>In the future, we plan to combine sealed classes, unions, and pattern matching
-          to support exhaustiveness checking.</li>
-      </ul>
-
-      <h3>4.5.5 readonly and classes</h3>
-      <ul>
-        <li>By default, class fields are mutable.</li>
-        <li>A field marked with <code>readonly</code> is immutable:
-          <ul>
-            <li>Assignment is allowed only in the <strong>field initializer</strong> and in the
-              <strong>constructors of the same class</strong>.</li>
-            <li>Assignment from any other location is a compile error.</li>
-          </ul>
-        </li>
-        <li><code>readonly class</code> makes the entire class logically immutable:
-          <ul>
-            <li>All instance fields are treated as if they explicitly had <code>readonly</code>.</li>
-            <li>Assignment to fields is allowed only in field initializers and constructors of that class.</li>
-            <li>After the constructor finishes, fields of that instance cannot be modified.</li>
-          </ul>
-        </li>
-        <li><code>readonly</code> and <code>clone</code> are orthogonal concepts.
-          Even a <code>readonly class</code> can be cloned with <code>clone</code>.  
-          The clone is a separate instance with the same immutable state.</li>
-      </ul>
-
-      <p class="small">
-        In summary, classes are heap-allocated reference types with single inheritance,
-        and behavior is composed by interface + trait.
-        <code>sealed</code> is used to forbid inheritance, and immutability is expressed
-        at field level or class level via <code>readonly</code>.<br />
-        Details of method resolution order and trait conflict resolution will be defined separately.
-      </p>
-
-      <!-- 4.5.6 Trait dynamic composition -->
-      <h3>4.5.6 Dynamic composition of traits (with / + / - operators)</h3>
-
-      <h4>4.5.6.1 Value-level trait composition: <code>Expr with Trait_A</code></h4>
-      <p>
-        In Aloe, traits can be composed not only at type definition time,
-        but also at the <strong>value level</strong>. A representative syntax is:
-      </p>
-
-      <pre><code>var Obj2 = Obj with Trait_A;        // Non-destructive composition
-var ObjW = new SomeClass with Trait_A;</code></pre>
-
-      <ul>
-        <li><code>Expr with Trait_A</code> creates a “new value that temporarily has the members
-          (methods / properties) of Trait_A composed onto the original object.”</li>
-        <li>The original object <code>Expr</code> itself is not rewritten (<strong>non-destructive</strong>).</li>
-        <li>From the static type system’s point of view, it is treated as a single value that gives access
-          to both “the type of Expr” and “members provided by Trait_A.”  
-          (The precise internal representation is defined in the VM specification.)</li>
-      </ul>
-
-      <p class="note">
-        Value-level trait composition aims at situations where
-        “we want to temporarily attach extra behavior to a particular value
-        without affecting the definition of the entire type.”
-      </p>
-
-      <h4>4.5.6.2 Relationship between <code>+</code> / <code>-</code> operators and <code>with</code></h4>
-      <p>
-        Value-level trait composition can also be written using the <code>+</code> / <code>-</code> operators.
-      </p>
-
-      <pre><code>// Compose (attach)
-var Obj2 = Obj + Trait_A;
-
-// with is sugar for +
-var Obj3 = Obj with Trait_A;   // == Obj + Trait_A
-
-// Detach
-var Obj4 = Obj2 - Trait_A;</code></pre>
-
-      <ul>
-        <li><code>Expr with Trait_A</code> is always defined as sugar for <strong><code>Expr + Trait_A</code></strong>.</li>
-        <li><code>Expr + Trait_A</code> returns “a new value that has Trait_A composed onto Expr.”</li>
-        <li><code>Expr - Trait_A</code> returns “a new value from which the members provided by Trait_A have been removed.”</li>
-      </ul>
-
-      <p>
-        The same applies to <code>new</code> expressions:
-      </p>
-
-      <pre><code>var ObjW = new SomeClass with Trait_A;</code></pre>
-
-      <p>This is exactly equivalent to:</p>
-
-      <pre><code>var ObjW = (new SomeClass) with Trait_A;
-// and further
-var ObjW = (new SomeClass) + Trait_A;</code></pre>
-
-      <ul>
-        <li>When there are constructor arguments, e.g. <code>new SomeClass(Arg1, Arg2) with Trait_A</code>,
-          it is equivalent to <code>(new SomeClass(Arg1, Arg2)) + Trait_A</code>.</li>
-      </ul>
-
-      <h4>4.5.6.3 Type checking and error conditions</h4>
-      <ul>
-        <li>In <code>Expr + Trait_A</code> / <code>Expr with Trait_A</code>, whether Trait_A is applicable
-          to the static type of Expr is checked at compile time. If it is not applicable, it is a compile error.</li>
-        <li>In <code>Expr - Trait_A</code>, it is a compile error to detach Trait_A from a value that does not have it composed.</li>
-        <li>The behavior when the same trait is composed multiple times with <code>+ Trait_A</code>
-          (forbid duplication or simply ignore it) is defined by the VM specification, but
-          for version 0.1 it is recommended that “composing the same trait twice is treated as composing it once.”</li>
-      </ul>
-
-      <h4>4.5.6.4 Properties of composed objects</h4>
-      <ul>
-        <li>Conceptually, the resulting object of composition is a “view” over the original object,
-          referring to the same internal state.</li>
-        <li>Certain implementations may use optimizations such as copy-on-write,
-          but the language specification does not fix such details.</li>
-        <li>Trait composition does not rewrite the original class definition.
-          It is distinct from type-level trait application (<code>class X with T</code>).</li>
-      </ul>
-
-      <p class="small">
-        In summary, Aloe distinguishes between
-        “type-level trait composition” and “temporary value-level trait composition.”<br />
-        Value-level composition is expressed as <code>Expr with Trait_A</code> or
-        <code>Expr + Trait_A</code>, and <code>- Trait_A</code> can be used to detach it.
-      </p>
-    </section>
-
-    <!-- 4.6 Generics -->
-    <section id="generics">
-      <h2>4.6 Generics</h2>
-
-      <h3>4.6.1 Overview</h3>
-      <p>
-        Aloe provides a minimal generics mechanism for types, functions, methods,
-        and pipe-related declarations.<br />
-        The goal is to safely reuse collections and Pipe / Filter constructs,
-        not to support advanced type-level computation.
-      </p>
-
-      <pre><code>type Box&lt;T&gt; {
-  Value: T;
-}
-
-struct Pair&lt;TLeft, TRight&gt; {
-  Left: TLeft;
-  Right: TRight;
-}
-
-function Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: Func&lt;T:U&gt;): Pipe&lt;U&gt; {
-  // Implementation omitted
-}</code></pre>
-
-      <h3>4.6.2 Type parameters</h3>
-      <ul>
-        <li><code>type</code>, <code>struct</code>, <code>class</code>, <code>interface</code>, <code>trait</code>,
-          <code>function</code>, <code>method</code>, and producer / filter / consumer declarations
-          may take type parameters via <code>&lt;T, U, ...&gt;</code>.</li>
-        <li>Type parameter names are recommended to start with uppercase
-          (<code>T</code>, <code>TItem</code>, <code>TKey</code>, etc.).</li>
-        <li>Type parameters are bound when concrete types are supplied at use sites.</li>
-      </ul>
-
-      <pre><code>type List&lt;T&gt; {
-  Items: T[];
-}
-
-function FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
-  // Implementation omitted
-}</code></pre>
-
-      <h3>4.6.3 where type constraints (overview)</h3>
-      <p>
-        Aloe generics use <code>where</code> clauses to express type constraints.<br />
-        By default there is no constraint; version 0.1 supports only a small set of basic constraints.
-      </p>
-
-      <pre><code>function Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
-  where T: Int
-{
-  // Sum for Int only
-}</code></pre>
-
-      <p class="note">
-        Here <code>where</code> exists purely for
-        <strong>compile-time type checking</strong>.<br />
-        The runtime representation (monomorphization vs. tagged shared code, etc.) is up to the VM.
-      </p>
-
-      <h3>4.6.4 Supported constraint kinds</h3>
-      <p>Version 0.1 supports the following constraints:</p>
-
-      <ul>
-        <li><strong>Value-type / reference-type constraints</strong>
-          <ul>
-            <li><code>where T: struct</code> – <code>T</code> must be a value type.</li>
-            <li><code>where T: class</code> – <code>T</code> must be a reference type.</li>
-          </ul>
-        </li>
-        <li><strong>Primitive type constraints</strong>
-          <ul>
-            <li><code>where T: Int</code>, <code>where T: Float</code>, <code>where T: Bool</code>,
-              etc. allow directly specifying primitive types.</li>
-          </ul>
-        </li>
-        <li><strong>User-defined type constraints</strong>
-          <ul>
-            <li><code>where T: SomeTrait</code> – types implementing trait <code>SomeTrait</code>.</li>
-            <li><code>where T: MyStruct</code> – the struct type <code>MyStruct</code> itself.</li>
-            <li><code>where T: MyClass</code> – the class type <code>MyClass</code> itself.</li>
-          </ul>
-        </li>
-        <li><strong>Any concrete type name</strong>
-          <ul>
-            <li>Existing concrete type names such as <code>where T: Pipe&lt;Int&gt;</code> can also be used.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <pre><code>// Generic function restricted to value types
-function Zero&lt;T&gt;(): T
-  where T: struct
-{
-  // Implementation omitted
-}
-
-// Pipe limited to Int
-function Average&lt;T&gt;(Source: Pipe&lt;T&gt;): Float
-  where T: Int
-{
-  // Implementation omitted
-}
-
-// Generic restricted to a specific struct
-function PrintUser&lt;T&gt;(User: T)
-  where T: UserInfo
-{
-  // Implementation omitted
-}</code></pre>
-
-      <h3>4.6.5 Behavior on constraint violation</h3>
-      <ul>
-        <li>If a type argument supplied to a generic function / type does not satisfy the
-          <code>where</code> constraints, it is a compile error.</li>
-        <li>If multiple constraints are specified, all of them must be satisfied simultaneously.</li>
-        <li>Cyclic constraints and advanced typeclass-style mechanisms are not supported in this version.</li>
-      </ul>
-
-      <pre><code>// Example of compile error:
-
-// Since where T: Int, T can never be String
-function Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
-  where T: Int
-{
-  ...
-}
-
-var Lines: Pipe&lt;String&gt; = ReadLines("log.txt");
-var Result = Sum(Lines);  // &lt;-- compile error here</code></pre>
-
-      <p class="small">
-        The internal representation of generics (monomorphization, tagged shared code, etc.)
-        is defined by AloeVM.<br />
-        This language specification focuses on type-safe reuse and constraint checking via <code>where</code>.
-      </p>
-    </section>
-
-    <!-- 5. Functions and Methods -->
-    <section id="functions-methods">
-      <h2>5. Functions and methods</h2>
-
-      <h3>5.1 function declarations</h3>
-      <pre><code>function Add(a: Int, b: Int): Int {
-  return a + b;
-}</code></pre>
-      <ul>
-        <li><code>function</code> declares a top-level function.</li>
-        <li>Parameters are written as <code>Name: Type</code>.</li>
-        <li>The return type is specified with <code>: Type</code> and cannot be omitted.</li>
-        <li>The body is written in a <code>{ ... }</code> block.</li>
-        <li>It is recommended that function bodies contain 0 or 1 <code>return</code> statements.<br />
-          (Whether multiple returns are allowed is a design choice; version 0.1 recommends at most one.)</li>
-      </ul>
-
-      <h3>5.1.1 Entry point main</h3>
-      <pre><code>function main(): Int {
-  // Program entry point
-  return 0;
-}</code></pre>
-      <ul>
-        <li>A program must define exactly one <code>function main(): Int</code>.</li>
-        <li><code>main</code> is treated as a normal <code>function</code>,
-          but the VM treats it specially as the starting point of execution.</li>
-      </ul>
-
-      <h3>5.2 method declarations</h3>
-      <pre><code>class Counter {
-  Value: Int;
-
-  method Increment(): Void {
-    Value = Value + 1;
-  }
-
-  method Get(): Int {
-    return Value;
-  }
-}</code></pre>
-      <ul>
-        <li><code>method</code> is used inside <code>struct</code>, <code>class</code>, <code>trait</code>, and <code>interface</code>.</li>
-        <li>Parameter and return type syntax is the same as <code>function</code>.</li>
-        <li>Details of asynchronous methods that return Task will be specified in the future.</li>
-      </ul>
-
-      <h3>5.3 Function types (Func&lt;...:...&gt;)</h3>
-      <p>
-        Aloe expresses all function types using <code>Func&lt;...:...&gt;</code> notation.
-        Arrow-based function types are not part of the language specification.
-      </p>
-      <ul>
-        <li><code>Func&lt;T:U&gt;</code> represents a function type that takes one parameter of type <code>T</code> and returns <code>U</code>.</li>
-        <li><code>Func&lt;A, B:R&gt;</code> represents a function type that takes parameters <code>A</code> and <code>B</code> and returns <code>R</code>.</li>
-        <li>A “no return value” (void) function is written as <code>Func&lt;T:&gt;</code> or <code>Func&lt;T:void&gt;</code>.</li>
-      </ul>
-
-      <pre><code>function Apply&lt;T, R&gt;(Value: T, F: Func&lt;T:R&gt;): R {
-  return F(Value);
-}</code></pre>
-    </section>
-
-    <!-- 6. Pipe / Filter -->
-    <section id="pipe-overview">
-      <h2>6. Pipe / filter model</h2>
-
-      <p>
-        One distinctive feature of Aloe is that it can express
-        <strong>pipe / filter style dataflow</strong> in a type-safe and consistent way.
-      </p>
-
-      <pre><code>ReadLines("access.log")
-  | Where (.StartsWith("[ERROR]"))
-  | Map   (ParseLogLine)
-  | Where (.Level == LogLevel.Error)
-  | ToArray();</code></pre>
-
-      <p>Conceptually, this is equivalent to the following nested calls:</p>
-
-      <pre><code>ToArray(
-  Where(
-    Map(
-      Where(ReadLines("access.log"), ...),
-      ...),
-    ...));</code></pre>
-
-      <p class="note">
-        In Aloe, the <strong>only operator used in pipe expressions is <code>|</code></strong>.<br />
-        <code>|&gt;</code> is just <strong>sugar for <code>| with</code></strong>,
-        and the basic shape of a pipeline is always expressed using <code>|</code>.
-      </p>
-
-      <section id="pipe-type">
-        <h3>6.1 Pipe&lt;T&gt; type</h3>
-
+  <div class="layout">
+    <aside class="sidebar">
+      <h1>Aloe Language Specification</h1>
+      <p>Draft / for design discussion</p>
+      <nav>
+        <a href="#overview">1. Overview</a>
+        <a href="#goals">2. Design goals</a>
+        <a href="#syntax">3. Basic syntax</a>
+        <a href="#types">4. Type system</a>
+        <a href="#pipe-filter">5. pipe/filter/producer/consumer</a>
+        <a href="#collections">6. Collections and pipelines</a>
+        <a href="#resource">7. Resource management (with / delete / lock)</a>
+        <a href="#classes">8. Classes / struct / inheritance</a>
+        <a href="#generics">9. Generics</a>
+        <a href="#enums">10. enum and bit flags</a>
+        <a href="#events">11. event and delegates</a>
+        <a href="#pattern-union">12. Pattern matching and union</a>
+        <a href="#async">13. Async (async/await and Task)</a>
+        <a href="#future">14. Future work</a>
+      </nav>
+    </aside>
+    <main class="content">
+      <header>
+        <h1 id="overview">1. Overview</h1>
         <p>
-          <code>Pipe&lt;T&gt;</code> represents the “pipe world” in Aloe.
-          It is similar to lazy sequences, streams, or iterators.
+          Aloe is a small, simple, statically typed
+          <span class="tag">pipe-oriented</span>
+          language being designed together with a generative AI.
         </p>
-
-        <ul>
-          <li><code>Pipe&lt;T&gt;</code> represents a pipe carrying elements of type <code>T</code>.</li>
-          <li>The internal representation (chained iterators, coroutines, etc.) is VM-dependent.</li>
-          <li>The standard library provides producers / transformers / consumers on <code>Pipe&lt;T&gt;</code>.</li>
-        </ul>
-
-        <pre><code>type Pipe&lt;T&gt; {
-  // Implementation-dependent internal fields
-}</code></pre>
-
-        <p class="note">
-          The <strong>pipe world</strong> refers to the set of functions
-          (producers / transformers / consumers) that take and/or return <code>Pipe&lt;T&gt;</code>.<br />
-          Consumers correspond to the exits from the pipe world to the outside world.
-        </p>
-      </section>
-
-      <section id="pipe-roles">
-        <h3>6.2 Producer / transformer / consumer</h3>
-
         <p>
-          In the pipe/filter model, we classify functions and objects into three roles:
+          Its primary goal is to make string/text processing, REST calls, and streaming
+          pleasant to write using <code>pipe</code> and <code>filter</code>.
         </p>
-
-        <h4>6.2.1 Producer</h4>
         <ul>
-          <li><strong>Definition:</strong>
-            functions / objects whose return type is <code>Pipe&lt;*&gt;</code>
-            and appear at the head of a pipeline.</li>
-          <li><strong>Role:</strong>
-            read from external world such as files, HTTP, arrays, and feed data into the pipe world (<code>Pipe&lt;T&gt;</code>).</li>
-          <li><strong>Type:</strong>
-            usually of the form <code>Func&lt;X:Pipe&lt;T&gt;&gt;</code>,
-            designed to always output <code>Pipe&lt;*&gt;</code>.</li>
+          <li>Statically typed compiled language</li>
+          <li>Stack-based VM and a bytecode format (AloeBC) designed with WebAssembly in mind</li>
+          <li><code>pipe</code> / <code>filter</code> / <code>producer</code> / <code>consumer</code> as first-class features</li>
+          <li>Safe scope-based memory/resource management via <code>with</code></li>
+          <li>Support for class inheritance, generics, event, and async/await</li>
         </ul>
+      </header>
 
-        <h4>6.2.2 Transformer (intermediate filter)</h4>
+      <section id="goals">
+        <h2>2. Design goals</h2>
         <ul>
-          <li><strong>Definition:</strong>
-            functions / objects of type <code>Func&lt;Pipe&lt;T&gt;:Pipe&lt;U&gt;&gt;</code>.</li>
-          <li><strong>Role:</strong>
-            transform, filter, or sort data within the pipe world and do not expose it outside.</li>
-        </ul>
-
-        <h4>6.2.3 Consumer (terminal filter)</h4>
-        <ul>
-          <li><strong>Definition:</strong>
-            functions / objects of type <code>Func&lt;Pipe&lt;T&gt;:R&gt;</code>
-            (where <code>R</code> is not <code>Pipe&lt;*&gt;</code>).</li>
-          <li><strong>Role:</strong>
-            act as exits from the pipe world, fully consuming the pipe to produce arrays, scalars, or side effects.</li>
+          <li><strong>Small and easy-to-remember syntax</strong>: keep grammar rules few and emphasize regularity.</li>
+          <li><strong>Strong at text and I/O</strong>: standardize pipeline-based data transformations.</li>
+          <li><strong>Clearly specified language behavior</strong>: avoid ambiguous behavior and define it at a spec level.</li>
+          <li><strong>Good fit with Wasm</strong>: make it easy to host AloeVM on WebAssembly.</li>
+          <li><strong>Reduce dependency on GC</strong>: ensure safety via <code>with</code> and resource management conventions.</li>
         </ul>
       </section>
 
-      <section id="pipe-defs">
-        <h3>6.3 Pipe-related declarations (producer / pipe / filter / consumer)</h3>
+      <section id="syntax">
+        <h2>3. Basic syntax</h2>
 
+        <h3>3.1 Comments</h3>
+        <ul>
+          <li><code>//</code> through the end of line is a comment.</li>
+          <li>Block comments <code>/* ... */</code> may be added in the future.</li>
+        </ul>
+
+        <pre><code>// This is a single-line comment
+method PrintHello(): Void {
+  Print("Hello");
+}</code></pre>
+
+        <h3>3.2 Keywords</h3>
+        <p>Major keywords (partial list):</p>
+        <ul>
+          <li><code>var</code> / <code>let</code> (variables / constants)</li>
+          <li><code>method</code> (method definition)</li>
+          <li><code>struct</code> / <code>class</code> / <code>union</code></li>
+          <li><code>enum</code></li>
+          <li><code>with</code> / <code>delete</code> / <code>lock</code></li>
+          <li><code>pipe</code> / <code>filter</code> / <code>producer</code> / <code>consumer</code></li>
+          <li><code>event</code></li>
+          <li><code>await</code></li>
+        </ul>
+
+        <h3>3.3 Basic declaration forms</h3>
+
+        <h4>Variables and constants</h4>
+        <pre><code>var Count: Int = 0;       // Mutable
+let Name: String = "Aloe"; // Immutable</code></pre>
+
+        <h4>Methods</h4>
         <p>
-          Aloe introduces four declaration forms to construct pipe/filter components:
-          <strong>producer</strong>, <strong>pipe</strong>, <strong>filter</strong>, <strong>consumer</strong>.<br />
-          Each of these is treated as an “object with a constructor,”
-          and when connected in a pipeline, the VM executes the <code>bound</code> block.  
-          In this specification, we only describe the shapes; runtime details are left to the AloeVM spec.
+          Methods are defined as <code>method Name(parameters): ReturnType</code>.
+        </p>
+        <pre><code>method Add(Left: Int, Right: Int): Int {
+  return Left + Right;
+}</code></pre>
+
+        <h3>3.4 Blocks and scope</h3>
+        <ul>
+          <li><code>{ ... }</code> forms a block and a local scope.</li>
+          <li><code>with</code> blocks are defined separately under “Resource management”.</li>
+        </ul>
+      </section>
+
+      <section id="types">
+        <h2>4. Type system</h2>
+
+        <h3>4.1 Primitive types</h3>
+        <ul>
+          <li><code>Bool</code></li>
+          <li><code>Int</code> (bit-width is defined in the VM spec)</li>
+          <li><code>Float</code></li>
+          <li><code>String</code></li>
+          <li><code>Void</code> (used to mean “no return value”)</li>
+        </ul>
+
+        <h3>4.2 Arrays and collections</h3>
+        <p>Representative container types:</p>
+        <ul>
+          <li><code>Array&lt;T&gt;</code></li>
+          <li><code>List&lt;T&gt;</code></li>
+        </ul>
+
+        <h3>4.3 Function types</h3>
+        <p>
+          All function types are represented as <code>Func&lt;ArgTypes:ReturnType&gt;</code>.
         </p>
 
-        <h4>6.3.1 producer declaration</h4>
-        <pre><code>producer ProducerName(Params...) {
-  out: Pipe&lt;T&gt;;
-  // Runtime behavior is defined by AloeVM spec
-}</code></pre>
+        <pre><code>var Callback: Func&lt;Int:String&gt;;                   // Takes Int, returns String
+var AsyncCallback: Func&lt;String:Task&gt;;           // Takes String, returns Task
+var AsyncWithResult: Func&lt;Int:Task&lt;String&gt;&gt;; // Takes Int, returns Task&lt;String&gt;</code></pre>
 
-        <h4>6.3.2 pipe declaration</h4>
-        <pre><code>pipe PipeName(Params...) {
-  in:  InputType;
-  out: OutputType;
-}</code></pre>
+        <p>
+          A function with no return value is written as <code>Func&lt;Args:Void&gt;</code>, or the
+          return type may be omitted as a shorthand: <code>Func&lt;Args:&gt;</code>.
+        </p>
 
-        <h4>6.3.3 filter declaration</h4>
-        <pre><code>filter FilterName(Params...) {
-  in:  InputType;
-  out: OutputType;
-}</code></pre>
-
-        <h4>6.3.4 consumer declaration</h4>
-        <pre><code>consumer ConsumerName(Params...) {
-  in: InputType;
-}</code></pre>
-
-        <p class="note">
-          In this draft, the exact syntax and runtime rules for <code>bound</code> blocks in these declarations
-          are delegated to the AloeVM specification. Here we only define the type-level relationships and role separation.
+        <h3>4.4 null and Option</h3>
+        <p>
+          To express presence/absence of a reference, an <code>Option&lt;T&gt;</code> type is planned.
+          Details are not finalized yet.
         </p>
       </section>
 
-      <section id="pipe-operator">
-        <h3>6.4 Pipe operators <code>|</code> and <code>|&gt;</code></h3>
+      <section id="pipe-filter">
+        <h2>5. pipe/filter/producer/consumer</h2>
 
-        <h4>6.4.1 <code>|</code> operator (core of pipe expressions)</h4>
+        <h3>5.1 Core concept</h3>
         <p>
-          In Aloe, the <strong>core pipe operator is <code>|</code></strong>,
-          defined as syntactic sugar for simple function composition.
+          At the core of Aloe is a stream-oriented
+          <code>pipe</code> / <code>filter</code> model.
         </p>
-
-        <pre><code>Expr | F | G</code></pre>
-
-        <p>This has exactly the same meaning as:</p>
-
-        <pre><code>G(F(Expr))</code></pre>
 
         <ul>
-          <li>If <code>F</code> has type <code>Func&lt;A:B&gt;</code> and <code>G</code> has type <code>Func&lt;B:C&gt;</code>,
-            then <code>Expr | F | G</code> has type <code>C</code>.</li>
-          <li>This operator is applicable to all types, not only <code>Pipe&lt;T&gt;</code>.</li>
+          <li><span class="tag">producer</span>: generates data</li>
+          <li><span class="tag">consumer</span>: consumes data</li>
+          <li><span class="tag">filter</span>: transforms or filters elements in a stream</li>
         </ul>
 
-        <h4>6.4.2 <code>|&gt;</code> operator (sugar for <code>| with</code>)</h4>
+        <h3>5.2 Pipe operator</h3>
         <p>
-          <code>|&gt;</code> is defined as <strong>sugar for <code>| with</code></strong>.
-          Concretely:
+          Pipelines are connected with <code>|</code>.
         </p>
 
-        <pre><code>Expr |&gt; F</code></pre>
-        <p>is equivalent to:</p>
-
-        <pre><code>Expr | (with F)</code></pre>
+        <pre><code>var Lines: Array&lt;String&gt; =
+  File.ReadLines("users.txt")
+    | filter Trim()
+    | filter Where(Name =&gt; Name != "")
+    | filter ToArray();</code></pre>
 
         <p>
-          Here, <code>with F</code> means “apply F in a with-block-like context.”  
-          At the language level, <code>|&gt;</code> is purely cosmetic sugar;
-          the essential pipe operator is always <code>|</code>.
+          Here <code>filter</code> is defined as syntactic sugar that registers per-element functions
+          on a stream.
         </p>
 
-        <p class="warning">
-          Use of <code>|&gt;</code> is allowed, but
-          <strong>in principle, we recommend using <code>|</code> in pipe expressions</strong>.<br />
-          The meaning of <code>|&gt;</code> may change in future versions.
+        <h3>5.3 producer / consumer interfaces</h3>
+        <p>Conceptually, the following two interfaces exist:</p>
+
+        <pre><code>struct Producer&lt;T&gt; {
+  method Next(): Option&lt;T&gt;;
+}
+
+struct Consumer&lt;T&gt; {
+  method Push(Item: T): Void;
+}</code></pre>
+
+        <p>
+          In the actual VM implementation, pipelines may be represented in an optimized form.
         </p>
       </section>
 
-      <section id="pipe-std">
-        <h3>6.5 Standard filters / producers / consumers / dump</h3>
+      <section id="collections">
+        <h2>6. Collections and pipelines</h2>
 
-        <h4>6.5.1 Representative transformers (filters)</h4>
-        <pre><code>// Where: filter passing only elements that satisfy the predicate
-function Where&lt;T&gt;(Source: Pipe&lt;T&gt;, Predicate: Func&lt;T:Bool&gt;): Pipe&lt;T&gt; {
-  // Library implementation
-}
-
-// Map: transform each element
-function Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: Func&lt;T:U&gt;): Pipe&lt;U&gt; {
-  // Library implementation
-}</code></pre>
-
-        <h4>6.5.2 Representative producers</h4>
-        <pre><code>function ReadLines(Path: String): Pipe&lt;String&gt; {
-  // Produce a Pipe that reads lines from a file
-}
-
-function FromArray&lt;T&gt;(Items: T[]): Pipe&lt;T&gt; {
-  // Produce a Pipe from an array
-}</code></pre>
-
-        <h4>6.5.3 Representative consumers</h4>
-        <pre><code>function ToArray&lt;T&gt;(Source: Pipe&lt;T&gt;): T[] {
-  // Expand Pipe into an array
-}
-
-function Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int {
-  // Count number of elements
-}</code></pre>
-
-        <h4>6.5.4 dump consumer and Dump method</h4>
+        <h3>6.1 Collection pipelines</h3>
         <p>
-          Aloe provides <strong><code>dump</code></strong> as a built-in consumer for debugging.
+          Collections are treated in a unified way with pipeline syntax.
         </p>
 
+        <pre><code>var Numbers: Array&lt;Int&gt; = [1, 2, 3, 4, 5];
+
+var Result: Array&lt;Int&gt; =
+  Numbers
+    | filter Where(X =&gt; X % 2 == 0)
+    | filter Select(X =&gt; X * 10)
+    | filter ToArray();</code></pre>
+
+        <h3>6.2 Lazy vs eager</h3>
         <ul>
-          <li><code>dump</code> is defined as a consumer that takes <code>Pipe&lt;T&gt;</code>
-            and outputs elements in a human-readable way.</li>
-          <li>Additionally, all objects have a <strong><code>Dump</code> method</strong>
-            (assumed to be defined on the base class <code>Object</code>).</li>
-          <li>When the type of <code>Expr</code> is <code>Pipe&lt;T&gt;</code>,
-            <code>Expr | dump</code> calls <code>Dump</code> for each element.</li>
-          <li>When <code>Expr</code> is a single object,
-            <code>Dump</code> is called once on that object.</li>
+          <li>By default, pipelines are lazily evaluated streams.</li>
+          <li>Operators like <code>ToArray</code> and <code>ToList</code> materialize actual data.</li>
         </ul>
-
-        <pre><code>// Pipe example
-ReadLines("users.json")
-  | Map (ParseUser)
-  | dump;   // Dump is called for each User object
-
-// Single object example
-var U: User = GetUser();
-U.Dump();    // Normal method call
-// Or:
-U | dump;    // Treated as a Pipe with 1 element; Dump is called once</code></pre>
-
-        <h4>6.5.5 Cycle detection in Dump</h4>
-        <p>
-          The specification of <code>Dump</code> requires that even if the object graph contains cycles,
-          it must not recurse infinitely.
-        </p>
-        <ul>
-          <li>When traversing the object graph, the dumper records visited objects.</li>
-          <li>Upon re-visiting the same object, the traversal below that point is cut off,
-            and a marker such as “cycle detected” is output.</li>
-          <li>For tree structures, traversal reaches all leaves as usual.</li>
-          <li>In collections (arrays, lists, maps, etc.), even if traversal of one element is cut short
-            due to cycle detection, the dumper must <strong>continue for the remaining elements</strong>.</li>
-        </ul>
-
-        <p class="note">
-          The exact format of Dump (indentation, colors, etc.) is implementation-defined.<br />
-          What this specification guarantees is only that cycles are detected and not traversed further,
-          and that processing continues for other elements in collections.
-        </p>
       </section>
-    </section>
 
-    <!-- 7. with Syntax -->
-    <section id="with">
-      <h2>7. with syntax</h2>
+      <section id="resource">
+        <h2>7. Resource management (with / delete / lock)</h2>
 
-      <h3>7.1 Overview</h3>
-      <p>
-        The <code>with</code> syntax is sugar for omitting repeated specification of the same target object
-        when accessing its fields and methods.<br />
-        In Aloe, it also acts as a
-        “<strong>lifetime lock that keeps the object alive for the duration of the block</strong>.”
-      </p>
+        <h3>7.1 with block</h3>
+        <p>
+          <code>with</code> guarantees that “the object is safely used inside the block, and is always
+          cleaned up at the end of the scope.”
+        </p>
 
-      <pre><code>struct HttpRequest {
-  Url: String;
-  Method: String;
-  TimeoutSeconds: Int;
-}
-
-var Request: HttpRequest;
-
-with (Request) {
-  Url = "https://example.com/api";
-  Method = "GET";
-  TimeoutSeconds = 5;
-}</code></pre>
-
-      <h3>7.2 Meaning</h3>
-      <p>
-        The <code>with</code> block above is semantically equivalent to:
-      </p>
-
-      <pre><code>{
-  Request.Url = "https://example.com/api";
-  Request.Method = "GET";
-  Request.TimeoutSeconds = 5;
-}</code></pre>
-
-      <ul>
-        <li><code>with (Expr) { ... }</code> evaluates <code>Expr</code> <strong>exactly once</strong>.</li>
-        <li>Simple identifier assignments inside the block are interpreted as assignments
-          to members of that target object.</li>
-      </ul>
-
-      <h3>7.3 Lifetime lock (behavior as a GC root)</h3>
-      <p>
-        AloeVM assumes a memory management scheme that combines reference counting
-        with sliding compaction.<br />
-        In this model, the <code>with</code> block acts as a kind of “lifetime lock” as follows:
-      </p>
-      <ul>
-        <li>The result of <code>with (Expr)</code> is stored in a hidden variable,
-          which is treated as a GC root.</li>
-        <li>This hidden variable keeps the object alive until the end of the block,
-          so <strong>the object will not be collected while the block is executing</strong>.</li>
-        <li>Therefore, the object’s lifetime is guaranteed for the duration of the block.</li>
-      </ul>
-
-      <h3>7.4 Relationship between with and delete</h3>
-      <ul>
-        <li>Within a <code>with</code> block whose target is a certain variable,
-          calling <code>delete</code> on that variable is a compile error.</li>
-        <li><code>with</code> expresses the intent “keep this object alive during the block,”
-          whereas <code>delete</code> expresses the opposite intent.</li>
-        <li>However, deleting a different variable that refers to the same object is allowed.<br />
-          In that case, the GC root introduced by <code>with</code> still guarantees the object’s lifetime.</li>
-      </ul>
-
-      <pre><code>var Request: HttpRequest = GetRequest();
-var Alias: HttpRequest = Request;
-
-with (Request) {
-  // During this block, Request is guaranteed to stay alive by with
-
-  delete Alias;   // OK: only the Alias reference is removed
-  Url = "https://example.com/api";  // Still usable
-}
-
-// After leaving the with block, the GC root is removed.
-// If there are no other references, the object may eventually be collected.</code></pre>
-
-      <p class="note">
-        In summary, <code>with</code> is both
-        <strong>sugar for simplified member access</strong> and
-        a <strong>lifetime lock that keeps the target object as a GC root</strong> during the block.<br />
-        When you want both lifetime locking and mutual exclusion for the same target object,
-        use <code>lock with</code> described in section 9.3.
-      </p>
-    </section>
-
-    <!-- 8. delete Syntax -->
-    <section id="delete">
-      <h2>8. delete syntax</h2>
-
-      <h3>8.1 Overview</h3>
-      <p>
-        In Aloe, <code>delete</code> does <strong>not</strong> directly destroy objects.<br />
-        Instead, it is syntax for <strong>removing a reference from a variable</strong>.
-      </p>
-      <ul>
-        <li>Actual destruction of objects (memory reclamation, finalizer execution, etc.)
-          is performed by the <strong>runtime (AloeVM)</strong> via reference counting and GC.</li>
-        <li><code>delete</code> is a syntactic way to express “this variable no longer refers to that object”
-          in a type-safe manner, used as an alternative to assigning <code>null</code>.</li>
-      </ul>
-
-      <h3>8.2 Syntax</h3>
-      <pre><code>DeleteStatement ::= 'delete' Identifier ';'</code></pre>
-
-      <h3>8.3 Static rules (compile time)</h3>
-      <ul>
-        <li><code>Identifier</code> must be a variable declared in the current scope.</li>
-        <li>After a variable has been <code>delete</code>d,
-          <strong>reading its value or accessing its members or methods is a compile error</strong>.</li>
-        <li>However, assigning a new value to that variable is allowed.<br />
-          Conceptually, <code>delete</code> returns the variable to an “uninitialized” state.</li>
-      </ul>
-
-      <pre><code>var Buf: Buffer = NewBuffer();
-
-// Use Buf
-DoSomething(Buf);
-
-delete Buf;
-
-// Here, reading Buf or Buf.Length is a compile error
-
-Buf = NewBuffer();  // After reassignment, it can be used again</code></pre>
-
-      <h3>8.4 Runtime meaning</h3>
-      <p>
-        When <code>delete Var;</code> is executed, the VM behaves roughly as follows:
-      </p>
-      <ul>
-        <li>It decrements the reference count of the object currently referenced by <code>Var</code> by one.</li>
-        <li><code>Var</code> itself is marked as “uninitialized / deleted.”</li>
-        <li>If the object’s reference count becomes zero, it will be destroyed at some later GC timing.<br />
-          <strong>In other words, deletion does not guarantee that the object is destroyed immediately.</strong></li>
-      </ul>
-
-      <p class="note">
-        At the language level, the exact timing of object destruction is left to the VM / runtime.<br />
-        <code>delete</code> only guarantees that one reference from a variable to the object is removed.
-      </p>
-
-      <h3>8.5 Interaction with with</h3>
-      <ul>
-        <li>As described in section 7.4, calling <code>delete</code> on the target variable of a
-          <code>with</code> block from within that block is a compile error.</li>
-        <li>Deleting another variable that refers to the same object is allowed.
-          In that case, the lifetime is still guaranteed by the GC root introduced by <code>with</code>.</li>
-      </ul>
-
-      <p class="note">
-        If an ownership-based resource type or ownership model is introduced in the future,
-        <code>delete</code> may be integrated with it.<br />
-        This draft assumes there is no ownership model.
-      </p>
-    </section>
-
-    <!-- 9. lock Syntax -->
-    <section id="lock">
-      <h2>9. lock syntax and synchronization</h2>
-
-      <h3>9.1 Overview</h3>
-      <p>
-        The <code>lock</code> syntax acquires a lock on a particular object and guarantees
-        exclusive access and read-barrier optimizations for that object during the block.
-      </p>
-
-      <pre><code>var SharedCounter: Int = 0;
-
-lock (SharedCounter) {
-  SharedCounter = SharedCounter + 1;
-}</code></pre>
-
-      <h3>9.2 Meaning</h3>
-      <ul>
-        <li><code>lock (Expr) { Body }</code> acquires a lock on the object represented by <code>Expr</code>
-          and guarantees exclusive access to that object in <code>Body</code>.</li>
-        <li>Lock acquisition and release are implemented by the VM.</li>
-        <li>Updates to data shared across threads should in principle be confined to <code>lock</code> blocks.</li>
-      </ul>
-
-      <p class="note">
-        AloeVM assumes memory management using sliding compaction.<br />
-        Inside <code>lock</code> blocks, the VM may optimize read barriers
-        and reduce the number of per-object checks as much as possible.
-      </p>
-
-      <h3>9.3 lock with syntax (composition of lock + with)</h3>
-      <p>
-        When you want both mutual exclusion (<code>lock</code>) and a lifetime lock (<code>with</code>)
-        for the same object, Aloe provides <code>lock with</code>.
-      </p>
-
-      <pre><code>lock with (Conn) {
-  // Here:
-  //   - A lock on Conn is held
-  //   - Conn is kept as a GC root by with
-  //   - You can access members of Conn without repeating Conn.
-}</code></pre>
-
-      <h4>9.3.1 Syntax</h4>
-      <pre><code>LockWithStatement ::= 'lock' 'with' '(' Expression ')' Block</code></pre>
-
-      <h4>9.3.2 Desugaring (semantic equivalence)</h4>
-      <p>
-        <code>lock with (Expr) { Body }</code> is semantically equivalent to:
-      </p>
-
-      <pre><code>{
-  let __tmp = Expr;
-  lock (__tmp) {
-    with (__tmp) {
-      Body
-    }
+        <pre><code>method UseFile(Path: String): Void {
+  with File.Open(Path) as F {
+    F.WriteLine("Hello");
   }
 }</code></pre>
 
-      <ul>
-        <li><code>Expr</code> is evaluated exactly once and bound to a temporary variable <code>__tmp</code>.</li>
-        <li><code>lock</code> and <code>with</code> are then applied in nested form to <code>__tmp</code>.</li>
-        <li>During execution of <code>Body</code>:
-          <ul>
-            <li>Mutual exclusion on the target object is guaranteed (<code>lock</code> behavior).</li>
-            <li>The target object is kept as a GC root (<code>with</code> behavior).</li>
-            <li>Members of the target can be accessed with the simplified notation of <code>with</code>.</li>
-          </ul>
-        </li>
-      </ul>
+        <p>
+          Types used with <code>with</code> must implement <code>Dispose</code> or an equivalent
+          method that is called at the end of the scope.
+        </p>
 
-      <pre><code>var Conn: Connection = OpenConnection();
+        <h3>7.2 delete</h3>
+        <p>
+          <code>delete</code> is reserved for explicit destruction of an object when needed.
+        </p>
 
-lock with (Conn) {
-  Send("PING");
-  var Resp: String = Receive();
-  Print(Resp);
+        <pre><code>var Buffer: ByteBuffer = ByteBuffer.Create(1024);
+// use Buffer for something
+delete Buffer; // any further use is a compile error or undefined behavior</code></pre>
+
+        <h3>7.3 lock</h3>
+        <p>
+          <code>lock</code> is reserved as syntax for mutual exclusion.
+        </p>
+
+        <pre><code>lock Mutex {
+  SharedState.Value = SharedState.Value + 1;
+}</code></pre>
+      </section>
+
+      <section id="classes">
+        <h2>8. Classes / struct / inheritance</h2>
+
+        <h3>8.1 struct and class</h3>
+        <ul>
+          <li><code>struct</code> is a value type (copy semantics).</li>
+          <li><code>class</code> is a reference type (reference semantics).</li>
+        </ul>
+
+        <pre><code>struct Point {
+  var X: Int;
+  var Y: Int;
 }
 
-// At this point, both the lock and the lifetime lock of with are released.</code></pre>
-    </section>
-
-    <!-- 10. Exception Handling -->
-    <section id="exceptions">
-      <h2>10. Exception handling</h2>
-
-      <h3>10.1 try / catch / finally</h3>
-      <pre><code>try {
-  DoSomething();
-} catch (ex: Error) {
-  LogError(ex);
-} finally {
-  Cleanup();
+class User {
+  var Id: Int;
+  var Name: String;
 }</code></pre>
 
-      <ul>
-        <li>Exceptions thrown in the <code>try</code> block can be caught in <code>catch</code>.</li>
-        <li>The <code>finally</code> block is always executed regardless of whether an exception occurred.</li>
-        <li>The details of exception types and hierarchies are defined by the VM specification.</li>
-      </ul>
-    </section>
+        <h3>8.2 Class inheritance</h3>
+        <p>
+          Classes support single inheritance. The syntax is <code>class Sub : Base</code>.
+        </p>
 
-    <!-- 11. Execution Model -->
-    <section id="runtime">
-      <h2>11. Execution model and memory management</h2>
-
-      <h3>11.1 Overview of AloeVM</h3>
-      <ul>
-        <li>Stack-based bytecode VM.</li>
-        <li>Pushes frames onto the call stack on function calls.</li>
-        <li>GC is assumed to combine reference counting with sliding compaction.</li>
-      </ul>
-
-      <h3>11.2 Memory management (overview)</h3>
-      <ul>
-        <li>Objects are allocated on the heap.</li>
-        <li>GC runs under certain conditions and compacts live objects.</li>
-        <li><code>with</code> functions as a temporary GC root, keeping the object alive.<br />
-          Combined with <code>lock</code>, it can be used alongside read-barrier optimizations.</li>
-        <li>Normal code does not need to call <code>delete</code> for memory management.<br />
-          <code>delete</code> is only used when you explicitly want to cut a reference from a variable.</li>
-      </ul>
-
-      <p class="small">
-        The details of the instruction set and GC internals are defined in the AloeVM specification.
-      </p>
-    </section>
-
-    <!-- 12. Limitations -->
-    <section id="limits">
-      <h2>12. Limitations and future extensions</h2>
-
-      <h3>12.1 Current limitations</h3>
-      <ul>
-        <li>The expressiveness of generics is intentionally limited;
-          features such as typeclasses or higher-kinded generics are not defined.</li>
-        <li>Module systems and package management are out of scope for this document.</li>
-        <li>Metaprogramming features such as macros and reflection are not defined.</li>
-      </ul>
-
-      <h3>12.2 Future extension ideas</h3>
-      <ul>
-        <li>Parallelization and fusion optimization for pipe/filter pipelines.</li>
-        <li>Integration with the Wasm component model.</li>
-        <li>Introduction of Result-like types for error handling in addition to exceptions.</li>
-        <li>Expansion of standard libraries for distributed processing and streaming.</li>
-        <li>Integration of <code>delete</code> with an ownership-based resource type model, if introduced.</li>
-        <li>Integration of trait / interface / sealed / readonly with pattern matching and exhaustiveness checks.</li>
-      </ul>
-
-      <p class="note">
-        This draft focuses especially on<br />
-        <strong>the relationships and declaration forms of pipe / filter, producer / transformer / consumer / pipe / consumer</strong>, and<br />
-        <strong>the linkage between with / delete / lock / class inheritance / readonly / clone / generics and the AloeVM memory model</strong>.
-      </p>
-    </section>
-
-    <!-- 13. event -->
-    <section id="event">
-      <h2>13. event syntax and event model</h2>
-
-      <h3>13.1 Motivation and position</h3>
-      <p>
-        Aloe’s <code>event</code> syntax exists to express at the language level
-        that “this is a notification point where external code can register handlers.”
-      </p>
-      <ul>
-        <li>External code can register and unregister event handlers (callbacks).</li>
-        <li>Raising the event (invoking handlers) is, in principle, allowed only to the declaring side.</li>
-      </ul>
-      <p>
-        At the implementation level, <code>event</code> is treated as sugar over the standard library type
-        <code>Event&lt;TArgs&gt;</code>.
-      </p>
-      <ul>
-        <li><code>event Clicked&lt;ClickedArgs&gt;;</code> is equivalent to declaring a field
-          of type <code>Event&lt;ClickedArgs&gt;</code>.</li>
-        <li>However, unlike ordinary fields, external code cannot reassign this field
-          or directly call <code>Raise</code> on it.</li>
-      </ul>
-
-      <h3>13.2 Event&lt;TArgs&gt; and handler type</h3>
-
-      <h4>13.2.1 Handler type</h4>
-      <p>The function type of an event handler is defined as a standard type alias:</p>
-      <pre><code>type EventHandler&lt;TArgs&gt; = Func&lt;TArgs:Task&gt;;</code></pre>
-      <ul>
-        <li>Argument: <code>TArgs</code> (the event-argument type).</li>
-        <li>Return type: <code>Task</code><br />
-          Handlers are modeled as functions returning <code>Task</code> so that asynchronous handlers are natural to handle.</li>
-      </ul>
-
-      <h4>13.2.2 Role of Event&lt;TArgs&gt; (concept)</h4>
-      <p>
-        <code>Event&lt;TArgs&gt;</code> is a type that holds a collection of event handlers
-        and the logic to invoke them. Conceptually it can be written as:
-      </p>
-      <pre><code>type Event&lt;TArgs&gt; {
-  Handlers: List&lt;EventHandler&lt;TArgs&gt;&gt;;
+        <pre><code>class Animal {
+  method Speak(): Void { }
 }
 
-trait EventOperations&lt;TArgs&gt; {
-  method Add(Handler: EventHandler&lt;TArgs&gt;): Task;
-  method Remove(Handler: EventHandler&lt;TArgs&gt;): Task;
-  method Raise(Args: TArgs): Task;
+class Dog : Animal {
+  override method Speak(): Void {
+    Print("Bow");
+  }
 }</code></pre>
 
-      <p class="note">
-        In this language specification,
-        <code>Event&lt;TArgs&gt;</code> is the concrete type that stores event handlers,
-        and <code>event</code> syntax is defined as sugar on top of it with additional access rules.
-      </p>
+        <h3>8.3 Member naming style</h3>
+        <ul>
+          <li>Property and method names use <strong>PascalCase</strong> (starting with an uppercase letter).</li>
+          <li>Local variables and parameters are recommended to use camelCase, but this is not enforced by the spec.</li>
+        </ul>
+      </section>
 
-      <h3>13.3 event declaration syntax</h3>
+      <section id="generics">
+        <h2>9. Generics</h2>
 
-      <h4>13.3.1 Places where event can be declared</h4>
-      <p><code>event</code> can be declared in the following places:</p>
-      <ul>
-        <li>Inside <code>struct</code></li>
-        <li>Inside <code>class</code></li>
-        <li>Inside <code>interface</code></li>
-      </ul>
-      <p>
-        In version 0.1, event declarations at the top level or inside <code>trait</code> are not defined.
-      </p>
+        <h3>9.1 Basics</h3>
+        <pre><code>struct Result&lt;T&gt; {
+  var Value: T;
+  var IsOk: Bool;
+}</code></pre>
 
-      <h4>13.3.2 Grammar (overview)</h4>
-      <pre><code>EventDeclaration ::=
-    'event' Identifier '&lt;' Type '&gt;' ';'</code></pre>
-      <p>Example:</p>
-      <pre><code>struct Button {
+        <h3>9.2 Generic methods</h3>
+        <pre><code>method FirstOrDefault&lt;T&gt;(Items: Array&lt;T&gt;): Option&lt;T&gt; {
+  if (Items.Length == 0) {
+    return None;
+  }
+  return Some(Items[0]);
+}</code></pre>
+      </section>
+
+      <section id="enums">
+        <h2>10. enum and bit flags</h2>
+
+        <h3>10.1 Basic enum</h3>
+        <p>
+          The underlying representation of an enum is fixed to <strong>Int</strong>, and it is
+          not possible to specify another integral base type.
+        </p>
+
+        <pre><code>enum Color {
+  Red = 0;
+  Green = 1;
+  Blue = 2;
+}</code></pre>
+
+        <h3>10.2 Bit-flag enums</h3>
+        <p>
+          Enums used as bit flags are limited to “at most 32 values”.
+        </p>
+
+        <pre><code>enum FileAccess {
+  Read  = 0x1;
+  Write = 0x2;
+  Exec  = 0x4;
+}</code></pre>
+      </section>
+
+      <section id="events">
+        <h2>11. event and delegates</h2>
+
+        <h3>11.1 Delegate types</h3>
+        <p>
+          Aloe does not have a dedicated <code>delegate</code> syntax; everything is expressed
+          using <code>Func&lt;...:...&gt;</code>.
+        </p>
+
+        <pre><code>type EventHandler&lt;TArgs&gt; = Func&lt;TArgs:Task&gt;;</code></pre>
+
+        <p>
+          With this definition, the world is unified under the rule that “event handlers are all
+          asynchronous and return <code>Task</code>”.
+        </p>
+
+        <h3>11.2 event declarations</h3>
+        <pre><code>struct Button {
   event Clicked&lt;ClickedArgs&gt;;
 }</code></pre>
 
-      <p>
-        This is semantically equivalent to declaring the following field:
-      </p>
-      <pre><code>struct Button {
-  private Clicked: Event&lt;ClickedArgs&gt;;
+        <p>
+          <code>event Name&lt;TArgs&gt;</code> is internally implemented as a collection of
+          <code>EventHandler&lt;TArgs&gt;</code> values.
+        </p>
+
+        <h3>11.3 Subscribe and unsubscribe</h3>
+        <pre><code>method Setup(ButtonInstance: Button): Task {
+  ButtonInstance.Clicked += async (Args: ClickedArgs): Task {
+    Print("Clicked: " + Args.ButtonId);
+  };
+
+  // The exact syntax for removal is undecided (likely "-=").
 }</code></pre>
-      <p>with the following additional constraints:</p>
-      <ul>
-        <li>External code cannot reassign <code>Clicked</code> (compile error).</li>
-        <li>External code cannot directly call <code>Clicked.Raise(...)</code>.</li>
-        <li>External code cannot execute <code>delete Clicked;</code>.</li>
-      </ul>
 
-      <h3>13.4 Subscription / unsubscription (<code>+=</code> / <code>-=</code>)</h3>
+        <h3>11.4 Behavior of Raise</h3>
+        <p>
+          <code>event</code> values are fired via a <code>Raise</code> method.<br />
+          <code>Raise</code> itself returns a <code>Task</code> and internally <code>await</code>s
+          the <code>Task</code> returned by each registered handler in sequence.
+        </p>
 
-      <h4>13.4.1 Grammar</h4>
-      <pre><code>EventAddStatement    ::= PrimaryExpression '.' Identifier '+=' EventHandlerExpression ';'
-EventRemoveStatement ::= PrimaryExpression '.' Identifier '-=' EventHandlerExpression ';'</code></pre>
-      <ul>
-        <li><code>PrimaryExpression.Identifier</code> must be a member declared with <code>event</code>.</li>
-        <li><code>EventHandlerExpression</code> must be implicitly convertible to
-          <code>Func&lt;TArgs:Task&gt;</code>.</li>
-      </ul>
-
-      <h4>13.4.2 Desugaring (semantic equivalence)</h4>
-      <pre><code>Target.X += H;
-// is equivalent to:
-await Target.X.Add(H);
-
-Target.X -= H;
-// is equivalent to:
-await Target.X.Remove(H);</code></pre>
-
-      <h3>13.5 Raising events and rules</h3>
-
-      <h4>13.5.1 Only declarer may call Raise</h4>
-      <p>
-        <code>Raise</code> calls on a member declared with <code>event</code> are allowed only from:
-      </p>
-      <ul>
-        <li>Methods of the <code>struct</code> or <code>class</code> that declares that event.</li>
-        <li>Methods of traits applied to that same type.</li>
-      </ul>
-      <p>
-        Any other code (external modules or unrelated classes) attempting to call
-        <code>Clicked.Raise(...)</code> is a compile error.
-      </p>
-
-      <h4>13.5.2 Example</h4>
-      <pre><code>struct ClickedArgs {
-  ButtonId: String;
-}
-
-struct Button {
-  event Clicked&lt;ClickedArgs&gt;;
-}
-
-trait ButtonImpl {
+        <pre><code>bound Button {
   method OnNativeClick(Id: String): Task {
     let Args: ClickedArgs = { ButtonId = Id };
     await Clicked.Raise(Args);
   }
 }</code></pre>
+      </section>
 
-      <h3>13.6 event on interfaces and implementations</h3>
-      <pre><code>interface IButton {
-  event Clicked&lt;ClickedArgs&gt;;
-}
+      <section id="pattern-union">
+        <h2>12. Pattern matching and union</h2>
 
-struct Button implements IButton {
-  event Clicked&lt;ClickedArgs&gt;;
+        <h3>12.1 union types</h3>
+        <p>
+          A <code>union</code> expresses an “exclusive variant type”.
+        </p>
+
+        <pre><code>union Response {
+  Ok(Value: String);
+  NotFound();
+  Error(Message: String);
 }</code></pre>
-      <p>
-        In this case, <code>Button</code> must declare the corresponding event
-        in order to implement the event from <code>IButton</code>.<br />
-        If the event name or type arguments do not match, it is a compile error.
-      </p>
 
-      <h3>13.7 Usage example</h3>
-      <pre><code>struct ClickedArgs {
-  ButtonId: String;
+        <h3>12.2 match expression (proposal)</h3>
+        <p>
+          Pattern matching on unions is written with a <code>match</code> expression.
+        </p>
+
+        <pre><code>method Handle(ResponseValue: Response): Void {
+  match (ResponseValue) {
+    Ok(Value) {
+      Print("OK: " + Value);
+    }
+    NotFound() {
+      Print("Not found");
+    }
+    Error(Message) {
+      Print("Error: " + Message);
+    }
+  }
+}</code></pre>
+
+        <p>
+          Exhaustiveness checking (whether all variants are covered) is performed at compile time.
+        </p>
+      </section>
+
+      <section id="async">
+        <h2>13. Async (async/await and Task)</h2>
+
+        <h3>13.1 Basic policy</h3>
+        <ul>
+          <li>Async operations are represented by two types: <code>Task</code> and <code>Task&lt;T&gt;</code>.</li>
+          <li>There is no dedicated <code>async</code> keyword for method declarations.</li>
+          <li><code>await</code> is an expression that waits for completion of a <code>Task</code>-like value.</li>
+        </ul>
+
+        <pre><code>method DelayMs(Millis: Int): Task {
+  // Implementation is provided by the runtime
 }
 
-struct Button {
+method FetchUser(Name: String): Task&lt;User&gt; {
+  // Asynchronously fetch a user
+}</code></pre>
+
+        <h3>13.2 Task and Task&lt;T&gt;</h3>
+        <ul>
+          <li><code>Task</code> represents an asynchronous operation with no result.</li>
+          <li><code>Task&lt;T&gt;</code> represents an asynchronous operation returning a value of type <code>T</code>.</li>
+        </ul>
+
+        <h3>13.3 Type rules for await expressions</h3>
+        <p>
+          The type of <code>await Expr</code> depends on the type of <code>Expr</code>.
+        </p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Type of Expr</th>
+              <th>Type of await Expr</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Task&lt;T&gt;</code></td>
+              <td><code>T</code></td>
+            </tr>
+            <tr>
+              <td><code>Task</code></td>
+              <td>No value (the result cannot be used in expressions)</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <pre><code>var UserTask: Task&lt;User&gt; = FetchUser("Foo");
+var U: User = await UserTask;  // await Task&lt;User&gt; yields a User
+
+await DelayMs(1000);           // await Task yields no value</code></pre>
+
+        <p>
+          Assigning the result of <code>await</code> on a <code>Task</code> (non-generic) to a variable
+          is a compile-time error.
+        </p>
+
+        <h3>13.4 Where await is allowed</h3>
+        <p>
+          <code>await</code> can only be used in the following contexts:
+        </p>
+        <ul>
+          <li>Inside methods whose return type is <code>Task</code></li>
+          <li>Inside methods whose return type is <code>Task&lt;T&gt;</code></li>
+          <li>Inside lambdas whose type is <code>Func&lt;...:Task&gt;</code></li>
+          <li>Inside lambdas whose type is <code>Func&lt;...:Task&lt;T&gt;&gt;</code></li>
+        </ul>
+
+        <pre><code>method Foo(): Task {
+  await DelayMs(1000);            // OK
+}
+
+method Bar(): Task&lt;Int&gt; {
+  let U: User = await FetchUser("Foo"); // OK
+  return U.Id;
+}
+
+method Ng(): Int {
+  await DelayMs(1000);            // Compile-time error
+  return 1;
+}</code></pre>
+
+        <h3>13.5 Lambdas and await</h3>
+        <p>
+          In lambdas, <code>await</code> can be used when the lambda returns
+          <code>Task</code> or <code>Task&lt;T&gt;</code> (i.e., its type is
+          <code>Func&lt;Args:Task&gt;</code> or <code>Func&lt;Args:Task&lt;T&gt;&gt;</code>).
+        </p>
+
+        <pre><code>let Handler: Func&lt;ClickedArgs:Task&gt; =
+  async (Args: ClickedArgs): Task {
+    await DelayMs(500);
+    Print("Clicked");
+  };</code></pre>
+
+        <p>
+          Here <code>async</code> is a candidate keyword used as syntactic sugar to indicate that
+          “this lambda returns <code>Task</code> or <code>Task&lt;T&gt;</code>”.
+          Method definitions themselves do not need an <code>async</code> modifier.
+        </p>
+
+        <h3>13.6 Interaction with exception handling</h3>
+        <p>
+          If an exception occurred on the <code>Task</code> side while evaluating
+          <code>await Expr</code>, that exception is re-thrown at the location of
+          the <code>await</code>.
+        </p>
+
+        <pre><code>method UseAsync(): Task {
+  try {
+    let U: User = await FetchUser("Foo");
+    Print(U.Name);
+  } catch (Ex: Error) {
+    LogError(Ex);
+  }
+}</code></pre>
+
+        <h3>13.7 Integration with the event model</h3>
+        <p>
+          As mentioned earlier, the event handler type is defined as
+          <code>EventHandler&lt;TArgs&gt; = Func&lt;TArgs:Task&gt;</code>.
+          Therefore, it is natural to use <code>await</code> inside event handlers.
+        </p>
+
+        <pre><code>struct Button {
   event Clicked&lt;ClickedArgs&gt;;
 }
 
-function SetupButton(): Task {
+bound Button {
+  method OnNativeClick(Id: String): Task {
+    let Args: ClickedArgs = { ButtonId = Id };
+    await Clicked.Raise(Args);
+  }
+}
+
+method SetupButton(): Task {
   var Btn: Button = CreateButton("OK");
 
   Btn.Clicked += async (Args: ClickedArgs): Task {
+    await DelayMs(100);
     Print("Clicked: " + Args.ButtonId);
-  };
-
-  Btn.Clicked += async (Args: ClickedArgs): Task {
-    Log("button clicked");
   };
 }</code></pre>
 
-      <h3>13.8 Summary</h3>
-      <ul>
-        <li><code>event</code> is defined as sugar on top of <code>Event&lt;TArgs&gt;</code>
-          with additional syntax and access rules.</li>
-        <li>External code can only register/unregister handlers via <code>+=</code> / <code>-=</code>;
-          it cannot raise events or replace the internal <code>Event&lt;TArgs&gt;</code> instance.</li>
-        <li>Handlers use the unified function type <code>Func&lt;TArgs:Task&gt;</code>,
-          providing an asynchronous event model.</li>
-        <li><code>interface</code> can also declare <code>event</code>, allowing event contracts
-          to be part of the type system.</li>
-        <li>
-          The design retains a feel similar to C# <code>event</code>,
-          while avoiding a separate <code>delegate</code> type and reusing Aloe’s function types and <code>Task</code>.
-        </li>
-      </ul>
-    </section>
+        <p>
+          <code>Clicked.Raise(Args)</code> returns a <code>Task</code> and internally
+          <code>await</code>s the <code>Task</code> returned by each registered handler
+          in sequence. This makes it natural to write code where “the side that fires an event
+          waits for all handlers to complete”.
+        </p>
+      </section>
 
-  </main>
-</div>
+      <section id="future">
+        <h2>14. Future work</h2>
+        <ul>
+          <li>Detailed design of Option types and null-safety</li>
+          <li>Clarifying how far to use exceptions vs error-return types</li>
+          <li>VM-level optimization of pipe/filter and Wasm support</li>
+          <li>Aligning with the AloeBC (bytecode) specification</li>
+          <li>Distributed execution and remote pipes (connecting streams across processes or nodes)</li>
+        </ul>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
+```
