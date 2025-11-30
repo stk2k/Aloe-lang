@@ -3,7 +3,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event/function）</title>
+  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event）</title>
   <meta name="last-updated" content="2025-11-30T12:00:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
@@ -136,7 +136,7 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
-    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/event/function</div>
+    <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/event</div>
     <div class="updated">最終更新: 2025-11-30 12:00:00</div>
     <nav>
       <div class="section-title">概要</div>
@@ -174,8 +174,10 @@
       <a href="#limits">12. 制限事項と今後の展望</a>
     </nav>
   </aside>
+
   <main class="content">
 
+    <!-- 1. はじめに -->
     <section id="intro">
       <h1>1. はじめに</h1>
       <p>
@@ -188,6 +190,7 @@
         <li>C 系の見た目の構文だが、機能セットは意図的に小さくしている</li>
         <li>テキスト処理、REST 呼び出し、ログ処理など、<br />「データの流れと変換」を気持ちよく書けることを重視</li>
         <li>スタックベース VM（AloeVM）および将来の WebAssembly バックエンドを前提にしている</li>
+        <li><strong>関数</strong>は第 1 級オブジェクトであり、値として変数に入れたり Pipe に流したりできる</li>
       </ul>
       <p class="note">
         本ドキュメントは <strong>言語仕様のドラフト</strong> である。<br />
@@ -195,16 +198,19 @@
       </p>
     </section>
 
+    <!-- 2. 設計目標 -->
     <section id="goals">
       <h2>2. 設計目標</h2>
+
       <h3>2.1 目標</h3>
       <ul>
         <li><strong>可読性</strong>：仕様書そのものがドキュメントとして読めること。</li>
         <li><strong>実装容易性</strong>：小さなコンパイラと VM で実装できること。</li>
         <li><strong>Pipe / Filter の一貫性</strong>：型安全なデータフロー表現。</li>
         <li><strong>Wasm への橋渡し</strong>：将来の Wasm コンポーネントモデルと接続しやすいこと。</li>
-        <li><strong>並行処理の安全性</strong>：Pipe ベースで書かれたコードは、
-          型システムによりスレッド間で競合する共有可変状態を持たずに設計できること。
+        <li><strong>小さなコア</strong>：
+          <code>delete</code>/<code>with</code>/<code>lock</code> を一切使わなくても
+          有用な Aloe プログラムを書けること。これらは「低レベル寄りの拡張機能」として位置づける。
         </li>
       </ul>
 
@@ -216,11 +222,16 @@
       </ul>
 
       <p class="note">
-        特に重要なのは、<strong>delete / with / lock を一切使わなくても Aloe プログラムは書ける</strong> という点である。<br />
-        メモリ管理やライフタイム制御に踏み込みたい場合にだけ、それらの構文を使えばよい。
+        特に、Aloe では <strong>Pipe ベースのコード</strong>を書いている限り、
+        マルチスレッド間で <code>Pipe&lt;T&gt;</code> を直接共有せず、
+        「スレッドごとにどのパイプを消費するか」が型で分かる設計にすることで、
+        競合状態を避けやすくすることを意図している。<br />
+        共有ミューテックスや明示的な <code>lock</code> が必要になるのは、
+        より低レベルなパフォーマンスチューニングやレガシ API との接続などに限られる想定である。
       </p>
     </section>
 
+    <!-- 3. 基本文法 -->
     <section id="syntax">
       <h2>3. 基本文法</h2>
 
@@ -242,19 +253,19 @@
         <tr><th>カテゴリ</th><th>キーワード</th></tr>
         <tr>
           <td>宣言</td>
-          <td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code>, <code>class</code>, <code>interface</code>, <code>trait</code>, <code>sealed</code></td>
+          <td><code>let</code>, <code>var</code>, <code>type</code>, <code>struct</code>, <code>enum</code>, <code>class</code>, <code>interface</code>, <code>trait</code>, <code>sealed</code>, <code>readonly</code></td>
         </tr>
         <tr>
           <td>制御</td>
-          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code></td>
+          <td><code>if</code>, <code>else</code>, <code>while</code>, <code>for</code>, <code>break</code>, <code>continue</code>, <code>return</code>, <code>lock</code>, <code>delete</code></td>
         </tr>
         <tr>
           <td>関数</td>
-          <td><code>method</code>, <code>function</code></td>
+          <td><code>function</code>, <code>method</code></td>
         </tr>
         <tr>
           <td>補助</td>
-          <td><code>with</code>, <code>delete</code>, <code>clone</code>, <code>where</code></td>
+          <td><code>with</code>, <code>clone</code>, <code>where</code>, <code>event</code></td>
         </tr>
       </table>
 
@@ -277,6 +288,7 @@ if (Count &gt; Threshold) {
 }</code></pre>
     </section>
 
+    <!-- 4. 型システム -->
     <section id="types">
       <h2>4. 型システム</h2>
 
@@ -313,8 +325,7 @@ if (Count &gt; Threshold) {
       <ul>
         <li><code>enum</code> は常に内部的には <strong><code>Int</code></strong> として表現される。</li>
         <li><code>enum&lt;String&gt;</code> や <code>enum&lt;Byte&gt;</code> のような「ジェネリック enum」は
-          <strong>禁止</strong>される。
-        </li>
+          <strong>禁止</strong>される。</li>
         <li>ビットフラグ用途の enum は最大 32 個までのフラグに制限される。</li>
       </ul>
 
@@ -325,38 +336,29 @@ if (Count &gt; Threshold) {
   Warn  = 3;
   Error = 4;
 }</code></pre>
-
-      <h3>4.5 第1級オブジェクト</h3>
-      <p>
-        Aloe では、次のものを「第1級オブジェクト」として扱う。
-        これらは変数に代入でき、配列や Pipe に入れたり、関数引数や戻り値として使用できる。
-      </p>
-      <ul>
-        <li>プリミティブ値（<code>Bool</code>, <code>Int</code>, <code>Float</code>, <code>String</code>）</li>
-        <li><code>struct</code> の値</li>
-        <li><code>class</code> のインスタンス</li>
-        <li><code>enum</code> の値</li>
-        <li><code>Pipe&lt;T&gt;</code>（パイプ世界の値）</li>
-        <li><strong>関数</strong>（<code>Func&lt;...:...&gt;</code> 型の値）</li>
-      </ul>
-
     </section>
 
+    <!-- 4.5 クラスと継承 -->
     <section id="classes">
-      <h2>4.5 クラスと継承（class / interface / trait / sealed）</h2>
+      <h2>4.5 クラスと継承（class / interface / trait / sealed / Object）</h2>
 
-      <h3>4.5.1 クラスの基本</h3>
+      <h3>4.5.1 Object とクラスの基本</h3>
       <ul>
         <li><code>class</code> は常に <strong>ヒープ確保される参照型</strong> である。</li>
         <li>代入は <strong>参照のコピー（浅いコピー）</strong> を行う。</li>
+        <li>全てのクラスは暗黙的に <code>Object</code> を基底クラスに持つ。
+          別の基底クラスを指定した場合も、その最上位には <code>Object</code> が存在するとみなす。</li>
         <li><code>clone</code> キーワードは、オブジェクトの浅いコピーを作成し、新しい参照を返す。</li>
-        <li>すべてのクラスは<strong>clone 可能</strong>であり、「clone 不可」を型レベルで宣言する手段は提供しない。<br />
-          clone の禁止や注意事項を表現したい場合は API 設計やコーディング規約で対応する。</li>
+        <li>すべてのクラスは<strong>clone 可能</strong>であり、「clone 不可」を型レベルで宣言する手段は提供しない。</li>
       </ul>
 
       <pre><code>class User {
   Name: String;
   Age: Int;
+
+  method ToString(): String {
+    return "User(" + Name + ")";
+  }
 }
 
 var A: User = NewUser();
@@ -365,47 +367,19 @@ var B: User = A;        // 参照コピー（A と B は同じインスタンス
 var C: User = clone A;  // 浅いコピーされた新しいインスタンスへの参照を返す</code></pre>
 
       <p class="note">
-        <strong>浅いコピー</strong> とは「フィールドの値をそのままコピーする」ことを意味する。<br />
-        フィールド自体が参照型である場合、その参照値がコピーされる。
-        深いコピーや独自の複製ロジックが必要な型は、<code>Clone</code> メソッドなどのユーザー定義 API を
-        <code>clone</code> の上に追加することで表現できる。
+        <strong>Object クラス</strong> は全てのクラスの共通基底クラスであり、少なくとも次の仮想メソッドを持つ：
       </p>
-
-      <h3>4.5.2 ルートクラス Object と ToString / Dump</h3>
-      <p>
-        すべての参照型クラスは、暗黙にルートクラス <code>Object</code> を基底クラスとして持つ。
-        <code>Object</code> は、デバッグやログ出力のための共通メソッドを定義する。
-      </p>
-
-      <pre><code>class Object {
-  method ToString(): String {
-    // 簡潔な文字列表現（型名と一部のフィールドなど）
-  }
-
-  method Dump(): String {
-    // デバッグ用の詳細な文字列表現
-  }
-}</code></pre>
-
       <ul>
-        <li>すべての <code>class</code> のインスタンスは <code>ToString</code> と <code>Dump</code> を持つ。</li>
-        <li><code>ToString</code> は人間向けの短い説明（型名など）を返すことを想定する。</li>
-        <li><code>Dump</code> はデバッグ用の詳細な情報を返す。
-          標準実装は、フィールド構造をたどってツリー状の文字列表現を生成する。</li>
-        <li><code>Dump</code> の標準実装は<strong>循環参照を検出</strong>し、
-          同じオブジェクトを再度訪問しそうになった場合は、その下位の要素のダンプをスキップし、
-          「循環が検出された」ことが分かるマーカーを出力する。
-        </li>
-        <li>ユーザー定義クラスは、必要に応じて <code>ToString</code> や <code>Dump</code> をオーバーライドできる。</li>
+        <li><code>method ToString(): String</code> – 人間が読める短い説明文字列。</li>
+        <li><code>method Dump(): String</code> – デバッグ用の詳細な構造ダンプ文字列（フィールド名やネスト構造を含める想定）。</li>
       </ul>
-
       <p class="note">
-        Pipe パイプラインに組み込まれている組み込み consumer <code>dump</code> は、
-        各要素の <code>Dump</code> を呼び出してデバッグ出力する。
-        詳細は 6.5 節を参照。
+        組み込みの <code>dump</code> consumer（6.5.3 節参照）は、各オブジェクトに対して
+        <code>Dump()</code> を呼び出し、その結果をログや標準出力に流す形で実装されることを想定する。<br />
+        どのようなフォーマットで Dump するかはライブラリ実装に委ねられる。
       </p>
 
-      <h3>4.5.3 クラス継承（単一継承）</h3>
+      <h3>4.5.2 クラス継承（単一継承）</h3>
       <p>
         Aloe の <code>class</code> は <strong>単一継承</strong> のみをサポートする。<br />
         つまり、クラスが指定できる基底クラスはちょうど 1 つである（暗黙の <code>Object</code> を除く）。
@@ -420,15 +394,15 @@ class Derived : Base {
 }
 
 // 以下はコンパイルエラー（クラスの多重継承は禁止）
-class Bad : Base, OtherBase {
-}</code></pre>
+// class Bad : Base, OtherBase {
+// }</code></pre>
 
       <ul>
         <li>クラス階層は木（あるいは鎖）の構造を取り、ダイヤモンド継承は発生しない。</li>
         <li>クラス継承は状態と振る舞いの再利用のためのメカニズムである。</li>
       </ul>
 
-      <h3>4.5.4 interface と trait</h3>
+      <h3>4.5.3 interface と trait</h3>
       <p>
         クラスに対して多重継承を許可する代わりに、
         Aloe では <strong>interface</strong> と <strong>trait</strong> を使って振る舞いの合成を行う。
@@ -461,15 +435,18 @@ class FileHandle : BaseFile implements IDisposable with Printable {
   method ToString(): String {
     return "FileHandle(...)";
   }
+
+  method Dump(): String {
+    return "FileHandle(Detailed...)";
+  }
 }</code></pre>
 
       <p class="note">
-        <code>interface</code> と <code>trait</code> の詳細な文法やルール
-        （継承、複数の trait で同じメソッドが定義されたときの衝突解決など）は
-        本ドラフトでは完全には定義しない。ここでは方向性のみを示す。
+        Aloe では、<strong>既存の型にメソッドを追加する専用の構文（拡張メソッドや <code>bound TypeName</code> のようなもの）は提供しない</strong>。<br />
+        型に振る舞いを追加したい場合は、trait を定義し、その trait を <code>with</code> で適用する。
       </p>
 
-      <h3>4.5.5 sealed クラス</h3>
+      <h3>4.5.4 sealed クラス</h3>
       <p>
         特定のクラスからの継承を禁止するために、Aloe は <code>sealed</code> 修飾子を提供する。
       </p>
@@ -491,7 +468,7 @@ class KeywordToken : Token {
           網羅性チェックをサポートすることを検討している。</li>
       </ul>
 
-      <h3>4.5.6 readonly とクラス</h3>
+      <h3>4.5.5 readonly とクラス</h3>
       <ul>
         <li>クラスのフィールドはデフォルトで可変である。</li>
         <li>フィールドに <code>readonly</code> 修飾子を付けると、そのフィールドは不変になる：
@@ -518,12 +495,13 @@ class KeywordToken : Token {
       <p class="small">
         本セクションでは、クラスはヒープ上の参照型で単一継承のみをサポートし、
         複数の振る舞いは interface + trait で合成し、sealed によって継承禁止を表現し、
-        <code>readonly</code> によってフィールド単位またはクラス全体のイミュータビリティを表現するという、
+        <code>readonly</code> によってフィールド単位またはクラス全体のイミュータビリティを表現するという
         高レベルな方針を定める。<br />
         メソッド解決順序や trait の衝突解決の詳細は別途仕様化する。
       </p>
     </section>
 
+    <!-- 4.6 ジェネリクス -->
     <section id="generics">
       <h2>4.6 ジェネリクス</h2>
 
@@ -543,13 +521,13 @@ struct Pair&lt;TLeft, TRight&gt; {
   Right: TRight;
 }
 
-method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: Func&lt;T:U&gt;): Pipe&lt;U&gt; {
+function Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: Func&lt;T:U&gt;): Pipe&lt;U&gt; {
   // 実装は省略
 }</code></pre>
 
       <h3>4.6.2 ジェネリック型パラメータ</h3>
       <ul>
-        <li>型、struct、class、interface、trait、method、
+        <li>型、struct、class、interface、trait、function、method、
           および producer/filter/consumer 宣言は <code>&lt;T, U, ...&gt;</code> で型パラメータを受け取れる。</li>
         <li>型パラメータ名は一般的に大文字で始めることが推奨される
           （<code>T</code>, <code>TItem</code>, <code>TKey</code> など）。</li>
@@ -560,7 +538,7 @@ method Map&lt;T, U&gt;(Source: Pipe&lt;T&gt;, Selector: Func&lt;T:U&gt;): Pipe&l
   Items: T[];
 }
 
-method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
+function FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
   // 実装は省略
 }</code></pre>
 
@@ -570,7 +548,7 @@ method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
         デフォルトは制約なしだが、バージョン 0.1 の段階でいくつかの基本的な制約をサポートする。
       </p>
 
-      <pre><code>method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
+      <pre><code>function Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
   where T: Int
 {
   // Int 専用の合計処理
@@ -582,10 +560,7 @@ method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
       </p>
 
       <h3>4.6.4 サポートされる制約の種類</h3>
-      <p>
-        バージョン 0.1 では、以下の種類の制約をサポートする：
-      </p>
-
+      <p>バージョン 0.1 では、以下の種類の制約をサポートする：</p>
       <ul>
         <li><strong>値型 / 参照型 制約</strong>
           <ul>
@@ -614,21 +589,21 @@ method FirstOrDefault&lt;T&gt;(Source: Pipe&lt;T&gt;): T {
       </ul>
 
       <pre><code>// 値型専用ジェネリック
-method Zero&lt;T&gt;(): T
+function Zero&lt;T&gt;(): T
   where T: struct
 {
   // 実装は省略
 }
 
 // Int 専用の Pipe
-method Average&lt;T&gt;(Source: Pipe&lt;T&gt;): Float
+function Average&lt;T&gt;(Source: Pipe&lt;T&gt;): Float
   where T: Int
 {
   // 実装は省略
 }
 
 // 特定の struct 型専用
-method PrintUser&lt;T&gt;(User: T)
+function PrintUser&lt;T&gt;(User: T)
   where T: UserInfo
 {
   // 実装は省略
@@ -645,7 +620,7 @@ method PrintUser&lt;T&gt;(User: T)
       <pre><code>// コンパイルエラーの例:
 
 // where T: Int なので、T は String にはできない
-method Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
+function Sum&lt;T&gt;(Source: Pipe&lt;T&gt;): T
   where T: Int
 {
   ...
@@ -660,13 +635,15 @@ var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
       </p>
     </section>
 
+    <!-- 5. 関数とメソッド -->
     <section id="functions-methods">
       <h2>5. 関数とメソッド</h2>
 
       <h3>5.1 function 宣言（トップレベル関数）</h3>
       <p>
-        Aloe は <strong>第1級関数</strong> を持つ。関数は <code>Func&lt;...:...&gt;</code> 型の値として扱われ、
-        変数に代入したり、引数や戻り値として渡すことができる。
+        Aloe では <strong>関数</strong>が第 1 級オブジェクトである。
+        関数は <code>function</code> キーワードで宣言し、値として変数に格納したり、引数として渡したり、
+        Pipe で流したりできる。
       </p>
 
       <pre><code>function Add(a: Int, b: Int): Int {
@@ -675,69 +652,67 @@ var Result = Sum(Lines);  // &lt;-- コンパイルエラー</code></pre>
 }</code></pre>
 
       <ul>
-        <li><code>function</code> は、特定の型に属さないトップレベル関数を定義する。</li>
-        <li>シグニチャ（パラメータリストと戻り値型）は <code>method</code> と同じルールに従う。</li>
-        <li>関数本体は複数の文で構成され、<strong>最大 1 個</strong> の <code>return</code> 文を含むことができる。</li>
-        <li><code>return</code> 文がある場合、その式の型は宣言された戻り値型と一致している必要がある。</li>
-        <li>戻り値型を省略した場合、その関数は「戻り値なし」（void 相当）として扱われる。
+        <li><code>function</code> は「トップレベル関数」を定義する。</li>
+        <li>パラメータリストと戻り値の型は <code>method</code> と同じルールに従う。</li>
+        <li>関数本体は複数の文からなり、<strong>最大 1 つ</strong>の <code>return</code> 文を含められる。</li>
+        <li><code>return</code> 式の型は、宣言された戻り値型と一致していなければならない。</li>
+        <li>戻り値型を省略した場合、その関数は戻り値なし（void 的）として扱われる。
           <ul>
-            <li>この場合、値を伴わない <code>return;</code> を 1 回だけ書いてもよい。</li>
-            <li><code>return</code> 自体を書かずに末尾まで到達してもよい。</li>
+            <li>この場合、値なしの <code>return;</code> を 1 回だけ書いてもよい。</li>
+            <li><code>return</code> を書かずにブロック末尾に到達することも許される。</li>
           </ul>
         </li>
-        <li>VM レベルでは、<code>function</code> と <code>method</code> は同じ呼び出し規約と表現を持ち、
-          受け取る対象（<code>this</code> の有無）のみが異なる。
-        </li>
+        <li>VM レベルでは、<code>function</code> と <code>method</code> は同じ呼び出し規約・表現を共有し、
+          「暗黙の <code>this</code> を受け取るかどうか」だけが異なる。</li>
       </ul>
 
-      <h3>5.2 method 宣言（型にバインドされたメソッド）</h3>
-      <pre><code>method Add(a: Int, b: Int): Int {
-  return a + b;
-}</code></pre>
-
-      <ul>
-        <li><code>method</code> はトップレベル関数、または型にバインドされたメソッドを定義する。</li>
-        <li>戻り値を明示しない場合、そのメソッドは「戻り値なし」（void）として扱われる。</li>
-        <li>関数本体・<code>return</code> の個数・戻り値型の一致などのルールは <code>function</code> と同じである。</li>
-        <li>型にバインドされたメソッドの場合、必要に応じて暗黙のレシーバ <code>this</code> にアクセスできる。</li>
-      </ul>
-
-      <h3>5.3 bound によるメソッドバインディング</h3>
+      <h3>5.2 method 宣言（型に属するメソッド）</h3>
       <p>
-        Aloe では、<code>bound</code> を用いて既存の型にメソッドを追加する。
+        <code>method</code> は、特定の型（struct / class / interface / trait）に属するメソッドを定義する。
+        トップレベルで <code>method</code> を使うことはできず、その場合は <code>function</code> を使う。
       </p>
 
-      <pre><code>type Pipe&lt;T&gt; {
-  // 内部表現は VM 依存
-}
-
-bound Pipe&lt;T&gt; {
-  method Where(Predicate: Func&lt;T:Bool&gt;): Pipe&lt;T&gt; {
-    // 実装は省略
+      <pre><code>class Calculator {
+  method Add(a: Int, b: Int): Int {
+    return a + b;
   }
 }</code></pre>
 
-      <p class="note">
-        <code>Pipe&lt;T&gt;</code> に対しては、<code>bound</code> ブロックで宣言されるメソッドの
-        戻り値に関する<strong>制約</strong>を導入する（詳細は 6.2 を参照）。
-      </p>
+      <ul>
+        <li>型本体（<code>struct</code> / <code>class</code> / <code>interface</code> / <code>trait</code>）の中で宣言された
+          <code>method</code> は、その型のメンバーとして扱われる。</li>
+        <li>戻り値型を省略した場合、そのメソッドは戻り値なし（void）として扱われる。</li>
+        <li>関数本体・<code>return</code> の個数・戻り値型チェックのルールは
+          <code>function</code> と同じである。</li>
+        <li>型に所属するメソッド内では暗黙のレシーバ（ここでは便宜的に <code>this</code> と呼ぶ）にアクセスできるが、
+          その具体的な綴りは AloeVM / ツールチェーン側の責務とする。</li>
+      </ul>
 
-      <h3>5.4 関数型の表現（Func&lt;...:...&gt;）</h3>
+      <div class="note">
+        <strong>既存の型にメソッドを足す方法：</strong><br />
+        Aloe は C# の「拡張メソッド」や <code>bound TypeName { ... }</code> のような
+        専用構文を持たない。<br />
+        既存の型に振る舞いを追加したい場合は、
+        <strong>trait を定義してその中に <code>method</code> を書き、型側で <code>with TraitName</code> を指定する</strong>。<br />
+        「型にメソッドを追加する」という操作は、trait を通じてのみ行う。
+      </div>
+
+      <h3>5.3 関数型の表現（Func&lt;...:...&gt;）</h3>
       <p>
         Aloe では、関数型はすべて <code>Func&lt;...:...&gt;</code> 記法で表現する。
-        <code>|</code> の右側に現れるものも本質的にはこの関数型であり、
-        パイプ演算子はそれらを見やすくつなぐための構文糖衣にすぎない。
+        <code>-&gt;</code> を用いた関数型表記は言語仕様として存在しない。
       </p>
       <ul>
         <li><code>Func&lt;T:U&gt;</code> は「引数 <code>T</code> を受け取り、<code>U</code> を返す関数」を表す。</li>
         <li><code>Func&lt;A, B:R&gt;</code> は「引数 <code>A</code> と <code>B</code> を受け取り、<code>R</code> を返す関数」を表す。</li>
         <li>戻り値なし（void）の関数は <code>Func&lt;T:&gt;</code> または <code>Func&lt;T:void&gt;</code> のように書ける。</li>
+        <li>パイプ演算子 <code>|</code> の右辺に現れるものも本質的にはこの関数型であり、
+          <code>|</code> はそれらを繋ぎ合わせるシンタックスシュガーに過ぎない。</li>
       </ul>
 
-      <h3>5.5 main 関数（エントリポイント）</h3>
+      <h3>5.4 main 関数（エントリポイント）</h3>
       <p>
-        Aloe プログラムのエントリポイントは、
-        <strong>トップレベル関数 <code>main</code></strong> として宣言する。
+        Aloe プログラムのエントリポイントは、<strong>トップレベルの <code>function main</code></strong> として宣言される。
       </p>
 
       <pre><code>function main(): Int {
@@ -747,15 +722,16 @@ bound Pipe&lt;T&gt; {
 
       <ul>
         <li><code>main</code> は通常の <code>function</code> と同じルールに従う。</li>
-        <li>本体は複数の文で構成され、最大 1 個の <code>return</code> 文を含めることができる。</li>
-        <li><code>return</code> で返す値の型は、宣言された戻り値型と一致している必要がある。</li>
-        <li>言語仕様としては、<code>main</code> は「トップレベル関数の一種」に過ぎず、
-          「プログラムのエントリポイントである」という点だけが特別である。</li>
-        <li><code>main</code> の戻り値型が <code>Int</code> か戻り値なしとするかなど、
-          細かい ABI は VM / プラットフォーム側で規定される。</li>
+        <li>本体は複数の文からなり、最大 1 つの <code>return</code> 文を含める。</li>
+        <li><code>return</code> の型は宣言された戻り値型と一致していなければならない。</li>
+        <li>言語仕様の観点からは、<code>main</code> は「多数あるトップレベル関数の 1 つ」であり、
+          「エントリポイント」という特殊性だけが追加される。</li>
+        <li>戻り値型を <code>Int</code> に固定するか、void を許可するか、
+          その ABI の詳細は VM / プラットフォームの仕様に委ねる。</li>
       </ul>
     </section>
 
+    <!-- 6. Pipe / Filter モデル -->
     <section id="pipe-overview">
       <h2>6. Pipe / Filter モデル</h2>
 
@@ -772,7 +748,7 @@ bound Pipe&lt;T&gt; {
   | ToArray();</code></pre>
 
       <p>
-        概念的には、上記は次のようなネストした呼び出しと同じ意味である：
+        概念的には、上記は次のようなネストした呼び出しと等価である：
       </p>
 
       <pre><code>ToArray(
@@ -784,6 +760,7 @@ bound Pipe&lt;T&gt; {
 
       <p>Aloe の <code>|</code> 演算子は、このような関数合成のためのシンタックスシュガーである。</p>
 
+      <!-- 6.1 Pipe<T> -->
       <section id="pipe-type">
         <h3>6.1 Pipe&lt;T&gt; 型</h3>
 
@@ -809,6 +786,7 @@ bound Pipe&lt;T&gt; {
         </p>
       </section>
 
+      <!-- 6.2 役割 -->
       <section id="pipe-roles">
         <h3>6.2 Producer / Transformer / Consumer</h3>
 
@@ -819,8 +797,7 @@ bound Pipe&lt;T&gt; {
         <h4>6.2.1 Producer</h4>
         <ul>
           <li><strong>定義</strong>：
-            戻り値の型が <code>Pipe&lt;*&gt;</code> であり、パイプラインの先頭に現れる関数／オブジェクト。
-          </li>
+            戻り値の型が <code>Pipe&lt;*&gt;</code> であり、パイプラインの先頭に現れる関数／オブジェクト。</li>
           <li><strong>役割</strong>：
             ファイル・HTTP・配列など外部世界からデータを読み取り、
             パイプ世界（<code>Pipe&lt;T&gt;</code>）に「流し込む」。</li>
@@ -838,27 +815,12 @@ bound Pipe&lt;T&gt; {
         </ul>
 
         <p>
-          Aloe では、<strong><code>bound Pipe&lt;T&gt;</code></strong> 内で定義されるメソッドは、
-          原則として transformer（中間フィルタ）専用とする。
+          Pipe / Filter ライブラリは、主に
+          <strong><code>filter</code> 宣言</strong>と
+          <strong><code>pipe</code> 宣言</strong>を通して transformer を提供する。
+          必要なら trait を介して <code>Pipe&lt;T&gt;</code> にメソッド風の API を足すこともできるが、
+          言語仕様としてはパイプ関連宣言を中心に据える。
         </p>
-
-        <div class="note">
-          <strong>制約：</strong><br />
-          <code>bound Pipe&lt;T&gt;</code> ブロック内で宣言されるメソッドは、<br />
-          戻り値として <strong>必ず <code>Pipe&lt;*&gt;</code></strong> を返さなければならない。<br />
-          つまり、型は <code>Func&lt;Pipe&lt;T&gt;:Pipe&lt;U&gt;&gt;</code> でなければならない。
-        </div>
-
-        <pre><code>bound Pipe&lt;T&gt; {
-  // OK: transformer
-  method Where(Predicate: Func&lt;T:Bool&gt;): Pipe&lt;T&gt; { ... }
-
-  // OK: 要素型を変更する
-  method Map&lt;U&gt;(Selector: Func&lt;T:U&gt;): Pipe&lt;U&gt; { ... }
-
-  // NG: 戻り値が Pipe ではないため、コンパイルエラーとすべき
-  // method Count(): Int { ... }
-}</code></pre>
 
         <h4>6.2.3 Consumer（終端フィルタ）</h4>
 
@@ -874,13 +836,13 @@ bound Pipe&lt;T&gt; {
         </ul>
 
         <pre><code>// パイプを配列に具現化する consumer
-method ToArray&lt;T&gt;(Source: Pipe&lt;T&gt;): T[] { ... }
+function ToArray&lt;T&gt;(Source: Pipe&lt;T&gt;): T[] { ... }
 
 // 要素数を数える consumer
-method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
-
+function Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
       </section>
 
+      <!-- 6.3 パイプ関連宣言 -->
       <section id="pipe-defs">
         <h3>6.3 パイプ関連宣言（producer / pipe / filter / consumer）</h3>
 
@@ -965,23 +927,6 @@ method Count&lt;T&gt;(Source: Pipe&lt;T&gt;): Int { ... }</code></pre>
 
         <h4>6.3.3 filter 宣言</h4>
 
-        <pre><code>filter FilterName(Params...) {
-  in:  InputType;
-  out: OutputType;
-
-  bound(input, output) {
-    // input から output への要素の流し方を定義する
-  }
-}</code></pre>
-
-        <ul>
-          <li><code>FilterName</code> は filter の名前。</li>
-          <li><code>in</code> / <code>out</code> は入力と出力の型を指定する。</li>
-          <li>Pipe / Filter 連鎖における中間フィルタでは、通常 <code>in</code> / <code>out</code> ともに
-            <code>Pipe&lt;*&gt;</code> を取る。</li>
-          <li><code>bound(input, output)</code> は両者の間の変換処理を記述する。</li>
-        </ul>
-
         <pre><code>filter Where&lt;T&gt;(Predicate: Func&lt;T:Bool&gt;) {
   in:  Pipe&lt;T&gt;;
   out: Pipe&lt;T&gt;;
@@ -1022,7 +967,7 @@ filter Map&lt;T, U&gt;(Selector: Func&lt;T:U&gt;) {
             Pipe / Filter モデルにおいては、多くの場合 <strong><code>Pipe&lt;T&gt;</code></strong> となる。</li>
           <li><code>bound(input)</code> はパイプライン末尾で実行され、
             <code>input</code> を完全に消費し、任意の型 <code>R</code> の値を返す。</li>
-          <li><code>R</code> は <code>T[]</code>・<code>Int</code>・<code>Unit</code>・<code>Bool</code> など任意の型を取れるが、
+          <li><code>R</code> は <code>T[]</code>・<code>Int</code>・<code>Bool</code>・<code>Unit</code> など任意の型を取れるが、
             <strong><code>Pipe&lt;*&gt;</code> であってはならない</strong>。</li>
         </ul>
 
@@ -1030,12 +975,12 @@ filter Map&lt;T, U&gt;(Selector: Func&lt;T:U&gt;) {
   in: Pipe&lt;T&gt;;
 
   bound(input) {
-    var Buffer: List&lt;T&gt;;
+    var buffer: List&lt;T&gt;;
     // 疑似コード:
     //   for each item in input:
-    //     Buffer.Add(item);
-    //   return Buffer.ToArray();
-    return Buffer.ToArray();
+    //     buffer.add(item);
+    //   return buffer.toArray();
+    return buffer.toArray();
   }
 }
 
@@ -1043,12 +988,12 @@ consumer Count&lt;T&gt; {
   in: Pipe&lt;T&gt;;
 
   bound(input) {
-    var C: Int = 0;
+    var c: Int = 0;
     // 疑似コード:
     //   for each item in input:
-    //     C = C + 1;
-    //   return C;
-    return C;
+    //     c = c + 1;
+    //   return c;
+    return c;
   }
 }</code></pre>
 
@@ -1061,27 +1006,26 @@ consumer Count&lt;T&gt; {
             <li><strong>consumer</strong>：<code>Pipe&lt;T&gt;</code> → 非 <code>Pipe</code> 型（パイプ世界からの出口）</li>
           </ul>
         </p>
-
       </section>
 
+      <!-- 6.4 パイプ演算子 -->
       <section id="pipe-operator">
         <h3>6.4 パイプ演算子 <code>|</code> と <code>|&gt;</code></h3>
 
-        <h4>6.4.1 言語レベルでの定義（パイプ演算子 <code>|</code>）</h4>
+        <h4>6.4.1 言語レベルでの定義（<code>|</code>）</h4>
         <p>
-          Aloe の基本的なパイプ演算子は <code>|</code> であり、
-          <strong>単純な関数合成</strong> のためのシンタックスシュガーとして定義される。
+          Aloe の「パイプ演算子」として意味を持つのは <strong><code>|</code></strong> である。<br />
+          <code>|</code> は <strong>単純な関数合成</strong> のためのシンタックスシュガーとして定義される。
         </p>
 
         <pre><code>Expr | F | G</code></pre>
 
-        <p>は、正確には次と同じ意味である：</p>
+        <p>は、正確には次と等価である：</p>
 
         <pre><code>G(F(Expr))</code></pre>
 
         <ul>
-          <li><code>F</code> が型 <code>Func&lt;A:B&gt;</code> を持ち、
-            <code>G</code> が型 <code>Func&lt;B:C&gt;</code> を持つとき、
+          <li><code>F</code> が型 <code>Func&lt;A:B&gt;</code> を持ち、<code>G</code> が型 <code>Func&lt;B:C&gt;</code> を持つとき、
             <code>Expr | F | G</code> の型は <code>C</code> になる。</li>
           <li>この演算子はあらゆる型に適用可能であり、<code>Pipe&lt;T&gt;</code> に限定されない。</li>
         </ul>
@@ -1089,42 +1033,34 @@ consumer Count&lt;T&gt; {
         <div class="note">
           したがって、型システムの観点からは、
           「パイプラインの途中で戻り値の型が変わる」こと自体は問題にならない。<br />
-          Pipe / Filter モデルにおける制約は、<strong><code>Pipe&lt;T&gt;</code> と
-          パイプ関連宣言によるライブラリ設計</strong> によって提供され、
+          Pipe / Filter モデルにおける制約は、
+          <strong><code>Pipe&lt;T&gt;</code> とパイプ関連宣言によるライブラリ設計</strong> によって提供され、
           演算子そのものではない。
         </div>
 
         <h4>6.4.2 <code>|&gt;</code> と <code>| with</code> の関係</h4>
         <p>
-          Aloe では、パイプラインの中で <code>with</code> を多用するケースを簡潔に書くために、
-          <code>|&gt;</code> を <strong><code>| with</code> の糖衣構文</strong> として定義する。
+          <strong><code>|&gt;</code> は、パイプラインの途中で <code>with</code> ブロックを挟み込みたいときの
+          糖衣構文として予約される。</strong>
         </p>
 
-        <p>
-          直感的には、次のような変形を行う：
+        <p>意味的には、将来的に次のような対応を意図している：</p>
+
+        <pre><code>Expr |&gt; X</code></pre>
+
+        <p>は、おおまかに</p>
+
+        <pre><code>Expr | with X</code></pre>
+
+        <p>と等価になるように設計する（<code>with</code> の詳細な構文は 7 章参照）。</p>
+
+        <p class="note">
+          現時点のドラフトでは、<code>| with</code> / <code>|&gt;</code> の詳細な構文やスタイルまでは固定せず、<br />
+          <strong>「パイプ式として意味を持つのは <code>|</code> だけであり、
+          <code>|&gt;</code> は <code>with</code> をパイプに紐づける糖衣構文として予約されている」</strong>
+          というレベルの約束に留める。<br />
+          具体的なユースケースや構文は、今後のバージョンで詰める。
         </p>
-
-        <pre><code>Source
-  |&gt; FilterX(Args)
-  |&gt; FilterY()</code></pre>
-
-        <p>は、概念的には次と同じ意味になる：</p>
-
-        <pre><code>Source
-  | with (FilterX(Args)) {
-      // FilterX をパイプに適用した結果が次のステップに流れる
-    }
-  | with (FilterY()) {
-      // FilterY も同様に適用される
-    }</code></pre>
-
-        <ul>
-          <li><code>|&gt;</code> はあくまで構文糖衣であり、新しい型ルールを導入しない。</li>
-          <li>パイプラインの評価順序や型推論の結果は、
-            対応する <code>| with</code> を明示的に書いた場合と同じになることを意図している。</li>
-          <li>パイプ式そのものは常に <strong><code>|</code> を基準</strong> に解釈される。
-            <code>|&gt;</code> は読みやすさのためのショートハンドである。</li>
-        </ul>
 
         <h4>6.4.3 Pipe&lt;T&gt; と <code>|</code> の利用</h4>
 
@@ -1143,14 +1079,15 @@ consumer Count&lt;T&gt; {
 
         <p class="warning">
           <strong>注意:</strong><br />
-          言語仕様上は、consumer の後にさらに <code>|</code> や <code>|&gt;</code> を続けてもよいが、
+          言語仕様上は、consumer の後にさらに <code>|</code> を続けてもよいが、
           スタイル的にはあまり推奨されない。<br />
           例えば <code>ToArray() | ToArray()</code> のようなパターンは避けるべきである。
         </p>
       </section>
 
+      <!-- 6.5 標準 Filter / Producer / Consumer -->
       <section id="pipe-std">
-        <h3>6.5 標準 Filter / Producer / Consumer</h3>
+        <h3>6.5 標準 Filter と Producer / Consumer</h3>
 
         <h4>6.5.1 代表的な transformer（filter）</h4>
         <pre><code>filter Where&lt;T&gt;(Predicate: Func&lt;T:Bool&gt;) {
@@ -1193,50 +1130,37 @@ consumer Count&lt;T&gt; {
   bound(input) { ... }   // 戻り値は Int
 }</code></pre>
 
-        <h4>6.5.4 組み込み consumer: dump</h4>
+        <h4>6.5.4 組み込み dump consumer</h4>
         <p>
-          Aloe はデバッグ用途の組み込み consumer として <code>dump</code> を提供する。
-          <code>dump</code> は各要素の <code>Dump</code> メソッドを呼び出し、その結果をログや標準出力に書き出す。
+          Aloe はデバッグ用途のために、組み込みの <strong><code>dump</code> consumer</strong> を持つ。
         </p>
-
-        <pre><code>consumer dump&lt;T&gt; {
-  in: Pipe&lt;T&gt;;
-
-  bound(input) {
-    // 疑似コード:
-    //   for each item in input:
-    //     DumpOne(item);
-    //   return;  // 戻り値なし
-  }
-}</code></pre>
-
-        <p>
-          標準実装の <code>DumpOne</code> は、おおよそ次のような振る舞いを持つことを想定する：
-        </p>
-        <ul>
-          <li>通常のオブジェクト:
-            <ul>
-              <li>そのオブジェクトの <code>Dump()</code> を呼び出し、その文字列表現を出力する。</li>
-            </ul>
-          </li>
-          <li>コレクション（配列や <code>Pipe&lt;T&gt;</code> など反復可能なもの）:
-            <ul>
-              <li>各要素に対して順に <code>DumpOne</code> を呼び出す。</li>
-            </ul>
-          </li>
-          <li>木構造など再帰的な構造:
-            <ul>
-              <li>子要素をたどりながら再帰的に <code>DumpOne</code> を呼び出す。</li>
-              <li>その過程で<strong>循環参照を検出</strong>した場合、そこで下位の要素のダンプを打ち切り、
-                「循環あり」であることを示すマーカーだけ出力する。</li>
-              <li>ただしコレクション全体の処理は継続し、次の要素についてはダンプを続行する。</li>
-            </ul>
-          </li>
-        </ul>
 
         <pre><code>ReadLines("users.json")
-  | Map(ParseUser)
-  | dump;  // User オブジェクトの Dump が順に呼ばれる</code></pre>
+  | Map   (ParseUser)
+  | Where (.IsActive)
+  | dump;</code></pre>
+
+        <ul>
+          <li><code>dump</code> は <code>consumer</code> として定義され、
+            <code>Pipe&lt;T&gt;</code> を受け取ってパイプを完全に消費する。</li>
+          <li>各要素 <code>x</code> に対して、<code>x</code> が参照型なら
+            <code>Object.Dump()</code> を呼び出し、その結果をログや標準出力などに流す形で実装されることを想定する。</li>
+          <li>要素がコレクションや木構造の場合は、要素や子ノードをたどりながら再帰的に <code>Dump()</code> を呼び出す。</li>
+        </ul>
+
+        <p class="note">
+          <strong>循環参照検出のルール：</strong><br />
+          <ul>
+            <li>dump の実装は、同じオブジェクトを再び辿ろうとした時点で
+              「循環参照を検出した」とみなし、それより下位の要素のダンプをスキップする。</li>
+            <li>木構造の場合、循環を検出したノードより下のサブツリーは省略される。</li>
+            <li>コレクションの場合、循環を検出した要素については
+              「ここから先は省略」という形でダンプを打ち切るが、
+              <strong>コレクション内の次の要素についてはダンプを継続する。</strong></li>
+          </ul>
+          これにより、自己参照を含むオブジェクトグラフを dump しても、
+          無限ループやスタックオーバーフローを避けつつ、可能な範囲で情報を得られる。
+        </p>
 
         <h4>6.5.5 使用例</h4>
         <pre><code>let ActiveUserNames: String[] =
@@ -1249,6 +1173,7 @@ consumer Count&lt;T&gt; {
       </section>
     </section>
 
+    <!-- 7. with -->
     <section id="with">
       <h2>7. with 構文</h2>
 
@@ -1276,7 +1201,7 @@ with (Request) {
 
       <h3>7.2 セマンティクス</h3>
       <p>
-        上記の <code>with</code> ブロックは、意味的には次のコードと同じ意味である：
+        上記の <code>with</code> ブロックは、意味的には次のコードと等価である：
       </p>
 
       <pre><code>{
@@ -1334,6 +1259,7 @@ with (Request) {
       </p>
     </section>
 
+    <!-- 8. delete -->
     <section id="delete">
       <h2>8. delete 構文</h2>
 
@@ -1403,6 +1329,7 @@ Buf = NewBuffer();  // 再代入後は再び使用可能</code></pre>
       </p>
     </section>
 
+    <!-- 9. lock -->
     <section id="lock">
       <h2>9. lock 構文と同期</h2>
 
@@ -1418,12 +1345,6 @@ Buf = NewBuffer();  // 再代入後は再び使用可能</code></pre>
 lock (SharedCounter) {
   SharedCounter = SharedCounter + 1;
 }</code></pre>
-
-      <ul>
-        <li>通常の Aloe プログラムを書く上で、<code>lock</code> を使用することは必須ではない。</li>
-        <li>Pipe ベースでデータをやり取りする設計を取れば、共有可変状態を極力排除できるため、
-          lock をほとんど書かずに並行処理を記述できることを目標とする。</li>
-      </ul>
 
       <h3>9.2 セマンティクス</h3>
       <ul>
@@ -1462,7 +1383,7 @@ lock (SharedCounter) {
 
       <h4>9.3.2 デシュガリング（意味的な等価コード）</h4>
       <p>
-        <code>lock with (Expr) { Body }</code> は、意味的には次のコードと同じ意味である：
+        <code>lock with (Expr) { Body }</code> は、意味的には次のコードと等価である：
       </p>
 
       <pre><code>{
@@ -1508,14 +1429,15 @@ lock with (Conn) {
 // ここまで来たらロック解除＆with のライフタイムロックも解除される。</code></pre>
     </section>
 
+    <!-- 10. 例外処理 -->
     <section id="exceptions">
       <h2>10. 例外処理</h2>
 
       <h3>10.1 try / catch / finally</h3>
       <pre><code>try {
   DoSomething();
-} catch (Ex: Error) {
-  LogError(Ex);
+} catch (ex: Error) {
+  LogError(ex);
 } finally {
   Cleanup();
 }</code></pre>
@@ -1527,6 +1449,7 @@ lock with (Conn) {
       </ul>
     </section>
 
+    <!-- 11. 実行モデル -->
     <section id="runtime">
       <h2>11. 実行モデルとメモリ管理</h2>
 
@@ -1545,6 +1468,8 @@ lock with (Conn) {
           <code>lock</code> と組み合わせることで読み取りバリアの最適化を可能にする。</li>
         <li>通常、メモリ管理のために <code>delete</code> を呼ぶ必要はない。
           参照を明示的に破棄したい場合のみ <code>delete</code> を使用する。</li>
+        <li>多くのアプリケーションコードは、<code>delete</code>/<code>with</code>/<code>lock</code> を
+          直接使わなくてもよい。Pipe とイミュータブルなデータ構造だけで安全に書ける部分が多いことを想定している。</li>
       </ul>
 
       <p class="small">
@@ -1552,6 +1477,7 @@ lock with (Conn) {
       </p>
     </section>
 
+    <!-- 12. 制限事項 -->
     <section id="limits">
       <h2>12. 制限事項と今後の展望</h2>
 
@@ -1570,6 +1496,7 @@ lock with (Conn) {
         <li>分散処理・ストリーミング向けの標準ライブラリ拡張。</li>
         <li>必要に応じた所有権付きリソース型と <code>delete</code> の統合。</li>
         <li>trait / interface / sealed / readonly とパターンマッチおよび網羅性チェックとの統合。</li>
+        <li>関数・Pipe をベースにした安全な並行・並列プログラミングモデルの具体化。</li>
       </ul>
 
       <p class="note">
@@ -1577,10 +1504,12 @@ lock with (Conn) {
         <strong>Pipe / Filter と Producer / Transformer / Consumer / Pipe / Consumer の関係と宣言形式</strong>、<br />
         および
         <strong>with / delete / lock / クラス継承 / readonly / clone / generics と AloeVM のメモリモデルとの関係</strong>
-        を明確にすることに重点を置いている。
+        を明確にすることに重点を置いている。<br />
+        関数やイベント、Dump/dump などの周辺機能は、コアを壊さない範囲で徐々に拡張していく。
       </p>
     </section>
 
+    <!-- 13. event -->
     <section id="event">
       <h2>13. event 構文とイベントモデル</h2>
 
@@ -1618,6 +1547,11 @@ lock with (Conn) {
           非同期ハンドラを自然にサポートするため、イベントハンドラは
           「完了を表す <code>Task</code> を返す関数」としてモデル化される。</li>
       </ul>
+      <p class="note">
+        将来的には、<code>Func&lt;TArgs:Task&lt;TResult&gt;&gt;</code> 型のハンドラを扱う
+        <code>Event&lt;TArgs, TResult&gt;</code> のような拡張を検討する余地があるが、
+        バージョン 0.1 では <code>Task</code> 戻り値を基本とする。
+      </p>
 
       <h4>13.2.2 Event&lt;TArgs&gt; の役割（概念）</h4>
       <p>
@@ -1625,9 +1559,7 @@ lock with (Conn) {
       </p>
       <pre><code>type Event&lt;TArgs&gt; {
   Handlers: List&lt;EventHandler&lt;TArgs&gt;&gt;;
-}
 
-bound Event&lt;TArgs&gt; {
   method Add(Handler: EventHandler&lt;TArgs&gt;): Task {
     Handlers.Add(Handler);
   }
@@ -1718,6 +1650,7 @@ await Target.X.Remove(H);</code></pre>
       <p class="note">
         <code>Add</code> / <code>Remove</code> を <code>Task</code> 戻り値とすることで、
         <code>+=</code> / <code>-=</code> による購読／解除も非同期文として扱うことができる。
+        必要に応じて、将来バージョンで fire-and-forget なバリエーションを検討する。
       </p>
 
       <h3>13.5 イベントの発火（Raise）のルール</h3>
@@ -1729,7 +1662,7 @@ await Target.X.Remove(H);</code></pre>
       </p>
       <ul>
         <li>そのイベントを宣言している <code>struct</code> / <code>class</code> のメソッド</li>
-        <li>同じ型に対する <code>bound</code> ブロック内のメソッド</li>
+        <li>同じ型に属する trait のメソッド（<code>with</code> で適用されている場合）</li>
       </ul>
       <p>
         それ以外のコード（外部モジュールや別クラス）からの
@@ -1746,9 +1679,7 @@ await Target.X.Remove(H);</code></pre>
 
 struct Button {
   event Clicked&lt;ClickedArgs&gt;;
-}
 
-bound Button {
   method OnNativeClick(Id: String): Task {
     let Args: ClickedArgs = { ButtonId = Id };
     await Clicked.Raise(Args);
@@ -1770,6 +1701,11 @@ interface IButton {
       </p>
       <pre><code>struct Button implements IButton {
   event Clicked&lt;ClickedArgs&gt;;
+
+  method OnNativeClick(Id: String): Task {
+    let Args: ClickedArgs = { ButtonId = Id };
+    await Clicked.Raise(Args);
+  }
 }</code></pre>
       <ul>
         <li>イベント名 <code>Clicked</code> が一致していない場合</li>
@@ -1786,16 +1722,14 @@ interface IButton {
 
 struct Button {
   event Clicked&lt;ClickedArgs&gt;;
-}
 
-bound Button {
   method OnNativeClick(Id: String): Task {
     let Args: ClickedArgs = { ButtonId = Id };
     await Clicked.Raise(Args);
   }
 }
 
-method SetupButton(): Task {
+function SetupButton(): Task {
   var Btn: Button = CreateButton("OK");
 
   // 非同期ハンドラを登録
@@ -1810,7 +1744,7 @@ method SetupButton(): Task {
 }</code></pre>
 
       <h4>13.7.2 イベント解除</h4>
-      <pre><code>method SetupAndTearDown(Btn: Button): Task {
+      <pre><code>function SetupAndTearDown(Btn: Button): Task {
   let Handler: Func&lt;ClickedArgs:Task&gt; =
     async (Args: ClickedArgs): Task {
       Print("temp handler");
@@ -1833,9 +1767,7 @@ method SetupButton(): Task {
       </p>
       <pre><code>struct Hub {
   event MessageReceived&lt;String&gt;;
-}
 
-bound Hub {
   method RaiseMessage(Msg: String): Task {
     lock with (MessageReceived) {
       await MessageReceived.Raise(Msg);
