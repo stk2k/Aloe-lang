@@ -648,6 +648,133 @@ A | filter(F) | B;
         </li>
         <li>実装によっては、複数フィルタを 1 スレッド内で順次処理する最適化も可能。</li>
       </ul>
+
+      <h3>5.4 パイプのライフサイクルと VM 命令</h3>
+      <p>
+        pipe は概念的に <strong>「生成 → 接続 → 切断 → 削除」</strong> という 4 フェーズのライフサイクルを持つ。<br>
+        AloeVM では、このうちどこまでを <strong>専用命令</strong> として扱い、どこからを <strong>ランタイム API</strong> に任せるかを明示しておく。
+      </p>
+
+      <ul>
+        <li>生成（create）</li>
+        <li>接続（connect）</li>
+        <li>切断（disconnect）</li>
+        <li>削除（delete / dispose）</li>
+      </ul>
+
+      <h4>5.4.1 生成と削除</h4>
+      <ul>
+        <li><code>pipe&lt;T&gt;</code> 自体は、VM 上では通常のヒープオブジェクトとして表現される。
+          <ul>
+            <li>クラスインスタンスの一種として <strong>スロット制ヒープ</strong>（第 4 章）上に配置される。</li>
+          </ul>
+        </li>
+        <li>生成:
+          <ul>
+            <li>最低限、汎用オブジェクト生成命令（例: <code>NEWOBJ</code>）で <code>pipe&lt;T&gt;</code> を構築できればよい。</li>
+            <li>必要であれば、便宜上 <code>PIPE_NEW</code> のような専用命令を設けてもよい（第 7 章の暫定オペコード表参照）。</li>
+          </ul>
+        </li>
+        <li>削除:
+          <ul>
+            <li>言語レベルの <code>delete x;</code> により、「変数 <code>x</code> が保持している pipe ハンドルへの参照を切る」。</li>
+            <li>参照カウントが 0 になった時点で、pipe オブジェクトも他のヒープオブジェクトと同様にスロット解放対象となる（第 4 章）。</li>
+            <li><strong>pipe 専用の削除命令（例: <code>PIPE_DELETE</code>）は定義しない</strong>。
+              削除フェーズはヒープ管理と <code>delete</code> の責務に統一する。</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h4>5.4.2 接続と切断</h4>
+      <ul>
+        <li>producer / filter / consumer と pipe の「接続」「切断」は、基本的には <strong>ランタイムの責務</strong> とする。
+          <ul>
+            <li>例: <code>Pipe.Connect(pipe, endpoint)</code>, <code>Pipe.Disconnect(pipe, endpoint)</code> のようなライブラリ関数。</li>
+          </ul>
+        </li>
+        <li>VM レベルでは、以下のような専用命令を <strong>オプション</strong> として定義してよい：
+          <ul>
+            <li><code>PIPE_CONNECT</code>:
+              <ul>
+                <li>スタック: <code>…, pipeHandle, endpointHandle → …</code></li>
+                <li>意味: ランタイムの接続 API を呼び出し、pipe と endpoint を論理的に接続する。</li>
+              </ul>
+            </li>
+            <li><code>PIPE_DISCONNECT</code>:
+              <ul>
+                <li>スタック: <code>…, pipeHandle, endpointHandle → …</code></li>
+                <li>意味: ランタイムの切断 API を呼び出し、pipe と endpoint の接続を解除する。</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li>これらの命令は、コンパイラがパイプライン構築処理を <strong>命令列として可視化</strong> したい場合や、
+          <strong>WASM との ABI を揃えたい場合</strong> に役立つ。
+          実装によっては、単にランタイム関数呼び出しの薄いラッパとして実装してもよい。</li>
+      </ul>
+
+      <h4>5.4.3 コアとなるパイプ関連命令</h4>
+      <p>pipe に関して、VM にとって特に重要な命令のセットを次のように整理する。</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>命令名</th>
+              <th>スタック入出力（概念）</th>
+              <th>役割</th>
+              <th>備考</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>PIPE_NEW</td>
+              <td>… → …, pipeHandle</td>
+              <td><code>pipe&lt;T&gt;</code> インスタンスを生成し、ハンドルをスタックに積む。</td>
+              <td>未実装の場合は <code>NEWOBJ</code> で代用可能。</td>
+            </tr>
+            <tr>
+              <td>PIPE_SEND</td>
+              <td>…, pipeHandle, value → …</td>
+              <td>pipe に 1 要素書き込む（producer 側の send）。</td>
+              <td>ブロッキング／非ブロッキングの挙動は実装依存。</td>
+            </tr>
+            <tr>
+              <td>PIPE_RECV</td>
+              <td>…, pipeHandle → …, value</td>
+              <td>pipe から 1 要素読み出す（consumer 側の recv）。</td>
+              <td>EOF 時の扱い（例: 特殊値／例外など）はランタイム仕様で決める。</td>
+            </tr>
+            <tr>
+              <td>PIPE_CLOSE</td>
+              <td>…, pipeHandle → …</td>
+              <td>pipe の書き込み側を閉じ、EOF を下流に通知する。</td>
+              <td>実装により「もう値が来ない」ことを表す特別なフラグを立てる。</td>
+            </tr>
+            <tr>
+              <td>PIPE_CONNECT</td>
+              <td>…, pipeHandle, endpointHandle → …</td>
+              <td>pipe と producer / filter / consumer を論理的に接続する。</td>
+              <td>オプション命令。ランタイム関数呼び出しでもよい。</td>
+            </tr>
+            <tr>
+              <td>PIPE_DISCONNECT</td>
+              <td>…, pipeHandle, endpointHandle → …</td>
+              <td>pipe と endpoint の接続を解除する。</td>
+              <td>オプション命令。ランタイム関数呼び出しでもよい。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <ul>
+          <li><code>PIPE_CONNECT</code> / <code>PIPE_DISCONNECT</code> は必須ではなく、AloeVM の最小実装では
+            「パイプライン構築済みの状態で bytecode を実行する」設計として省略してもよい。</li>
+          <li>一方で、これらを命令として定義しておくと、デバッガやトレーサが
+            「どのタイミングでどの endpoint が接続・切断されたか」を記録しやすくなる。</li>
+          <li>具体的な opcode 数値や、WASM 命令との 1:1 マッピング方針は第 7 章で述べる。</li>
+        </ul>
+      </div>
     </section>
 
     <!-- 6. AloeBC バイナリ形式 -->
@@ -816,8 +943,8 @@ A | filter(F) | B;
       </ul>
 
       <div class="note">
-        命令セットの「数値（opcode）」と「バイナリフォーマットとしての具体的ビット配置」については、<br>
-        以下 7.4「命令セット表（ドラフト）」に暫定版を定義する。将来の最適化や実装上の都合により変更される可能性がある。
+        命令セットの「数値（opcode）」「バイナリフォーマットとしての具体的ビット配置」は<br>
+        まだ確定しておらず、今後「命令セット表」として定義する予定。
       </div>
 
       <h3>7.2 WASM への 1:1 マッピング方針</h3>
@@ -839,450 +966,160 @@ A | filter(F) | B;
         <li>理想的には「AloeVM 命令列をそのまま WASM にシリアライズするだけ」で動作するレベルを目指す。</li>
       </ul>
 
-      <h3>7.4 命令セット表（ドラフト）</h3>
+      <h3>7.4 暫定オペコード表（抜粋）</h3>
       <p>
-        ここでは、AloeVM の最小実行系を実装するために必要となる <strong>コア命令群</strong> を暫定的に定義する。<br>
-        opcode は 1 byte を想定し、表記は 16 進数（0xNN）とする。
+        以下は AloeVM の代表的な命令をまとめた <strong>暫定的なオペコード表</strong> である。<br>
+        数値としての opcode 割り当てはまだ固定ではなく、将来変更される可能性がある。
       </p>
-      <p>
-        スタック効果は <code>… , A , B → … , R</code> のように記載する（左が実行前、右が実行後）。<br>
-        ここで <code>…</code> はスタックのそれ以外の部分を表す。
-      </p>
-
-      <h4>7.4.1 スタック操作・定数ロード</h4>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
               <th>カテゴリ</th>
-              <th>Mnemonic</th>
-              <th>Opcode</th>
-              <th>オペランド</th>
-              <th>スタック効果</th>
-              <th>説明</th>
+              <th>命令名</th>
+              <th>スタック入出力（概念）</th>
+              <th>概要</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td rowspan="4">スタック</td>
-              <td>NOP</td>
-              <td>0x00</td>
-              <td>なし</td>
-              <td>… → …</td>
-              <td>何もしない。</td>
+              <td rowspan="4">スタック操作</td>
+              <td>PUSH_CONST</td>
+              <td>… → …, value</td>
+              <td>定数プールから値をロードしてスタックに積む。</td>
             </tr>
             <tr>
               <td>POP</td>
-              <td>0x01</td>
-              <td>なし</td>
-              <td>… , A → …</td>
-              <td>スタックトップを 1 つ捨てる。</td>
+              <td>…, value → …</td>
+              <td>スタックトップを捨てる。</td>
             </tr>
             <tr>
               <td>DUP</td>
-              <td>0x02</td>
-              <td>なし</td>
-              <td>… , A → … , A , A</td>
-              <td>スタックトップを複製する。</td>
+              <td>…, value → …, value, value</td>
+              <td>スタックトップを複製して 1 つ積む。</td>
             </tr>
             <tr>
               <td>SWAP</td>
-              <td>0x03</td>
-              <td>なし</td>
-              <td>… , A , B → … , B , A</td>
-              <td>スタックトップ 2 要素を入れ替える。</td>
+              <td>…, a, b → …, b, a</td>
+              <td>スタックトップ 2 要素の順序を入れ替える。</td>
             </tr>
-            <tr>
-              <td rowspan="7">定数</td>
-              <td>LDC_I4_S</td>
-              <td>0x10</td>
-              <td>int8（符号付き）</td>
-              <td>… → … , i32</td>
-              <td>符号付き 8bit 即値を int32 として積む（小さな整数用）。</td>
-            </tr>
-            <tr>
-              <td>LDC_I4</td>
-              <td>0x11</td>
-              <td>int32</td>
-              <td>… → … , i32</td>
-              <td>32bit 整数即値を積む。</td>
-            </tr>
-            <tr>
-              <td>LDC_F</td>
-              <td>0x12</td>
-              <td>float32</td>
-              <td>… → … , f32</td>
-              <td>32bit 浮動小数点即値を積む。</td>
-            </tr>
-            <tr>
-              <td>LDC_DEC</td>
-              <td>0x13</td>
-              <td>decimal（16 byte）</td>
-              <td>… → … , decimal</td>
-              <td>decimal 即値を積む（定数プール参照でも可、実装依存）。</td>
-            </tr>
-            <tr>
-              <td>LDC_STR</td>
-              <td>0x14</td>
-              <td>uint16（定数プール index）</td>
-              <td>… → … , obj</td>
-              <td>定数プール中の文字列をロードし、string オブジェクト参照を積む。</td>
-            </tr>
-            <tr>
-              <td>LDC_BOOL</td>
-              <td>0x15</td>
-              <td>byte（0 or 1）</td>
-              <td>… → … , bool</td>
-              <td>bool 即値を積む。</td>
-            </tr>
-            <tr>
-              <td>LDC_NULL</td>
-              <td>0x16</td>
-              <td>なし</td>
-              <td>… → … , null</td>
-              <td>null 参照を積む。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
 
-      <h4>7.4.2 ローカル変数・引数アクセス</h4>
-      <div class="table-wrap">
-        <table>
-          <thead>
             <tr>
-              <th>カテゴリ</th>
-              <th>Mnemonic</th>
-              <th>Opcode</th>
-              <th>オペランド</th>
-              <th>スタック効果</th>
-              <th>説明</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td rowspan="3">ローカル</td>
-              <td>LDLOC</td>
-              <td>0x20</td>
-              <td>uint16（index）</td>
-              <td>… → … , V</td>
-              <td>現在フレームのローカル変数 index の値をロードする。</td>
-            </tr>
-            <tr>
-              <td>STLOC</td>
-              <td>0x21</td>
-              <td>uint16（index）</td>
-              <td>… , V → …</td>
-              <td>スタックトップの値をローカル変数 index にストアする。</td>
-            </tr>
-            <tr>
-              <td>LDLOC_ADDR</td>
-              <td>0x22</td>
-              <td>uint16（index）</td>
-              <td>… → … , ref</td>
-              <td>ローカル変数への参照（アドレス）を積む（将来の最適化用、オプション）。</td>
-            </tr>
-            <tr>
-              <td rowspan="2">引数</td>
-              <td>LDARG</td>
-              <td>0x28</td>
-              <td>uint16（index）</td>
-              <td>… → … , V</td>
-              <td>現在フレームの引数 index の値をロードする。</td>
-            </tr>
-            <tr>
-              <td>STARG</td>
-              <td>0x29</td>
-              <td>uint16（index）</td>
-              <td>… , V → …</td>
-              <td>スタックトップの値を引数スロットに書き戻す（ref 引数などを想定）。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <h4>7.4.3 算術・比較・論理</h4>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>カテゴリ</th>
-              <th>Mnemonic</th>
-              <th>Opcode</th>
-              <th>オペランド</th>
-              <th>スタック効果</th>
-              <th>説明</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td rowspan="6">算術（int32）</td>
+              <td rowspan="3">算術（整数）</td>
               <td>ADD_I4</td>
-              <td>0x30</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A + B)</td>
-              <td>int32 加算。</td>
+              <td>…, a, b → …, (a + b)</td>
+              <td>int32 の加算。</td>
             </tr>
             <tr>
               <td>SUB_I4</td>
-              <td>0x31</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A - B)</td>
-              <td>int32 減算。</td>
+              <td>…, a, b → …, (a - b)</td>
+              <td>int32 の減算。</td>
             </tr>
             <tr>
               <td>MUL_I4</td>
-              <td>0x32</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A * B)</td>
-              <td>int32 乗算。</td>
+              <td>…, a, b → …, (a * b)</td>
+              <td>int32 の乗算。</td>
             </tr>
-            <tr>
-              <td>DIV_I4</td>
-              <td>0x33</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A / B)</td>
-              <td>int32 除算（0 除算は例外）。</td>
-            </tr>
-            <tr>
-              <td>MOD_I4</td>
-              <td>0x34</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A % B)</td>
-              <td>int32 剰余。</td>
-            </tr>
-            <tr>
-              <td>NEG_I4</td>
-              <td>0x35</td>
-              <td>なし</td>
-              <td>… , A → … , (-A)</td>
-              <td>符号反転。</td>
-            </tr>
-            <tr>
-              <td rowspan="3">比較</td>
-              <td>CMPEQ</td>
-              <td>0x40</td>
-              <td>なし</td>
-              <td>… , A , B → … , bool</td>
-              <td>等値比較。</td>
-            </tr>
-            <tr>
-              <td>CMPNE</td>
-              <td>0x41</td>
-              <td>なし</td>
-              <td>… , A , B → … , bool</td>
-              <td>不等比較。</td>
-            </tr>
-            <tr>
-              <td>CMPLT_I4</td>
-              <td>0x42</td>
-              <td>なし</td>
-              <td>… , A , B → … , bool</td>
-              <td>A &lt; B （符号付き）比較。</td>
-            </tr>
-            <tr>
-              <td rowspan="3">論理 / ビット</td>
-              <td>AND_I4</td>
-              <td>0x48</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A &amp; B)</td>
-              <td>ビット AND。</td>
-            </tr>
-            <tr>
-              <td>OR_I4</td>
-              <td>0x49</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A | B)</td>
-              <td>ビット OR。</td>
-            </tr>
-            <tr>
-              <td>XOR_I4</td>
-              <td>0x4A</td>
-              <td>なし</td>
-              <td>… , A , B → … , (A ^ B)</td>
-              <td>ビット XOR。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
 
-      <h4>7.4.4 制御フロー・関数呼び出し・例外</h4>
-      <div class="table-wrap">
-        <table>
-          <thead>
             <tr>
-              <th>カテゴリ</th>
-              <th>Mnemonic</th>
-              <th>Opcode</th>
-              <th>オペランド</th>
-              <th>スタック効果</th>
-              <th>説明</th>
+              <td rowspan="2">比較</td>
+              <td>CMPEQ</td>
+              <td>…, a, b → …, bool</td>
+              <td>a == b なら true、それ以外は false を返す。</td>
             </tr>
-          </thead>
-          <tbody>
             <tr>
-              <td rowspan="3">分岐</td>
+              <td>CMPLT</td>
+              <td>…, a, b → …, bool</td>
+              <td>a &lt; b なら true。</td>
+            </tr>
+
+            <tr>
+              <td rowspan="3">制御フロー</td>
               <td>JMP</td>
-              <td>0x50</td>
-              <td>int32（相対オフセット）</td>
               <td>… → …</td>
               <td>無条件ジャンプ。</td>
             </tr>
             <tr>
-              <td>JMP_TRUE</td>
-              <td>0x51</td>
-              <td>int32（相対オフセット）</td>
-              <td>… , cond → …</td>
-              <td>cond が true の場合にジャンプし、スタックから cond を POP する。</td>
+              <td>JMP_IF_TRUE</td>
+              <td>…, cond → …</td>
+              <td><code>cond</code> が true のときにジャンプ。</td>
             </tr>
             <tr>
-              <td>JMP_FALSE</td>
-              <td>0x52</td>
-              <td>int32（相対オフセット）</td>
-              <td>… , cond → …</td>
-              <td>cond が false の場合にジャンプし、スタックから cond を POP する。</td>
+              <td>JMP_IF_FALSE</td>
+              <td>…, cond → …</td>
+              <td><code>cond</code> が false のときにジャンプ。</td>
             </tr>
+
             <tr>
               <td rowspan="2">呼び出し</td>
               <td>CALL</td>
-              <td>0x58</td>
-              <td>uint16（関数 ID）</td>
-              <td>… , args → … , ret</td>
-              <td>関数テーブル中の関数を呼び出す。引数個数・型はメタ情報に従う。</td>
+              <td>…, argN, …, arg1 → …, ret?</td>
+              <td>関数テーブルのエントリを呼び出し、新しいフレームを作成する。</td>
             </tr>
             <tr>
               <td>RET</td>
-              <td>0x59</td>
-              <td>なし</td>
-              <td>… , ret? → … , ret?</td>
-              <td>現在フレームを終了し、呼び出し元へ戻る（戻り値は 0 または 1 個）。</td>
+              <td>…, ret? → …, ret?</td>
+              <td>現在のフレームを破棄し、呼び出し元に戻る。</td>
             </tr>
-            <tr>
-              <td rowspan="2">例外</td>
-              <td>THROW</td>
-              <td>0x5C</td>
-              <td>なし</td>
-              <td>… , ex → （スタック巻き戻し）</td>
-              <td>例外オブジェクト ex をスローする。</td>
-            </tr>
-            <tr>
-              <td>RETHROW</td>
-              <td>0x5D</td>
-              <td>なし</td>
-              <td>… , ex → （スタック巻き戻し）</td>
-              <td>catch ブロック内から例外を再スローする。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
 
-      <h4>7.4.5 オブジェクト・フィールド・pipe/filter</h4>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>カテゴリ</th>
-              <th>Mnemonic</th>
-              <th>Opcode</th>
-              <th>オペランド</th>
-              <th>スタック効果</th>
-              <th>説明</th>
-            </tr>
-          </thead>
-          <tbody>
             <tr>
               <td rowspan="3">オブジェクト</td>
               <td>NEWOBJ</td>
-              <td>0x60</td>
-              <td>uint16（型 ID）、uint8（引数個数）</td>
-              <td>… , args → … , obj</td>
-              <td>指定クラス／構造体のインスタンスを生成し、コンストラクタを呼び出す。</td>
+              <td>…, ctorArgN, …, ctorArg1 → …, objHandle</td>
+              <td>指定された型のインスタンスをヒープに確保し、コンストラクタを実行する。</td>
             </tr>
             <tr>
               <td>GETFIELD</td>
-              <td>0x61</td>
-              <td>uint16（フィールド ID）</td>
-              <td>… , obj → … , value</td>
-              <td>オブジェクトのフィールド値を取得する。</td>
+              <td>…, objHandle → …, value</td>
+              <td>フィールドの値を読み出す。</td>
             </tr>
             <tr>
               <td>SETFIELD</td>
-              <td>0x62</td>
-              <td>uint16（フィールド ID）</td>
-              <td>… , obj , value → …</td>
-              <td>オブジェクトのフィールドに値を設定する。</td>
+              <td>…, objHandle, value → …</td>
+              <td>フィールドに値を書き込む。</td>
             </tr>
+
             <tr>
-              <td rowspan="3">pipe</td>
+              <td rowspan="6">pipe / filter</td>
               <td>PIPE_NEW</td>
-              <td>0x70</td>
-              <td>uint16（型 ID）</td>
-              <td>… → … , pipe</td>
-              <td>指定型 T の <code>pipe&lt;T&gt;</code> を生成する。</td>
+              <td>… → …, pipeHandle</td>
+              <td><code>pipe&lt;T&gt;</code> を生成する。未対応実装では <code>NEWOBJ</code> で代用可。</td>
             </tr>
             <tr>
               <td>PIPE_SEND</td>
-              <td>0x71</td>
-              <td>なし</td>
-              <td>… , pipe , value → …</td>
-              <td>pipe に 1 要素を書き込む（ブロック／非ブロックは実装依存）。</td>
+              <td>…, pipeHandle, value → …</td>
+              <td>pipe に 1 要素を書き込む。</td>
             </tr>
             <tr>
               <td>PIPE_RECV</td>
-              <td>0x72</td>
-              <td>なし</td>
-              <td>… , pipe → … , value</td>
-              <td>pipe から 1 要素を読み出す（データが無い場合の挙動は実装定義）。</td>
+              <td>…, pipeHandle → …, value</td>
+              <td>pipe から 1 要素を読み出す。</td>
             </tr>
             <tr>
-              <td rowspan="2">filter</td>
-              <td>FILTER_NEW</td>
-              <td>0x78</td>
-              <td>uint16（filter 定義 ID）</td>
-              <td>… → … , filter</td>
-              <td>フィルタ定義に基づき filter インスタンスを生成する。</td>
+              <td>PIPE_CLOSE</td>
+              <td>…, pipeHandle → …</td>
+              <td>pipe の書き込み側を閉じ、EOF を通知する。</td>
             </tr>
             <tr>
-              <td>FILTER_BIND</td>
-              <td>0x79</td>
-              <td>なし</td>
-              <td>… , filter , inPipe , outPipe → … , filter</td>
-              <td>filter に入力／出力 pipe をバインドする（パイプライン構築用）。</td>
+              <td>PIPE_CONNECT</td>
+              <td>…, pipeHandle, endpointHandle → …</td>
+              <td>pipe と producer / filter / consumer を接続する（オプション命令）。</td>
+            </tr>
+            <tr>
+              <td>PIPE_DISCONNECT</td>
+              <td>…, pipeHandle, endpointHandle → …</td>
+              <td>pipe と endpoint の接続を解除する（オプション命令）。</td>
             </tr>
           </tbody>
         </table>
       </div>
-
-      <h4>7.4.6 デバッグ・拡張用</h4>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>カテゴリ</th>
-              <th>Mnemonic</th>
-              <th>Opcode</th>
-              <th>オペランド</th>
-              <th>スタック効果</th>
-              <th>説明</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>デバッグ</td>
-              <td>BREAK</td>
-              <td>0x7F</td>
-              <td>なし</td>
-              <td>… → …</td>
-              <td>デバッガ用ブレークポイント。実行時にホストへ通知し、停止することができる。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
       <div class="note">
-        上記の命令セット表は <strong>プロトタイプ実装用の最小コア</strong> を示すドラフトであり、<br>
-        実際の実装段階で opcode の追加・削除・再配置が発生する可能性がある。<br>
-        その場合でも、「スタック効果」と「意味論」が互換である限り、Aloe 言語仕様との整合性は保たれる。
+        <ul>
+          <li>ここに挙げた命令はあくまで「代表的な抜粋」であり、完全な命令セット表は別途ドキュメントとして拡張される想定である。</li>
+          <li>opcode の数値割り当ては、AloeBC のバイナリレイアウト検討と合わせて確定させる。</li>
+          <li>pipe / filter 関連命令は、第 5 章のライフサイクル説明と整合する範囲で最小限を定義し、
+            実装に応じてランタイム API との二重実装（糖衣命令）として扱ってよい。</li>
+        </ul>
       </div>
     </section>
 
@@ -1292,7 +1129,7 @@ A | filter(F) | B;
 
       <h3>8.1 まだ決まっていない事項</h3>
       <ul>
-        <li>各命令の opcode 割り当てと、正確なバイナリ形式（7.4 の命令セット表の「確定版」）</li>
+        <li>各命令の opcode 割り当てと、正確なバイナリ形式（命令セット表）</li>
         <li>例外ハンドラテーブルの具体的なフォーマット（範囲指定、catch 種別など）</li>
         <li>構造体の inline 展開と box/unbox の扱い</li>
         <li>スロットアリーナ構成の詳細（単一アリーナか複数サイズクラスか）</li>
