@@ -201,7 +201,7 @@
 <div class="layout">
   <aside class="sidebar">
     <h1>AloeVM Specification</h1>
-    <small>(Current draft. Subject to change and extension in the future.)</small>
+    <small>(Draft as of now. Subject to change and extension.)</small>
 
     <div class="nav-section">
       <div class="nav-section-title">Chapters</div>
@@ -225,26 +225,26 @@
     <section id="vm-ch0" class="chapter">
       <h2>0. Overview</h2>
       <p>
-        AloeVM is a <strong>stack-based virtual machine</strong> designed for executing the Aloe language.<br>
+        AloeVM is a <strong>stack-based virtual machine</strong> designed to execute the Aloe language.<br>
         This document defines:
       </p>
       <ul>
-        <li>Execution model (stack machine / frame structure)</li>
-        <li>VM-level value model (primitives, structs, classes, enums, pipe/filter, etc.)</li>
+        <li>The execution model (stack machine / frame structure)</li>
+        <li>The VM-level value model (primitives, structs, classes, enums, pipe/filter, etc.)</li>
         <li>Heap and memory management policy</li>
-        <li>Representation of pipe / filter on the VM</li>
+        <li>VM-level representation of pipe / filter</li>
         <li>AloeBC (Aloe bytecode) binary format</li>
-        <li>Policy for integration with WebAssembly (WASM)</li>
+        <li>Policies for mapping to WebAssembly (WASM)</li>
       </ul>
       <div class="note">
-        AloeVM assumes two runtime variants:
+        AloeVM assumes two kinds of runtime environments:
         <ul>
-          <li>C# implementation (VM running on .NET)</li>
+          <li>C# implementation (a VM running on .NET)</li>
           <li>WASM-native implementation (code compiled directly to WASM by aloe2wasm)</li>
         </ul>
-        This specification mainly defines the behavior of the <br>
-        <strong>C# VM implementation + AloeBC</strong>, and for WASM it outlines the policy of<br>
-        “mapping the instruction set almost 1:1” and “leaving GC to the WASM runtime”.
+        This specification primarily defines the behavior of the <br>
+        <strong>C#-implemented VM + AloeBC</strong>, and for the WASM side it describes the policy of
+        “mapping the instruction set almost 1:1” and “leaving GC to the WASM runtime.”
       </div>
     </section>
 
@@ -252,17 +252,17 @@
     <section id="vm-ch1" class="chapter">
       <h2>1. Execution Model</h2>
 
-      <h3>1.1 Stack-machine Model</h3>
+      <h3>1.1 Stack Machine Model</h3>
       <ul>
         <li>The VM is a stack machine centered around an <strong>operand stack</strong>.</li>
-        <li>Arithmetic and comparison instructions pop values from the stack top and push the result back onto the stack.</li>
+        <li>Arithmetic and comparison instructions pop values from the top of the stack and push back their results.</li>
         <li>Local variables and arguments are stored in a <strong>frame-local area</strong>.</li>
       </ul>
 
       <h3>1.2 Unit of Execution</h3>
       <ul>
-        <li>The unit of execution is a “function (method)”, corresponding to Aloe methods and the main block.</li>
-        <li>Each function is registered in a <strong>function table</strong> in AloeBC, and each entry holds:
+        <li>The unit of execution is a “function (method)”, corresponding to Aloe methods and the <code>main</code> block.</li>
+        <li>Each function is registered in a <strong>function table</strong> inside AloeBC, and each entry holds:
           <ul>
             <li>Code offset</li>
             <li>Number of local variables</li>
@@ -275,21 +275,21 @@
       <h3>1.3 Exception Handling Model</h3>
       <ul>
         <li>Aloe’s <code>try / catch / finally</code> is lowered into an exception handler table at the VM level.</li>
-        <li>Exceptions are handled as <strong>object references</strong> in the VM and trigger stack unwinding when thrown.</li>
-        <li>In the WASM implementation, they are mapped to the host’s exception model or to a multi-value return + error-code pattern.</li>
+        <li>Exceptions are treated as <strong>object references</strong> inside the VM, and the stack is unwound on throw.</li>
+        <li>For a WASM implementation, exceptions are mapped either to the host’s exception model or to multi-value returns + error codes.</li>
       </ul>
 
       <h3>1.4 Execution Modes</h3>
       <ul>
         <li><strong>VM Execution Mode</strong>:
           <ul>
-            <li>The C# VM implementation directly reads AloeBC and interprets the instructions (or JIT-compiles them) sequentially.</li>
+            <li>The C# implementation of AloeVM directly reads AloeBC and interprets the instructions sequentially or JIT-compiles them.</li>
           </ul>
         </li>
-        <li><strong>WASM-native Mode</strong>:
+        <li><strong>WASM Native Mode</strong>:
           <ul>
-            <li>aloe2wasm converts AloeVM instruction sequences to WASM instructions in an almost 1:1 manner, and AloeVM itself does not exist as a separate runtime.</li>
-            <li>GC and low-level memory management are delegated to the WASM runtime.</li>
+            <li>aloe2wasm converts AloeVM instruction sequences almost 1:1 into WASM instruction sequences, so AloeVM itself does not exist.</li>
+            <li>GC and low-level memory management are delegated to the WASM runtime (execution engine).</li>
           </ul>
         </li>
       </ul>
@@ -317,19 +317,19 @@
               <td>32-bit signed integer. Enums are always int-based.</td>
             </tr>
             <tr>
-              <td>Other integers</td>
+              <td>Integer (others)</td>
               <td><code>byte</code></td>
-              <td>May be packed internally into int32.</td>
+              <td>Internally may be packed into int32.</td>
             </tr>
             <tr>
               <td>Floating point</td>
               <td><code>float</code></td>
-              <td>32-bit IEEE 754.</td>
+              <td>32-bit IEEE754.</td>
             </tr>
             <tr>
               <td>decimal</td>
               <td><code>decimal</code></td>
-              <td>A 128-bit approximate representation with precision roughly comparable to C# decimal (implementation-dependent).</td>
+              <td>128-bit approximate representation with precision similar to C# decimal (implementation-dependent).</td>
             </tr>
             <tr>
               <td>bool</td>
@@ -344,62 +344,63 @@
             <tr>
               <td>Object reference</td>
               <td><code>class</code> instance, <code>string</code></td>
-              <td>Handle to a heap object (e.g., 64-bit ID).</td>
+              <td>Handle to a heap object (e.g. 64-bit ID).</td>
             </tr>
             <tr>
               <td>Struct</td>
               <td><code>struct</code></td>
-              <td>“Chunk of value” on the VM. Implementation may choose inline or boxed representation.</td>
+              <td>A “block of values” on the VM. May be stored inline or boxed depending on implementation.</td>
             </tr>
             <tr>
               <td>pipe</td>
               <td><code>pipe&lt;T&gt;</code></td>
-              <td>Has a dedicated VM value tag. Implementation may use OS pipes, sockets, etc.</td>
+              <td>Has its own VM tag. Implementation may use OS pipes / sockets, etc.</td>
             </tr>
             <tr>
               <td>filter</td>
               <td><code>filter Foo</code></td>
-              <td>Has a dedicated VM tag. Wraps a function plus connection metadata.</td>
+              <td>Has its own VM tag. Wrapper for a function + connection info.</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <div class="note">
-        <strong>enum / bitfield enum</strong> are represented at the VM level <strong>always as int32</strong>.<br>
-        The active bits of a bitfield enum are limited to 0–31 (maximum 32 bits).
+        <strong>enum / bitfield enum</strong> are represented as <strong>int32</strong> at the VM level.<br>
+        Valid bits for bitfield enums are limited to 0–31 (maximum 32 bits).
       </div>
 
       <h3>2.2 AloeObject and Heap Objects</h3>
       <p>
-        In the C# VM implementation, objects on the heap are identified by an <strong>object ID (e.g., 64-bit integer)</strong>.
+        In the C# VM implementation, heap objects are identified by an <strong>object ID (e.g. 64-bit integer)</strong>.
       </p>
       <ul>
-        <li>Objects as VM values:
+        <li>VM-level representation of objects:
           <ul>
-            <li>On the stack and in locals, only <code>objectId: long</code> is stored (this is the <strong>AloeObject</strong>).</li>
+            <li>The operand stack and locals hold just an <code>objectId: long</code> (this is an <strong>AloeObject</strong>).</li>
           </ul>
         </li>
-        <li>The memory manager maintains metadata mapped from object ID:
+        <li>The memory manager maintains metadata keyed by object ID:
           <ul>
             <li>Class/struct <strong>field list (reference slot definitions)</strong></li>
-            <li><strong>Value slots</strong> per field (primitive value or another object ID)</li>
+            <li><strong>Value slots</strong> per field (primitive values or other object IDs)</li>
             <li>Final field layout after trait composition</li>
           </ul>
         </li>
-        <li>Structs can also be handled under the same framework:
+        <li>Structs can also be handled under the same scheme:
           <ul>
-            <li>Even for value types, when placed on the heap they can be managed as “field list + value slots”.</li>
-            <li>Depending on VM optimizations, they may or may not be inlined on the stack.</li>
+            <li>Even for value types, when placed on the heap, they can be managed as “field list + value slots.”</li>
+            <li>Depending on VM optimizations, they may be expanded inline on the stack.</li>
           </ul>
         </li>
       </ul>
 
       <h3>2.3 VM Tags for pipe / filter</h3>
       <ul>
-        <li><code>pipe&lt;T&gt;</code> and <code>filter</code> have <strong>dedicated VM value tags</strong>, separate from ordinary class instances.</li>
-        <li>For WASM compatibility, the internal representation should be easy to map to “ref types” (e.g., <code>externref</code>, <code>funcref</code>, <code>anyref</code>).</li>
-        <li>A pipe holds, for example, “tail buffer + synchronization primitive”, and a filter holds “bound handler function + in/out metadata”.</li>
+        <li><code>pipe&lt;T&gt;</code> and <code>filter</code> have <strong>dedicated VM value tags</strong>, separate from class instances.</li>
+        <li>To ease WASM mapping, their internal representation should be close to ref types
+          (e.g. <code>externref</code> / <code>funcref</code> / <code>anyref</code>).</li>
+        <li>A pipe holds, for example, an “end buffer + reference to a synchronization object”; a filter holds a “bound handler function + in/out metadata.”</li>
       </ul>
     </section>
 
@@ -408,27 +409,27 @@
       <h2>3. Call Stack and Frames</h2>
 
       <h3>3.1 Frame Structure</h3>
-      <p>Each function call creates a “frame”. A frame contains at least:</p>
+      <p>Each function call creates a “frame”. A frame contains at least the following:</p>
       <ul>
         <li>Return address (PC of the next instruction to execute)</li>
         <li>Link to the previous frame</li>
         <li>Local variable area</li>
         <li>Argument area</li>
-        <li>Temporary value slots (if needed)</li>
+        <li>Temporary slots (if needed)</li>
       </ul>
 
       <h3>3.2 Calling Convention (Overview)</h3>
       <ul>
-        <li>Call instructions (e.g., <code>CALL</code>) are executed with arguments pushed on the stack.</li>
-        <li>After creating the frame, arguments are moved into the local area (or referenced by index while staying on the stack).</li>
-        <li>The return value is pushed as a single item onto the stack top.</li>
+        <li>A call instruction (e.g. <code>CALL</code>) is executed with arguments already pushed on the stack.</li>
+        <li>After creating a frame, arguments are moved to the local area (or referenced via indices on the stack).</li>
+        <li>The return value is pushed as a single value onto the top of the stack.</li>
         <li>Void functions do not push a return value.</li>
       </ul>
 
       <h3>3.3 Exception Frames</h3>
       <ul>
         <li>Based on the exception handler table, the VM decides how far to unwind the stack.</li>
-        <li>After unwinding, it jumps to the catch block entry point and passes the exception object to a local or the stack.</li>
+        <li>After unwinding, execution jumps to the beginning of the catch block, and the exception object is passed to a local or onto the stack.</li>
       </ul>
     </section>
 
@@ -436,160 +437,160 @@
     <section id="vm-ch4" class="chapter">
       <h2>4. Heap and Memory Management Policy (C# VM Implementation)</h2>
 
-      <h3>4.1 Slot-based Heap Layout</h3>
+      <h3>4.1 Slot-Based Heap Layout</h3>
       <ul>
-        <li>The heap in the C# VM implementation is managed as an array of fixed-size slots.</li>
-        <li>The bytes per slot are configured via <code>memory.slot_size_bytes</code> in the config file,
-          and if it is not specified, the default is <strong>16 bytes</strong>.</li>
-        <li>All heap objects start at a slot boundary (slot start address) and occupy
-          one or more <strong>contiguous slots</strong>.
+        <li>The heap of the C# VM implementation is managed as an array of fixed-size slots.</li>
+        <li>The size in bytes per slot is specified by the configuration key <code>memory.slot_size_bytes</code>.
+          If omitted, the default is <strong>16 bytes</strong>.</li>
+        <li>Every heap object starts at a slot boundary (the beginning of a slot) and occupies one or more
+          <strong>contiguous slots</strong>.
           <ul>
-            <li>An object’s “length” is managed as a slot count (<code>lengthSlots</code>).</li>
+            <li>The “length” of an object is managed as a number of slots (<code>lengthSlots</code>).</li>
             <li>The actual byte length is <code>lengthSlots × slot_size_bytes</code>.</li>
           </ul>
         </li>
-        <li>In the implementation, the heap may be divided into one or more “arenas”.
+        <li>In implementation, the heap may be divided into one or more “arenas”.
           <ul>
-            <li>Single arena: all objects are managed in one slot array.</li>
-            <li>Future optimization may allow separate arenas per size class (16/32/64 bytes, etc.).</li>
+            <li>Single-arena configuration: all objects are stored in one slot array.</li>
+            <li>As a future optimization, a configuration with separate arenas per size class (16/32/64 bytes, etc.) is allowed.</li>
           </ul>
         </li>
       </ul>
 
       <h3>4.2 Handles and the Variable Table</h3>
       <ul>
-        <li>As described in Chapter 2, heap objects are identified by an <strong>object ID (handle)</strong>.</li>
-        <li>Inside the VM, a <strong>variable table (or object table)</strong> is used to resolve handles to actual heap locations.
-          Typically it stores:
+        <li>As described in Chapter 2, heap objects are identified by <strong>object IDs (handles)</strong>.</li>
+        <li>Inside the VM, a <strong>variable table (or object table)</strong> is used to map handles to actual heap locations.
+          Typically, it stores:
           <ul>
-            <li>Arena ID</li>
-            <li>Head slot index (integer)</li>
+            <li>Arena ID to which the object belongs</li>
+            <li>Index of the first slot (integer)</li>
             <li>Number of occupied slots (<code>lengthSlots</code>)</li>
             <li>Reference count (refcount)</li>
-            <li>Reference to type metadata (class/struct metadata ID)</li>
+            <li>Reference to type information (class/struct metadata ID)</li>
           </ul>
         </li>
-        <li>VM instructions and the runtime handle <strong>handles instead of raw pointers</strong>.
+        <li>VM opcodes and runtime components deal with <strong>handles rather than raw pointers</strong>.
           <ul>
-            <li>Access to physical memory is a two-step process: handle → table → head slot address.</li>
-            <li>When an object is moved (compacted), only the slot index in the variable table needs updating.</li>
+            <li>They reach physical memory by going from handle → table → first slot address.</li>
+            <li>When object movement (compaction) occurs, only a single entry in the variable table needs to be updated.</li>
           </ul>
         </li>
       </ul>
 
-      <h3>4.3 Lifetime Management via Reference Counting</h3>
+      <h3>4.3 Lifetime Management by Reference Counting</h3>
       <ul>
-        <li>Each heap object has a <strong>reference count</strong>.</li>
-        <li>Typical increments and decrements of the reference count:
+        <li>Each heap object maintains a <strong>reference count</strong>.</li>
+        <li>Reference count increments/decrements (examples):
           <ul>
-            <li>Increment when storing a handle into a local variable or field.</li>
-            <li>Decrement when a variable goes out of scope or when a field is overwritten with another value.</li>
+            <li>Increment when storing a handle into a local variable or a field.</li>
+            <li>Decrement when a variable goes out of scope, or when a field is overwritten with another value.</li>
           </ul>
         </li>
-        <li>When an object’s reference count becomes 0, it is considered “unreachable”, and the slots occupied by that object are handled as follows:
+        <li>When the reference count becomes 0, the object is considered “unreachable”, and the slots it occupies are treated as follows:
           <ul>
-            <li>Clear the contents of its slots to 0 for easy logical treatment as “free”.</li>
-            <li>Update the slot state table (e.g., <code>slot_used[i] = false</code>) to mark them as free.</li>
+            <li>The slot content is cleared to 0 (to make it easier to treat as logically “free”).</li>
+            <li>The slot state table (e.g. <code>slot_used[i] = false</code>) is updated to mark the slots as free.</li>
           </ul>
         </li>
-        <li>Cyclic references (e.g., <code>A → B → A</code>) cannot be freed by reference counting alone, so they are handled by
-          <strong>implementation constraints or future auxiliary GC</strong>:
+        <li>Cycles (e.g. <code>A → B → A</code>) cannot be reclaimed by reference counting alone,
+          so they are handled by <strong>implementation constraints or a future auxiliary GC</strong>:
           <ul>
-            <li>The language design is encouraged to make strong cycles harder (ownership / weak references).</li>
-            <li>Alternatively a low-priority mark-and-sweep can be used in combination, dedicated to reclaiming cycles only.</li>
+            <li>Encourage language-level design that makes it hard to create strong cycles (ownership / weak references).</li>
+            <li>Alternatively, optionally run a low-priority mark-and-sweep GC to reclaim only cycles.</li>
           </ul>
         </li>
       </ul>
 
-      <h3>4.4 On-access Sliding Compaction</h3>
+      <h3>4.4 Sliding Compaction on Access</h3>
       <p>
-        To prevent fragmentation, AloeVM performs <strong>“on-access incremental sliding compaction”</strong> on the heap.<br>
-        This means that when an object is accessed, the VM may slide that object forward, gradually collecting free slots toward the front.
+        To prevent fragmentation, AloeVM performs <strong>sliding compaction “on access”</strong> in small steps.
+        When an object is accessed, the VM slides it forward and gradually accumulates free slots towards the front.
       </p>
       <ul>
-        <li>Instructions that access a variable handle conceptually perform the following steps:
+        <li>Instructions that access a variable handle conceptually perform the following:
           <ol>
-            <li>Look up the variable table from the handle and obtain <code>(arenaId, slotIndex, lengthSlots)</code>.</li>
-            <li>Within the same arena, check whether the slots from <code>slotIndex - lengthSlots</code> to <code>slotIndex - 1</code>
-              are all free (unused).
+            <li>Look up the variable table using the handle and obtain <code>(arenaId, slotIndex, lengthSlots)</code>.</li>
+            <li>Within the same arena, check whether all slots in the range
+              <code>slotIndex - lengthSlots</code> to <code>slotIndex - 1</code> are free (unused).
               <ul>
-                <li>For simplicity, the implementation may just check flags in a “slot state table”.</li>
+                <li>For simplicity, the implementation may just check flags in the “slot state table”.</li>
               </ul>
             </li>
-            <li>If that range is completely free:
+            <li>If the above range is completely free:
               <ul>
                 <li>Slide the object forward by <code>lengthSlots</code> slots (copy).</li>
-                <li>Zero out and mark as free the old region (<code>slotIndex … slotIndex + lengthSlots - 1</code>).</li>
+                <li>Clear the old region (<code>slotIndex … slotIndex + lengthSlots - 1</code>) to 0 and mark it as free.</li>
                 <li>Update <code>slotIndex</code> in the variable table to <code>slotIndex - lengthSlots</code>.</li>
               </ul>
             </li>
-            <li>Access the actual object fields from the updated head slot.</li>
+            <li>After updating, access the actual object fields from the new first slot.</li>
           </ol>
         </li>
-        <li>This rule keeps the memory touched per access bounded by “its own size (<code>lengthSlots</code> slots)”.
+        <li>With this rule, the amount of memory touched per access is at most “its own size (<code>lengthSlots</code> slots)”.
           <ul>
-            <li>It avoids a stop-the-world GC that traverses the entire heap at once,
-              and <strong>distributes the cost of defragmentation across accesses</strong>.</li>
+            <li>This avoids a stop-the-world GC that scans the entire heap at once, and instead
+              <strong>distributes the cost of defragmentation across accesses</strong>.</li>
           </ul>
         </li>
-        <li>Because all objects start on slot boundaries, the layout remains consistent and aligned to slot boundaries after sliding.</li>
-        <li>This “on-access sliding” is not mandatory. Implementations may, for example:
+        <li>Because all objects start at slot boundaries, a valid layout aligned to slot boundaries is preserved after sliding.</li>
+        <li>This “sliding on access” is not mandatory; implementations may:
           <ul>
-            <li>Reduce frequency (perform it only once every N accesses)</li>
-            <li>Impose a cap on the maximum number of slots moved per access</li>
+            <li>Lower the frequency (perform it only once every N accesses).</li>
+            <li>Impose an upper bound on the number of slots that can be moved per access.</li>
           </ul>
         </li>
       </ul>
 
       <h3>4.5 Allocation Strategy</h3>
       <ul>
-        <li>When allocating a new object, the memory manager:
+        <li>To allocate a new object, the memory manager performs:
           <ol>
-            <li>Computes the required number of slots <code>lengthSlots</code> (<code>ceil(objectSizeBytes / slot_size_bytes)</code>).</li>
-            <li>Searches the current arena or across arenas for <strong>enough contiguous free slots</strong>.</li>
-            <li>Places the object at the found head slot and updates the slot state table and variable table.</li>
+            <li>Compute the required number of slots <code>lengthSlots</code>
+              (<code>ceil(objectSizeBytes / slot_size_bytes)</code>).</li>
+            <li>Search the current arena, or among multiple arenas, for <strong>sufficient contiguous free slots</strong>.</li>
+            <li>Place the object at the found first slot and update the slot state table and variable table.</li>
           </ol>
         </li>
-        <li>The method of managing free slots is implementation-dependent, but typical approaches include:
+        <li>The method of managing free slots is implementation-dependent, but typically one of:
           <ul>
-            <li>Naive linear scan (for prototype implementation)</li>
-            <li>Free-list of contiguous slot ranges</li>
-            <li>Bitmap with first-fit / best-fit algorithms</li>
+            <li>Simple linear search (prototype stage)</li>
+            <li>Free list of contiguous slot ranges</li>
+            <li>Bitmap + first-fit/best-fit algorithms</li>
           </ul>
         </li>
-        <li>If no sufficient contiguous free slots can be found in any arena:
+        <li>If no arena has sufficient contiguous slots:
           <ul>
-            <li>Temporarily increase the frequency of on-access sliding to reduce fragmentation.</li>
+            <li>Temporarily increase the frequency of sliding-on-access to reduce fragmentation.</li>
             <li>Or expand the heap by adding a new arena.</li>
           </ul>
         </li>
       </ul>
 
-      <h3>4.6 <code>delete</code> and Timing of Deallocation</h3>
+      <h3>4.6 <code>delete</code> and Deallocation Timing</h3>
       <ul>
-        <li>The Aloe statement <code>delete x;</code> means “cut the reference from variable <code>x</code> to the handle it holds”,
-          and it <strong>does not guarantee</strong> that physical memory is freed at that moment.</li>
-        <li>Objects whose reference count has reached 0 become deallocation candidates at the following timing:
+        <li>Aloe’s <code>delete x;</code> means “cut the reference to the handle stored in variable <code>x</code>,”
+          and does <strong>not guarantee</strong> that physical memory is freed at that moment.</li>
+        <li>Objects whose reference count became 0 become candidates for deallocation at the following timings:
           <ul>
-            <li>Immediately when the count becomes 0, zero out the slots and mark them as free.</li>
-            <li>Or let a low-priority background task free them in order (implementation-dependent).</li>
+            <li>Immediately when the counter reaches 0: their slots are cleared to 0 and marked free.</li>
+            <li>Or they may be freed gradually by a low-priority background process (implementation-dependent).</li>
           </ul>
         </li>
-        <li>Therefore, Aloe programs must not assume that heap usage will necessarily drop immediately after <code>delete</code>.
-          It is merely a <strong>logical declaration that “this object will not be used anymore”</strong>.</li>
+        <li>Therefore, Aloe programs must not assume that “heap usage decreases immediately after <code>delete</code>”.
+          It is only a <strong>logical declaration that the object is no longer used</strong>.</li>
       </ul>
 
       <h3>4.7 Memory Management in WASM Implementations</h3>
       <div class="note">
-        In WASM-native mode, AloeVM’s own slot-based memory management and reference counting are not required.<br>
-        GC and memory allocation/deallocation are <strong>delegated to the WASM runtime and host environment</strong>.
+        In WASM native mode, AloeVM’s own slot-based memory management and reference counting are not required.<br>
+        Allocation, freeing and GC are <strong>delegated to the WASM runtime and the host environment</strong>.
       </div>
       <ul>
         <li>Aloe objects can be mapped directly to WASM <code>struct</code> / <code>array</code> / <code>ref</code> types.</li>
-        <li>Since GC is handled by WASM GC or the host runtime (e.g., .NET, JVM, JS),
-          the slot layout and on-access sliding described in this chapter remain an internal detail of the C# VM implementation only.</li>
-        <li>Compilers such as aloe2wasm are recommended to preserve the abstract AloeVM memory model,
-          while leaving actual GC to the target environment.</li>
+        <li>Since GC is handled by the WASM runtime or host runtimes (.NET, JVM, JS, etc.),
+          the slot layout and sliding-on-access described in this chapter remain internal details of the C# VM implementation only.</li>
+        <li>Compilers such as aloe2wasm are expected to preserve AloeVM’s abstract memory model while delegating actual GC to the target environment.</li>
       </ul>
     </section>
 
@@ -597,35 +598,35 @@
     <section id="vm-ch5" class="chapter">
       <h2>5. VM Representation of Pipe / Filter</h2>
 
-      <h3>5.1 <code>pipe&lt;T&gt;</code></h3>
+      <h3>5.1 pipe&lt;T&gt;</h3>
       <ul>
-        <li>At the VM level, <code>pipe&lt;T&gt;</code> is represented as a value with a dedicated <strong>PIPE</strong> tag.</li>
-        <li>Internally it is expected to hold:
+        <li>At the VM level, a pipe is represented as a value with a dedicated <strong>PIPE</strong> tag.</li>
+        <li>Internally, it is assumed to contain:
           <ul>
             <li>Buffer (ring buffer / queue)</li>
-            <li>Synchronization primitive (locks, condition variables, etc.)</li>
-            <li>Type information of the elements (reference to runtime type info)</li>
+            <li>Synchronization primitives (lock / condition variable, etc.)</li>
+            <li>Type information for elements (reference to runtime type info)</li>
           </ul>
         </li>
         <li>The implementation must be thread-safe so that multiple threads can access it safely.</li>
-        <li>Possible implementations include:
+        <li>Examples of implementations:
           <ul>
             <li>OS pipes / sockets</li>
-            <li>Ring buffers on memory-mapped files</li>
+            <li>Ring buffers on a memory-mapped file</li>
           </ul>
         </li>
       </ul>
 
-      <h3>5.2 <code>filter</code></h3>
+      <h3>5.2 filter</h3>
       <ul>
         <li>A filter is represented as a value with a dedicated FILTER tag.</li>
-        <li>Conceptually a filter value is a struct that bundles:
+        <li>Conceptually a filter value is a struct that holds:
           <ul>
             <li>Pointer to a bound function</li>
-            <li>Filter definition metadata (input/output types)</li>
+            <li>Filter definition metadata (in/out types)</li>
           </ul>
         </li>
-        <li>User-defined filters are represented using this same mechanism.</li>
+        <li>User-defined filters can be represented by the same mechanism.</li>
       </ul>
 
       <h3>5.3 Execution Model of Pipeline Statements</h3>
@@ -633,140 +634,99 @@
 A | filter(F) | B;
       </code></pre>
       <ul>
-        <li>The VM lowers this statement into a sequence of “connection construction” instructions.</li>
+        <li>The VM lowers this statement into a sequence of “connection construction instructions”.</li>
         <li>A typical flow:
           <ol>
             <li>Resolve the output pipe of <code>A</code>.</li>
             <li>Create an instance of <code>filter(F)</code> and start <code>bound(input, output)</code> as a separate task/thread.</li>
-            <li>Connect the output pipe to <code>B</code>.</li>
+            <li>Connect its output pipe to <code>B</code>.</li>
           </ol>
         </li>
-        <li>Depending on the implementation, multiple filters may be processed sequentially in a single thread as an optimization.</li>
+        <li>For optimization, an implementation may choose to run multiple filters sequentially on a single thread.</li>
       </ul>
 
       <h3>5.4 Pipe Lifecycle and VM Instructions</h3>
       <p>
-        Conceptually, a pipe has a four-phase lifecycle: <strong>create → connect → disconnect → delete</strong>.<br>
-        AloeVM clarifies which of these phases are handled by <strong>dedicated instructions</strong> and which are left to the <strong>runtime API</strong>.
+        At the VM level, a pipe is treated as having roughly four lifecycle phases:
+        <strong>creation</strong> → <strong>connection</strong> → <strong>disconnection</strong> → <strong>deletion</strong>.<br>
+        Each phase is manipulated by instructions in the “pipe / filter / connection category (category ID = 0x0A)” defined in Chapter 7.
       </p>
-
       <ul>
-        <li>Creation</li>
-        <li>Connection</li>
-        <li>Disconnection</li>
-        <li>Deletion (dispose)</li>
-      </ul>
-
-      <h4>5.4.1 Creation and Deletion</h4>
-      <ul>
-        <li><code>pipe&lt;T&gt;</code> itself is represented as a normal heap object on the VM.
+        <li><strong>Creation Phase</strong>
           <ul>
-            <li>It is placed on the <strong>slot-based heap</strong> (Chapter 4) as a kind of class instance.</li>
-          </ul>
-        </li>
-        <li>Creation:
-          <ul>
-            <li>At a minimum, a generic object creation instruction (e.g., <code>NEWOBJ</code>) must be sufficient to construct <code>pipe&lt;T&gt;</code>.</li>
-            <li>If desired, a dedicated convenience instruction such as <code>PIPE_NEW</code> can be added (see the provisional opcode table in Chapter 7).</li>
-          </ul>
-        </li>
-        <li>Deletion:
-          <ul>
-            <li>At the language level, <code>delete x;</code> means “cut the reference from variable <code>x</code> to the pipe handle it holds”.</li>
-            <li>When the reference count reaches 0, the pipe object is treated as a deallocation candidate just like any other heap object (see Chapter 4).</li>
-            <li><strong>No pipe-specific delete instruction (e.g., <code>PIPE_DELETE</code>) is defined</strong>.
-              The delete phase is unified under heap management and <code>delete</code>.</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h4>5.4.2 Connection and Disconnection</h4>
-      <ul>
-        <li>“Connection” and “disconnection” between producers / filters / consumers and pipes are primarily the <strong>responsibility of the runtime</strong>.
-          <ul>
-            <li>Example: library functions such as <code>Pipe.Connect(pipe, endpoint)</code>, <code>Pipe.Disconnect(pipe, endpoint)</code>.</li>
-          </ul>
-        </li>
-        <li>At the VM level, the following dedicated instructions may be defined as <strong>optional</strong>:
-          <ul>
-            <li><code>PIPE_CONNECT</code>:
+            <li>Allocate a new pipe instance and initialize its buffer and synchronization objects.</li>
+            <li>Representative instruction (example):
               <ul>
-                <li>Stack: <code>…, pipeHandle, endpointHandle → …</code></li>
-                <li>Semantics: invokes the runtime’s connection API to logically connect the pipe and the endpoint.</li>
-              </ul>
-            </li>
-            <li><code>PIPE_DISCONNECT</code>:
-              <ul>
-                <li>Stack: <code>…, pipeHandle, endpointHandle → …</code></li>
-                <li>Semantics: invokes the runtime’s disconnection API to detach the endpoint from the pipe.</li>
+                <li><code>PIPE_NEW</code>:
+                  <ul>
+                    <li>Takes type ID of element, buffer size, and optional flags as arguments.</li>
+                    <li>Pushes a pipe handle (a PIPE-tagged VM value) onto the stack.</li>
+                  </ul>
+                </li>
               </ul>
             </li>
           </ul>
         </li>
-        <li>These instructions are useful when the compiler wants to <strong>make pipeline construction explicit as instructions</strong>,
-          or when it wants to <strong>align the ABI with WASM</strong>.<br>
-          Implementations may also treat them as thin wrappers over runtime function calls.</li>
+        <li><strong>Connection Phase</strong>
+          <ul>
+            <li>Attach producers / consumers / filters to an existing pipe.</li>
+            <li>Representative instructions (examples):
+              <ul>
+                <li><code>PIPE_BIND_PRODUCER</code>:
+                  <ul>
+                    <li>Binds a pipe handle to the producer-side endpoint (method/task).</li>
+                  </ul>
+                </li>
+                <li><code>PIPE_BIND_CONSUMER</code>:
+                  <ul>
+                    <li>Binds a pipe handle to the consumer-side endpoint.</li>
+                  </ul>
+                </li>
+                <li><code>PIPE_CONNECT</code>:
+                  <ul>
+                    <li>A higher-level instruction that constructs a “pipeline” by connecting multiple pipes and filters at once.</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li><strong>Disconnection Phase</strong>
+          <ul>
+            <li>Detach producers / consumers / filters from a pipe and stop further input/output of data.</li>
+            <li>Representative instruction (example):
+              <ul>
+                <li><code>PIPE_DISCONNECT</code>:
+                  <ul>
+                    <li>Detaches specified endpoints from the pipe.</li>
+                    <li>Behavior for data already remaining in the buffer (discard / allow draining) is governed by implementation policy.</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li><strong>Deletion Phase (Delete / Close)</strong>
+          <ul>
+            <li>Close the pipe itself and free associated buffers and synchronization objects.</li>
+            <li>Representative instruction (example):
+              <ul>
+                <li><code>PIPE_CLOSE</code>:
+                  <ul>
+                    <li>Closes the pipe handle and decrements its reference count.</li>
+                    <li>When the reference count reaches 0, the pipe object on the heap becomes a candidate for reclamation.</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li>Language-level <code>delete</code> or implicit closing at the end of a <code>with</code> block is expected to be compiled to such instructions.</li>
+          </ul>
+        </li>
       </ul>
-
-      <h4>5.4.3 Core Pipe-related Instructions</h4>
-      <p>The core set of pipe-related VM instructions can be summarized as follows:</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Instruction</th>
-              <th>Stack I/O (conceptual)</th>
-              <th>Role</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>PIPE_NEW</td>
-              <td>… → …, pipeHandle</td>
-              <td>Creates a <code>pipe&lt;T&gt;</code> instance and pushes its handle onto the stack.</td>
-              <td>Can be emulated with <code>NEWOBJ</code> if not implemented.</td>
-            </tr>
-            <tr>
-              <td>PIPE_SEND</td>
-              <td>…, pipeHandle, value → …</td>
-              <td>Writes a single element into the pipe (producer-side send).</td>
-              <td>Blocking / non-blocking behavior is implementation-dependent.</td>
-            </tr>
-            <tr>
-              <td>PIPE_RECV</td>
-              <td>…, pipeHandle → …, value</td>
-              <td>Reads a single element from the pipe (consumer-side recv).</td>
-              <td>Handling of EOF (special value / exception, etc.) is determined by the runtime spec.</td>
-            </tr>
-            <tr>
-              <td>PIPE_CLOSE</td>
-              <td>…, pipeHandle → …</td>
-              <td>Closes the writing side of the pipe and notifies EOF downstream.</td>
-              <td>Implementation may set a “no more values” flag internally.</td>
-            </tr>
-            <tr>
-              <td>PIPE_CONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>Logically connects the pipe to a producer / filter / consumer.</td>
-              <td>Optional instruction; may be a thin wrapper over a runtime API.</td>
-            </tr>
-            <tr>
-              <td>PIPE_DISCONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>Detaches the endpoint from the pipe.</td>
-              <td>Optional instruction; may be a thin wrapper over a runtime API.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
       <div class="note">
-        <ul>
-          <li><code>PIPE_CONNECT</code> / <code>PIPE_DISCONNECT</code> are not strictly required. In a minimal AloeVM implementation it is valid to assume “bytecode is executed in a state where pipeline connections have already been established”.</li>
-          <li>Defining these as instructions, however, makes it easier for debuggers and tracers to record “when and which endpoints were connected/disconnected”.</li>
-          <li>The concrete opcode numbers and 1:1 mapping to WASM instructions are discussed in Chapter 7.</li>
-        </ul>
+        Code acting as producer / consumer is usually represented as “a normal function/method + thread (or task)”.<br>
+        If necessary, control-only instructions such as <code>PRODUCER_START</code>, <code>PRODUCER_STOP</code>,
+        <code>CONSUMER_START</code>, <code>CONSUMER_STOP</code> may be added within category 0x0A.
       </div>
     </section>
 
@@ -775,7 +735,7 @@ A | filter(F) | B;
       <h2>6. AloeBC Binary Format</h2>
 
       <h3>6.1 Overall Structure</h3>
-      <p>AloeBC (Aloe Byte Code) is the binary format that stores compilation results for AloeVM.</p>
+      <p>AloeBC (Aloe Byte Code) is the binary format that stores compiled output for AloeVM.</p>
 
       <h3>6.2 Header</h3>
       <div class="table-wrap">
@@ -785,7 +745,7 @@ A | filter(F) | B;
               <th>Offset</th>
               <th>Size</th>
               <th>Field</th>
-              <th>Contents</th>
+              <th>Content</th>
             </tr>
           </thead>
           <tbody>
@@ -823,7 +783,7 @@ A | filter(F) | B;
               <td>10</td>
               <td>4 bytes</td>
               <td>HeaderSize</td>
-              <td>Total header size (little-endian)</td>
+              <td>Total header size (little endian)</td>
             </tr>
             <tr>
               <td>14</td>
@@ -852,12 +812,12 @@ A | filter(F) | B;
           </tbody>
         </table>
       </div>
-      <p>The assumed endianness is <strong>little-endian</strong>.</p>
+      <p>The assumed endianness is <strong>little endian</strong>.</p>
 
       <h3>6.3 Constant Pool (Overview)</h3>
       <ul>
-        <li>Manages string literals, numeric literals, type information, etc. in a single place.</li>
-        <li>Each entry is a variable-length record composed of “tag + length + payload”.</li>
+        <li>Manages string literals, numeric literals, type information, etc. in a unified way.</li>
+        <li>Each entry is a variable-length record composed of “tag + length + body”.</li>
         <li>Example tags:
           <ul>
             <li>0x01: UTF-8 string</li>
@@ -870,24 +830,24 @@ A | filter(F) | B;
 
       <h3>6.4 Type Table (Overview)</h3>
       <ul>
-        <li>Every Aloe type (class / struct / enum / bitfield enum / <code>pipe&lt;T&gt;</code>, etc.) is assigned an ID.</li>
+        <li>Assigns IDs to every Aloe type (class / struct / enum / bitfield enum / <code>pipe&lt;T&gt;</code>, etc.).</li>
         <li>Enums and bitfield enums are flagged as <strong>int32 value types</strong> at the VM level.</li>
-        <li>The number of active bits for a bitfield enum (0–31) may optionally be stored as metadata (used, for example, for warnings).</li>
+        <li>The number of valid bits (0–31) for a bitfield enum may be stored as metadata (useful for diagnostics such as warnings).</li>
       </ul>
 
       <h3>6.5 Function Table and Code Section</h3>
       <ul>
         <li>Function table:
           <ul>
-            <li>Function signature (argument types, return type)</li>
+            <li>Function signatures (argument types, return type)</li>
             <li>Number of local variables</li>
-            <li>Offset and length in the code section</li>
+            <li>Offset and length within the code section</li>
           </ul>
         </li>
         <li>Code section:
           <ul>
-            <li>Stores VM instruction sequences as a byte array.</li>
-            <li>See Chapter 7 for the details of the instruction set.</li>
+            <li>Stores VM instruction sequences as a byte stream.</li>
+            <li>For details of the instruction set, see Chapter 7.</li>
           </ul>
         </li>
       </ul>
@@ -898,251 +858,343 @@ A | filter(F) | B;
       <h2>7. Instruction Set and WASM Mapping (Overview)</h2>
 
       <h3>7.1 Instruction Categories</h3>
-      <p>The instruction set is expected to be divided roughly into the following categories:</p>
+      <p>The instruction set is roughly divided into the following categories, and each category is assigned a 1-byte category ID.</p>
       <ul>
-        <li>Stack manipulation
+        <li>Stack operations
           <ul>
             <li>PUSH, POP, DUP, SWAP, etc.</li>
           </ul>
         </li>
-        <li>Arithmetic / bitwise logic
+        <li>Arithmetic / logical instructions
           <ul>
             <li>ADD, SUB, MUL, DIV, MOD</li>
             <li>AND, OR, XOR, SHL, SHR</li>
           </ul>
         </li>
-        <li>Comparisons
+        <li>Comparison instructions
           <ul>
             <li>CMPEQ, CMPNE, CMPLT, CMPLE, CMPGT, CMPGE</li>
           </ul>
         </li>
-        <li>Control flow
+        <li>Control flow instructions
           <ul>
             <li>JMP, JMP_IF_TRUE, JMP_IF_FALSE</li>
           </ul>
         </li>
-        <li>Function call
+        <li>Function call / return instructions
           <ul>
             <li>CALL, RET</li>
           </ul>
         </li>
-        <li>Object manipulation
+        <li>Object manipulation instructions
           <ul>
             <li>NEWOBJ, GETFIELD, SETFIELD, etc.</li>
           </ul>
         </li>
-        <li>Array / collection manipulation (future)</li>
-        <li>pipe / filter manipulation (connect, read/write)</li>
+        <li>Array / collection instructions (future)</li>
+        <li>pipe / filter / producer / consumer / connection / disconnection instructions</li>
+        <li>Exception handling / VM management / debugging instructions</li>
       </ul>
 
       <div class="note">
-        The exact opcode numbers and binary layout of the instruction set are<br>
-        not yet fixed and will be defined later as a dedicated “instruction set table”.
+        The concrete numeric opcodes and exact on-the-wire binary layout<br>
+        are not yet fixed, and will be defined later in a dedicated “instruction set table”.
       </div>
 
-      <h3>7.2 1:1 Mapping Policy to WASM</h3>
+      <h3>7.2 Instruction ID Structure (Category + Index)</h3>
+      <p>
+        Each AloeVM instruction is assigned a <strong>16-bit (2-byte) instruction ID</strong>.<br>
+        The upper 1 byte is the <strong>category ID</strong>, and the lower 1 byte is the
+        <strong>category-local index</strong>.
+      </p>
       <ul>
-        <li>Basic arithmetic and comparison instructions should be mapped to WASM instructions such as <code>i32.add</code>, <code>i32.lt_s</code> in a 1:1 fashion as much as possible.</li>
-        <li>Since the stack model matches that of WASM, stack operations can be converted almost directly.</li>
-        <li>Exceptions are represented using WASM’s exception handling extension or a combination of error codes and block structures.</li>
-        <li>pipe / filter are often implemented using WASM <code>ref</code> types plus host functions.</li>
-      </ul>
-
-      <h3>7.3 Role of aloe2wasm</h3>
-      <ul>
-        <li>Besides the path “Aloe source → AloeBC → AloeVM execution”, there is another path:
+        <li>16-bit instruction ID layout:
           <ul>
-            <li>Aloe source → intermediate IR → WASM, a <strong>native WASM build</strong> path.</li>
+            <li>Upper 8 bits: category ID (e.g. stack = 0x01, arithmetic = 0x02, etc.)</li>
+            <li>Lower 8 bits: index within that category (the order in the opcode table for that category)</li>
           </ul>
         </li>
-        <li>The closer AloeVM’s instruction set is to WASM, the simpler the compiler implementation can be.</li>
-        <li>Ideally, we aim to reach the point where “serializing AloeVM instruction sequences to WASM is enough to run the program”.</li>
+        <li>Formally, the opcode ID is computed as:
+          <pre><code>OpcodeID = (Category &lt;&lt; 8) | IndexInCategory</code></pre>
+        </li>
+        <li>Examples:
+          <ul>
+            <li>1st instruction in stack category (category ID <code>0x01</code>) → <code>0x0101</code></li>
+            <li>2nd instruction in the same category → <code>0x0102</code></li>
+            <li>3rd instruction in arithmetic category (category ID <code>0x02</code>) → <code>0x0203</code></li>
+          </ul>
+        </li>
       </ul>
 
-      <h3>7.4 Provisional Opcode Table (Excerpt)</h3>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Category ID (upper byte)</th>
+              <th>Category Name (example)</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>0x01</td>
+              <td>Stack operations</td>
+              <td><code>PUSH</code>, <code>POP</code>, <code>DUP</code>, <code>SWAP</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0x02</td>
+              <td>Arithmetic</td>
+              <td><code>ADD</code>, <code>SUB</code>, <code>MUL</code>, <code>DIV</code>, <code>MOD</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0x03</td>
+              <td>Logical / bitwise</td>
+              <td><code>AND</code>, <code>OR</code>, <code>XOR</code>, <code>SHL</code>, <code>SHR</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0x04</td>
+              <td>Comparison</td>
+              <td><code>CMPEQ</code>, <code>CMPNE</code>, <code>CMPLT</code>, <code>CMPLE</code>, <code>CMPGT</code>, <code>CMPGE</code></td>
+            </tr>
+            <tr>
+              <td>0x05</td>
+              <td>Control flow</td>
+              <td><code>JMP</code>, <code>JMP_IF_TRUE</code>, <code>JMP_IF_FALSE</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0x06</td>
+              <td>Call / return</td>
+              <td><code>CALL</code>, <code>RET</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0x07</td>
+              <td>Memory access</td>
+              <td>Load/store for locals, arguments, globals, fields, etc.</td>
+            </tr>
+            <tr>
+              <td>0x08</td>
+              <td>Object / array</td>
+              <td><code>NEWOBJ</code>, <code>NEWARR</code>, <code>GETFIELD</code>, <code>SETFIELD</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0x09</td>
+              <td>Exception / error</td>
+              <td><code>THROW</code>, <code>RETHROW</code>, <code>LEAVE</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0x0A</td>
+              <td>pipe / filter / connections</td>
+              <td>pipe creation / connection / disconnection / producer/consumer start/stop, etc.</td>
+            </tr>
+            <tr>
+              <td>0x0B</td>
+              <td>VM management / debugging</td>
+              <td><code>NOP</code>, <code>HALT</code>, <code>BREAKPOINT</code>, etc.</td>
+            </tr>
+            <tr>
+              <td>0xF0–0xFF</td>
+              <td>Implementation-specific / experimental</td>
+              <td>Reserved for extended instructions used only in specific implementations.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        In the concrete opcode table, “category-local indices” (lower byte) are assigned from 0x01 upward within each category.<br>
+        For debug logs and dumps, it is recommended to display both hexadecimal form and mnemonic, e.g. <code>0x0A03 (PIPE_DISCONNECT)</code>.
+      </div>
+
+      <h3>7.3 Provisional Opcode Table (Excerpt)</h3>
       <p>
-        The following is a <strong>provisional opcode table</strong> summarizing representative instructions of AloeVM.<br>
-        The numeric opcode assignments are not fixed yet and may change in the future.
+        As a starting point for implementation, we provisionally assign instruction IDs to several representative opcodes.<br>
+        These values are for prototyping only and may change in the final version.
       </p>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
+              <th>Opcode ID (hex)</th>
               <th>Category</th>
-              <th>Instruction</th>
-              <th>Stack I/O (conceptual)</th>
+              <th>Index (lower byte)</th>
+              <th>Mnemonic</th>
               <th>Description</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td rowspan="4">Stack manipulation</td>
-              <td>PUSH_CONST</td>
-              <td>… → …, value</td>
-              <td>Loads a value from the constant pool and pushes it onto the stack.</td>
+              <td>0x0101</td>
+              <td>Stack</td>
+              <td>0x01</td>
+              <td>PUSH_I32</td>
+              <td>Push an immediate int32 value onto the stack.</td>
             </tr>
             <tr>
+              <td>0x0102</td>
+              <td>Stack</td>
+              <td>0x02</td>
               <td>POP</td>
-              <td>…, value → …</td>
-              <td>Discards the stack top.</td>
+              <td>Discard the top value of the stack.</td>
             </tr>
             <tr>
+              <td>0x0103</td>
+              <td>Stack</td>
+              <td>0x03</td>
               <td>DUP</td>
-              <td>…, value → …, value, value</td>
-              <td>Duplicates the stack top and pushes it once more.</td>
-            </tr>
-            <tr>
-              <td>SWAP</td>
-              <td>…, a, b → …, b, a</td>
-              <td>Swaps the top two stack elements.</td>
+              <td>Duplicate the top value of the stack.</td>
             </tr>
 
             <tr>
-              <td rowspan="3">Integer arithmetic</td>
-              <td>ADD_I4</td>
-              <td>…, a, b → …, (a + b)</td>
-              <td>Adds two int32 values.</td>
+              <td>0x0201</td>
+              <td>Arithmetic</td>
+              <td>0x01</td>
+              <td>ADD_I32</td>
+              <td>Pop two int32 values, add them, and push the result.</td>
             </tr>
             <tr>
-              <td>SUB_I4</td>
-              <td>…, a, b → …, (a - b)</td>
-              <td>Subtracts two int32 values.</td>
-            </tr>
-            <tr>
-              <td>MUL_I4</td>
-              <td>…, a, b → …, (a * b)</td>
-              <td>Multiplies two int32 values.</td>
+              <td>0x0202</td>
+              <td>Arithmetic</td>
+              <td>0x02</td>
+              <td>SUB_I32</td>
+              <td>Pop two int32 values, subtract, and push the result.</td>
             </tr>
 
             <tr>
-              <td rowspan="2">Comparisons</td>
-              <td>CMPEQ</td>
-              <td>…, a, b → …, bool</td>
-              <td>Returns true if <code>a == b</code>, otherwise false.</td>
-            </tr>
-            <tr>
-              <td>CMPLT</td>
-              <td>…, a, b → …, bool</td>
-              <td>Returns true if <code>a &lt; b</code>.</td>
+              <td>0x0401</td>
+              <td>Comparison</td>
+              <td>0x01</td>
+              <td>CMPEQ_I32</td>
+              <td>Compare two int32 values for equality and push a bool.</td>
             </tr>
 
             <tr>
-              <td rowspan="3">Control flow</td>
+              <td>0x0501</td>
+              <td>Control flow</td>
+              <td>0x01</td>
               <td>JMP</td>
-              <td>… → …</td>
-              <td>Unconditional jump.</td>
+              <td>Unconditional jump to an absolute or relative offset.</td>
             </tr>
             <tr>
+              <td>0x0502</td>
+              <td>Control flow</td>
+              <td>0x02</td>
               <td>JMP_IF_TRUE</td>
-              <td>…, cond → …</td>
-              <td>Jumps if <code>cond</code> is true.</td>
-            </tr>
-            <tr>
-              <td>JMP_IF_FALSE</td>
-              <td>…, cond → …</td>
-              <td>Jumps if <code>cond</code> is false.</td>
+              <td>Jump if the top of the stack is true.</td>
             </tr>
 
             <tr>
-              <td rowspan="2">Calls</td>
+              <td>0x0601</td>
+              <td>Call</td>
+              <td>0x01</td>
               <td>CALL</td>
-              <td>…, argN, …, arg1 → …, ret?</td>
-              <td>Invokes a function table entry and creates a new frame.</td>
+              <td>Call a function by ID from the function table, creating a new frame.</td>
             </tr>
             <tr>
+              <td>0x0602</td>
+              <td>Call</td>
+              <td>0x02</td>
               <td>RET</td>
-              <td>…, ret? → …, ret?</td>
-              <td>Destroys the current frame and returns to the caller.</td>
+              <td>Destroy the current frame and return to the caller.</td>
             </tr>
 
             <tr>
-              <td rowspan="3">Objects</td>
-              <td>NEWOBJ</td>
-              <td>…, ctorArgN, …, ctorArg1 → …, objHandle</td>
-              <td>Allocates a new instance of the specified type on the heap and runs its constructor.</td>
+              <td>0x0701</td>
+              <td>Memory access</td>
+              <td>0x01</td>
+              <td>LDLOC</td>
+              <td>Load a value from a local variable slot and push it.</td>
             </tr>
             <tr>
-              <td>GETFIELD</td>
-              <td>…, objHandle → …, value</td>
-              <td>Reads the value of a field.</td>
-            </tr>
-            <tr>
-              <td>SETFIELD</td>
-              <td>…, objHandle, value → …</td>
-              <td>Writes a value to a field.</td>
+              <td>0x0702</td>
+              <td>Memory access</td>
+              <td>0x02</td>
+              <td>STLOC</td>
+              <td>Store the top of the stack into a local variable slot.</td>
             </tr>
 
             <tr>
-              <td rowspan="6">pipe / filter</td>
+              <td>0x0A01</td>
+              <td>pipe / connection</td>
+              <td>0x01</td>
               <td>PIPE_NEW</td>
-              <td>… → …, pipeHandle</td>
-              <td>Creates a <code>pipe&lt;T&gt;</code>. Can be emulated with <code>NEWOBJ</code> if not implemented.</td>
+              <td>Create a new pipe instance and push its handle.</td>
             </tr>
             <tr>
-              <td>PIPE_SEND</td>
-              <td>…, pipeHandle, value → …</td>
-              <td>Writes one element into the pipe.</td>
-            </tr>
-            <tr>
-              <td>PIPE_RECV</td>
-              <td>…, pipeHandle → …, value</td>
-              <td>Reads one element from the pipe.</td>
-            </tr>
-            <tr>
-              <td>PIPE_CLOSE</td>
-              <td>…, pipeHandle → …</td>
-              <td>Closes the writing side of the pipe and notifies EOF.</td>
-            </tr>
-            <tr>
+              <td>0x0A02</td>
+              <td>pipe / connection</td>
+              <td>0x02</td>
               <td>PIPE_CONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>Connects the pipe to a producer / filter / consumer (optional instruction).</td>
+              <td>Construct a connection between a pipe and filter / producer / consumer.</td>
             </tr>
             <tr>
+              <td>0x0A03</td>
+              <td>pipe / connection</td>
+              <td>0x03</td>
               <td>PIPE_DISCONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>Disconnects the endpoint from the pipe (optional instruction).</td>
+              <td>Disconnect specified endpoints from a pipe.</td>
+            </tr>
+            <tr>
+              <td>0x0A04</td>
+              <td>pipe / connection</td>
+              <td>0x04</td>
+              <td>PIPE_CLOSE</td>
+              <td>Close a pipe and trigger reclamation of associated resources.</td>
             </tr>
           </tbody>
         </table>
       </div>
       <div class="note">
-        <ul>
-          <li>The instructions listed here are only a “representative excerpt”; the complete instruction set table is expected to be extended in a separate document.</li>
-          <li>Opcode number assignments will be finalized together with a detailed examination of the AloeBC binary layout.</li>
-          <li>pipe / filter related instructions are defined minimally, consistent with the lifecycle explained in Chapter 5.
-            Implementations may treat them as a second interface (syntactic sugar) over runtime APIs.</li>
-        </ul>
+        The instruction IDs listed here are only “provisional starting points” and may be extended or renumbered during implementation.<br>
+        However, the fundamental rule that an ID is composed of “category ID + index” in 2 bytes is assumed to remain unchanged.
       </div>
+
+      <h3>7.4 1:1 Mapping Policy to WASM</h3>
+      <ul>
+        <li>Basic arithmetic and comparison instructions should be mapped 1:1 to WASM instructions such as <code>i32.add</code>, <code>i32.lt_s</code>, etc., where possible.</li>
+        <li>Stack operations conceptually match WASM’s stack machine model and can be transformed nearly as-is.</li>
+        <li>Exception handling is expressed using WASM’s exception handling extensions or a combination of error codes and block structure.</li>
+        <li>pipe / filter are typically implemented using WASM <code>ref</code> types plus host functions.</li>
+      </ul>
+
+      <h3>7.5 Role of aloe2wasm</h3>
+      <ul>
+        <li>Besides the “Aloe source → AloeBC → AloeVM execution” path, there is also a
+          <ul>
+            <li>“Aloe source → intermediate IR → WASM” path for <strong>native WASM builds</strong>.</li>
+          </ul>
+        </li>
+        <li>The closer AloeVM’s instruction set is to WASM’s instruction set, the simpler the compiler implementation becomes.</li>
+        <li>Ideally, the goal is to reach a level where “AloeVM instruction sequences can be serialized as WASM almost directly.”</li>
+      </ul>
     </section>
 
     <!-- 8. Open Issues / TODO -->
     <section id="vm-ch8" class="chapter">
       <h2>8. Open Issues / TODO</h2>
 
-      <h3>8.1 Unresolved Topics</h3>
+      <h3>8.1 Issues Not Yet Decided</h3>
       <ul>
-        <li>Opcode assignments and precise binary formats for each instruction (instruction set table)</li>
+        <li>Exact opcode assignment and concrete binary layout (full instruction set table)</li>
         <li>Concrete format of the exception handler table (range specification, catch kinds, etc.)</li>
-        <li>Inline expansion of structs and the treatment of box/unbox</li>
-        <li>Details of slot arena configuration (single arena vs multiple size classes)</li>
-        <li>Algorithms when combining reference counting with cycle detection (auxiliary GC)</li>
-        <li>Threading model for pipe / filter (one thread per filter vs shared worker threads)</li>
-        <li>Standard ABI for pipe / filter on WASM (interfaces with the host)</li>
+        <li>Inline expansion of structs and handling of box/unbox</li>
+        <li>Details of slot arena configuration (single arena vs. multiple size classes)</li>
+        <li>Algorithm when combining reference counting with cycle detection (auxiliary GC)</li>
+        <li>Threading model for pipe / filter (one thread per filter vs. shared workers)</li>
+        <li>Standard ABI for pipe / filter in WASM builds (interface to the host)</li>
       </ul>
 
-      <h3>8.2 Future Extensions</h3>
+      <h3>8.2 Possible Future Extensions</h3>
       <ul>
-        <li>JIT compilation layer (native code for hot functions)</li>
+        <li>JIT compilation layer (native code generation for hot functions)</li>
         <li>Debugger hooks (breakpoints, step execution, variable watch)</li>
-        <li>Profiler APIs (measuring execution time and allocated memory)</li>
+        <li>Profiler API (measuring execution time and allocated memory)</li>
         <li>Distributed execution (pipes spanning multiple processes/nodes)</li>
       </ul>
 
       <div class="note">
-        The current specification is already aimed at a level where it is possible to implement<br>
-        a <strong>prototype Aloe compiler, C# AloeVM implementation, and aloe2wasm</strong>.<br>
-        However, the details of the instruction set and memory management are assumed to be refined through experimentation.
+        Even with the current content of this specification, the aim is to be detailed enough to implement<br>
+        a <strong>prototype of the Aloe compiler, C# AloeVM implementation, and aloe2wasm</strong>.<br>
+        However, both the instruction set table and the detailed memory management will be refined iteratively.
       </div>
     </section>
 

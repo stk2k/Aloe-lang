@@ -1,3 +1,8 @@
+うん、その通りで「7.4 暫定オペコード表（抜粋）」が消えてたので、
+**暫定オペコード表を 7.3 として復活**させて、以降を 7.4 / 7.5 に繰り下げた版を出し直すね。
+
+（※それ以外の章の内容は変えていないつもり）
+
 ```html
 <!DOCTYPE html>
 <html lang="ja">
@@ -651,129 +656,87 @@ A | filter(F) | B;
 
       <h3>5.4 パイプのライフサイクルと VM 命令</h3>
       <p>
-        pipe は概念的に <strong>「生成 → 接続 → 切断 → 削除」</strong> という 4 フェーズのライフサイクルを持つ。<br>
-        AloeVM では、このうちどこまでを <strong>専用命令</strong> として扱い、どこからを <strong>ランタイム API</strong> に任せるかを明示しておく。
+        pipe は VM レベルでは、概ね次の 4 フェーズを持つライフサイクルとして扱う：
+        <strong>生成</strong> → <strong>接続</strong> → <strong>切断</strong> → <strong>削除</strong>。
+        それぞれのフェーズは、7 章で定義する「pipe / filter / 接続カテゴリ（カテゴリ ID = 0x0A）」の命令によって操作される。
       </p>
-
       <ul>
-        <li>生成（create）</li>
-        <li>接続（connect）</li>
-        <li>切断（disconnect）</li>
-        <li>削除（delete / dispose）</li>
-      </ul>
-
-      <h4>5.4.1 生成と削除</h4>
-      <ul>
-        <li><code>pipe&lt;T&gt;</code> 自体は、VM 上では通常のヒープオブジェクトとして表現される。
+        <li><strong>生成フェーズ（Create）</strong>
           <ul>
-            <li>クラスインスタンスの一種として <strong>スロット制ヒープ</strong>（第 4 章）上に配置される。</li>
-          </ul>
-        </li>
-        <li>生成:
-          <ul>
-            <li>最低限、汎用オブジェクト生成命令（例: <code>NEWOBJ</code>）で <code>pipe&lt;T&gt;</code> を構築できればよい。</li>
-            <li>必要であれば、便宜上 <code>PIPE_NEW</code> のような専用命令を設けてもよい（第 7 章の暫定オペコード表参照）。</li>
-          </ul>
-        </li>
-        <li>削除:
-          <ul>
-            <li>言語レベルの <code>delete x;</code> により、「変数 <code>x</code> が保持している pipe ハンドルへの参照を切る」。</li>
-            <li>参照カウントが 0 になった時点で、pipe オブジェクトも他のヒープオブジェクトと同様にスロット解放対象となる（第 4 章）。</li>
-            <li><strong>pipe 専用の削除命令（例: <code>PIPE_DELETE</code>）は定義しない</strong>。
-              削除フェーズはヒープ管理と <code>delete</code> の責務に統一する。</li>
-          </ul>
-        </li>
-      </ul>
-
-      <h4>5.4.2 接続と切断</h4>
-      <ul>
-        <li>producer / filter / consumer と pipe の「接続」「切断」は、基本的には <strong>ランタイムの責務</strong> とする。
-          <ul>
-            <li>例: <code>Pipe.Connect(pipe, endpoint)</code>, <code>Pipe.Disconnect(pipe, endpoint)</code> のようなライブラリ関数。</li>
-          </ul>
-        </li>
-        <li>VM レベルでは、以下のような専用命令を <strong>オプション</strong> として定義してよい：
-          <ul>
-            <li><code>PIPE_CONNECT</code>:
+            <li>新しい pipe インスタンスを確保し、バッファや同期オブジェクトを初期化する。</li>
+            <li>代表的な命令（例）:
               <ul>
-                <li>スタック: <code>…, pipeHandle, endpointHandle → …</code></li>
-                <li>意味: ランタイムの接続 API を呼び出し、pipe と endpoint を論理的に接続する。</li>
-              </ul>
-            </li>
-            <li><code>PIPE_DISCONNECT</code>:
-              <ul>
-                <li>スタック: <code>…, pipeHandle, endpointHandle → …</code></li>
-                <li>意味: ランタイムの切断 API を呼び出し、pipe と endpoint の接続を解除する。</li>
+                <li><code>PIPE_NEW</code>:
+                  <ul>
+                    <li>引数として要素型 ID、バッファサイズ、オプションフラグなどを取る。</li>
+                    <li>戻り値として pipe ハンドル（VM 値としての PIPE タグ付きハンドル）をスタックに積む。</li>
+                  </ul>
+                </li>
               </ul>
             </li>
           </ul>
         </li>
-        <li>これらの命令は、コンパイラがパイプライン構築処理を <strong>命令列として可視化</strong> したい場合や、
-          <strong>WASM との ABI を揃えたい場合</strong> に役立つ。
-          実装によっては、単にランタイム関数呼び出しの薄いラッパとして実装してもよい。</li>
+        <li><strong>接続フェーズ（Connect）</strong>
+          <ul>
+            <li>既存の pipe に対して、producer / consumer / filter を接続する。</li>
+            <li>代表的な命令（例）:
+              <ul>
+                <li><code>PIPE_BIND_PRODUCER</code>:
+                  <ul>
+                    <li>pipe ハンドルと producer 側エンドポイント（メソッド／タスク）を結び付ける。</li>
+                  </ul>
+                </li>
+                <li><code>PIPE_BIND_CONSUMER</code>:
+                  <ul>
+                    <li>pipe ハンドルと consumer 側エンドポイントを結び付ける。</li>
+                  </ul>
+                </li>
+                <li><code>PIPE_CONNECT</code>:
+                  <ul>
+                    <li>複数の pipe と filter をまとめて「パイプライン」として接続する高レベル命令として定義してもよい。</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li><strong>切断フェーズ（Disconnect）</strong>
+          <ul>
+            <li>producer / consumer / filter を pipe から切り離し、新たなデータの流入・流出を止める。</li>
+            <li>代表的な命令（例）:
+              <ul>
+                <li><code>PIPE_DISCONNECT</code>:
+                  <ul>
+                    <li>指定したエンドポイントを pipe から切り離す。</li>
+                    <li>既にバッファ内に存在するデータの扱い（破棄する／最後まで読み出させる）は実装ポリシーで決める。</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li><strong>削除フェーズ（Delete / Close）</strong>
+          <ul>
+            <li>pipe 自体をクローズし、関連するバッファや同期オブジェクトを解放する。</li>
+            <li>代表的な命令（例）:
+              <ul>
+                <li><code>PIPE_CLOSE</code>:
+                  <ul>
+                    <li>pipe ハンドルをクローズし、参照カウントをデクリメントする。</li>
+                    <li>参照カウントが 0 になった時点で、ヒープ上の pipe オブジェクトが解放候補となる。</li>
+                  </ul>
+                </li>
+              </ul>
+            </li>
+            <li>Aloe 言語レベルの <code>delete</code> や <code>with</code> ブロック終了時の暗黙クローズは、
+              これらの命令にコンパイルされる想定である。</li>
+          </ul>
+        </li>
       </ul>
-
-      <h4>5.4.3 コアとなるパイプ関連命令</h4>
-      <p>pipe に関して、VM にとって特に重要な命令のセットを次のように整理する。</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>命令名</th>
-              <th>スタック入出力（概念）</th>
-              <th>役割</th>
-              <th>備考</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>PIPE_NEW</td>
-              <td>… → …, pipeHandle</td>
-              <td><code>pipe&lt;T&gt;</code> インスタンスを生成し、ハンドルをスタックに積む。</td>
-              <td>未実装の場合は <code>NEWOBJ</code> で代用可能。</td>
-            </tr>
-            <tr>
-              <td>PIPE_SEND</td>
-              <td>…, pipeHandle, value → …</td>
-              <td>pipe に 1 要素書き込む（producer 側の send）。</td>
-              <td>ブロッキング／非ブロッキングの挙動は実装依存。</td>
-            </tr>
-            <tr>
-              <td>PIPE_RECV</td>
-              <td>…, pipeHandle → …, value</td>
-              <td>pipe から 1 要素読み出す（consumer 側の recv）。</td>
-              <td>EOF 時の扱い（例: 特殊値／例外など）はランタイム仕様で決める。</td>
-            </tr>
-            <tr>
-              <td>PIPE_CLOSE</td>
-              <td>…, pipeHandle → …</td>
-              <td>pipe の書き込み側を閉じ、EOF を下流に通知する。</td>
-              <td>実装により「もう値が来ない」ことを表す特別なフラグを立てる。</td>
-            </tr>
-            <tr>
-              <td>PIPE_CONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>pipe と producer / filter / consumer を論理的に接続する。</td>
-              <td>オプション命令。ランタイム関数呼び出しでもよい。</td>
-            </tr>
-            <tr>
-              <td>PIPE_DISCONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>pipe と endpoint の接続を解除する。</td>
-              <td>オプション命令。ランタイム関数呼び出しでもよい。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
       <div class="note">
-        <ul>
-          <li><code>PIPE_CONNECT</code> / <code>PIPE_DISCONNECT</code> は必須ではなく、AloeVM の最小実装では
-            「パイプライン構築済みの状態で bytecode を実行する」設計として省略してもよい。</li>
-          <li>一方で、これらを命令として定義しておくと、デバッガやトレーサが
-            「どのタイミングでどの endpoint が接続・切断されたか」を記録しやすくなる。</li>
-          <li>具体的な opcode 数値や、WASM 命令との 1:1 マッピング方針は第 7 章で述べる。</li>
-        </ul>
+        producer / consumer として動作するコードは、通常は「通常の関数／メソッド＋スレッド（またはタスク）」の組み合わせで表現される。<br>
+        必要に応じて、<code>PRODUCER_START</code>, <code>PRODUCER_STOP</code>, <code>CONSUMER_START</code>, <code>CONSUMER_STOP</code> のような
+        制御専用命令を 0x0A カテゴリ内に追加してもよい。
       </div>
     </section>
 
@@ -905,7 +868,7 @@ A | filter(F) | B;
       <h2>7. 命令セットと WASM 対応（概要）</h2>
 
       <h3>7.1 命令カテゴリ</h3>
-      <p>命令セットはおおよそ以下のカテゴリに分かれる想定。</p>
+      <p>命令セットはおおよそ以下のカテゴリに分かれる想定であり、各カテゴリには 1 バイトのカテゴリ ID を割り当てる。</p>
       <ul>
         <li>スタック操作命令
           <ul>
@@ -939,7 +902,8 @@ A | filter(F) | B;
           </ul>
         </li>
         <li>配列・コレクション操作命令（将来）</li>
-        <li>pipe / filter 操作命令（接続・read/write）</li>
+        <li>pipe / filter / producer / consumer / 接続・切断命令</li>
+        <li>例外処理・VM 管理・デバッグ命令</li>
       </ul>
 
       <div class="note">
@@ -947,7 +911,253 @@ A | filter(F) | B;
         まだ確定しておらず、今後「命令セット表」として定義する予定。
       </div>
 
-      <h3>7.2 WASM への 1:1 マッピング方針</h3>
+      <h3>7.2 命令 ID の構成（カテゴリ + 連番）</h3>
+      <p>
+        AloeVM の各命令には、<strong>16bit（2 バイト）の命令 ID</strong> を割り当てる。<br>
+        命令 ID は上位 1 バイトを <strong>カテゴリ ID</strong>、下位 1 バイトを <strong>カテゴリ内連番</strong> として扱う。
+      </p>
+      <ul>
+        <li>16bit 命令 ID の構成:
+          <ul>
+            <li>上位 8bit: カテゴリ ID（例: スタック操作 = 0x01, 算術 = 0x02 など）</li>
+            <li>下位 8bit: カテゴリ内での連番（そのカテゴリのオペコード表の並び順）</li>
+          </ul>
+        </li>
+        <li>数式で表すと、命令 ID は次のように求めることができる：
+          <pre><code>OpcodeID = (Category &lt;&lt; 8) | IndexInCategory</code></pre>
+        </li>
+        <li>具体例:
+          <ul>
+            <li>スタック操作カテゴリ（カテゴリ ID = <code>0x01</code>）の 1 番目の命令 → <code>0x0101</code></li>
+            <li>同カテゴリの 2 番目の命令 → <code>0x0102</code></li>
+            <li>算術カテゴリ（カテゴリ ID = <code>0x02</code>）の 3 番目の命令 → <code>0x0203</code></li>
+          </ul>
+        </li>
+      </ul>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>カテゴリ ID（上位 1 バイト）</th>
+              <th>カテゴリ名（例）</th>
+              <th>備考</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>0x01</td>
+              <td>スタック操作命令</td>
+              <td><code>PUSH</code>, <code>POP</code>, <code>DUP</code>, <code>SWAP</code> など</td>
+            </tr>
+            <tr>
+              <td>0x02</td>
+              <td>算術命令</td>
+              <td><code>ADD</code>, <code>SUB</code>, <code>MUL</code>, <code>DIV</code>, <code>MOD</code> など</td>
+            </tr>
+            <tr>
+              <td>0x03</td>
+              <td>論理・ビット演算命令</td>
+              <td><code>AND</code>, <code>OR</code>, <code>XOR</code>, <code>SHL</code>, <code>SHR</code> など</td>
+            </tr>
+            <tr>
+              <td>0x04</td>
+              <td>比較命令</td>
+              <td><code>CMPEQ</code>, <code>CMPNE</code>, <code>CMPLT</code>, <code>CMPLE</code>, <code>CMPGT</code>, <code>CMPGE</code></td>
+            </tr>
+            <tr>
+              <td>0x05</td>
+              <td>制御フロー命令</td>
+              <td><code>JMP</code>, <code>JMP_IF_TRUE</code>, <code>JMP_IF_FALSE</code> など</td>
+            </tr>
+            <tr>
+              <td>0x06</td>
+              <td>呼び出し・戻り命令</td>
+              <td><code>CALL</code>, <code>RET</code> など</td>
+            </tr>
+            <tr>
+              <td>0x07</td>
+              <td>メモリアクセス命令</td>
+              <td>ローカル／引数／グローバル／フィールドの load/store など</td>
+            </tr>
+            <tr>
+              <td>0x08</td>
+              <td>オブジェクト / 配列命令</td>
+              <td><code>NEWOBJ</code>, <code>NEWARR</code>, <code>GETFIELD</code>, <code>SETFIELD</code> など</td>
+            </tr>
+            <tr>
+              <td>0x09</td>
+              <td>例外・エラー命令</td>
+              <td><code>THROW</code>, <code>RETHROW</code>, <code>LEAVE</code> など</td>
+            </tr>
+            <tr>
+              <td>0x0A</td>
+              <td>pipe / filter / 接続命令</td>
+              <td>pipe 生成・接続・切断・producer/consumer 起動など</td>
+            </tr>
+            <tr>
+              <td>0x0B</td>
+              <td>VM 管理・デバッグ命令</td>
+              <td><code>NOP</code>, <code>HALT</code>, <code>BREAKPOINT</code> など</td>
+            </tr>
+            <tr>
+              <td>0xF0〜0xFF</td>
+              <td>実装依存・実験用命令</td>
+              <td>特定実装でのみ使用される拡張命令の予約領域</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        具体的なオペコード表では、各カテゴリごとに「カテゴリ内連番（下位 1 バイト）」を 0x01 から順に割り当てる。<br>
+        デバッグログやダンプでは、<code>0x0A03 (PIPE_DISCONNECT)</code> のように 16 進数表現とニーモニックの両方を表示することを推奨する。
+      </div>
+
+      <h3>7.3 暫定オペコード表（抜粋）</h3>
+      <p>
+        実装を始める際のたたき台として、いくつか代表的な命令に暫定的な命令 ID を割り当てておく。<br>
+        ここに示す値はプロトタイプ用であり、最終版では変更される可能性がある。
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Opcode ID（16進）</th>
+              <th>カテゴリ</th>
+              <th>連番（下位バイト）</th>
+              <th>ニーモニック</th>
+              <th>概要</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>0x0101</td>
+              <td>スタック操作</td>
+              <td>0x01</td>
+              <td>PUSH_I32</td>
+              <td>即値 int32 をスタックに積む。</td>
+            </tr>
+            <tr>
+              <td>0x0102</td>
+              <td>スタック操作</td>
+              <td>0x02</td>
+              <td>POP</td>
+              <td>スタックトップを 1 つ捨てる。</td>
+            </tr>
+            <tr>
+              <td>0x0103</td>
+              <td>スタック操作</td>
+              <td>0x03</td>
+              <td>DUP</td>
+              <td>スタックトップを 1 つ複製する。</td>
+            </tr>
+
+            <tr>
+              <td>0x0201</td>
+              <td>算術</td>
+              <td>0x01</td>
+              <td>ADD_I32</td>
+              <td>int32 を 2 つ取り出して加算し、結果を積む。</td>
+            </tr>
+            <tr>
+              <td>0x0202</td>
+              <td>算術</td>
+              <td>0x02</td>
+              <td>SUB_I32</td>
+              <td>int32 を 2 つ取り出して減算し、結果を積む。</td>
+            </tr>
+
+            <tr>
+              <td>0x0401</td>
+              <td>比較</td>
+              <td>0x01</td>
+              <td>CMPEQ_I32</td>
+              <td>int32 の等値比較を行い、bool を積む。</td>
+            </tr>
+
+            <tr>
+              <td>0x0501</td>
+              <td>制御フロー</td>
+              <td>0x01</td>
+              <td>JMP</td>
+              <td>絶対または相対オフセットへ無条件ジャンプ。</td>
+            </tr>
+            <tr>
+              <td>0x0502</td>
+              <td>制御フロー</td>
+              <td>0x02</td>
+              <td>JMP_IF_TRUE</td>
+              <td>スタックトップが true の場合にのみジャンプ。</td>
+            </tr>
+
+            <tr>
+              <td>0x0601</td>
+              <td>呼び出し</td>
+              <td>0x01</td>
+              <td>CALL</td>
+              <td>関数テーブル上の ID を指定して呼び出し、新しいフレームを作成。</td>
+            </tr>
+            <tr>
+              <td>0x0602</td>
+              <td>呼び出し</td>
+              <td>0x02</td>
+              <td>RET</td>
+              <td>現在のフレームを破棄し、呼び出し元へ復帰。</td>
+            </tr>
+
+            <tr>
+              <td>0x0701</td>
+              <td>メモリアクセス</td>
+              <td>0x01</td>
+              <td>LDLOC</td>
+              <td>ローカル変数スロットから値を読み出して積む。</td>
+            </tr>
+            <tr>
+              <td>0x0702</td>
+              <td>メモリアクセス</td>
+              <td>0x02</td>
+              <td>STLOC</td>
+              <td>スタックトップをローカル変数スロットに書き込む。</td>
+            </tr>
+
+            <tr>
+              <td>0x0A01</td>
+              <td>pipe / 接続</td>
+              <td>0x01</td>
+              <td>PIPE_NEW</td>
+              <td>新しい pipe インスタンスを生成し、ハンドルを積む。</td>
+            </tr>
+            <tr>
+              <td>0x0A02</td>
+              <td>pipe / 接続</td>
+              <td>0x02</td>
+              <td>PIPE_CONNECT</td>
+              <td>pipe と filter / producer / consumer 間の接続を構築する。</td>
+            </tr>
+            <tr>
+              <td>0x0A03</td>
+              <td>pipe / 接続</td>
+              <td>0x03</td>
+              <td>PIPE_DISCONNECT</td>
+              <td>指定されたエンドポイントを pipe から切断する。</td>
+            </tr>
+            <tr>
+              <td>0x0A04</td>
+              <td>pipe / 接続</td>
+              <td>0x04</td>
+              <td>PIPE_CLOSE</td>
+              <td>pipe をクローズし、関連リソースの解放をトリガする。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        ここで挙げた命令 ID はあくまで「暫定のたたき台」であり、実装の過程で不足命令の追加や番号の再配置を行ってよい。<br>
+        ただし「カテゴリ ID + 連番」という 2 バイト構成ルール自体は変えない前提とする。
+      </div>
+
+      <h3>7.4 WASM への 1:1 マッピング方針</h3>
       <ul>
         <li>基本算術・比較命令は、可能な限り WASM の <code>i32.add</code>, <code>i32.lt_s</code> などへ 1:1 でマッピングする。</li>
         <li>スタック操作も WASM のスタックマシンと概念的に一致するため、ほぼそのまま変換可能。</li>
@@ -955,7 +1165,7 @@ A | filter(F) | B;
         <li>pipe / filter は、WASM の <code>ref</code> 型＋ホスト関数を用いて実装されることが多い。</li>
       </ul>
 
-      <h3>7.3 aloe2wasm の役割</h3>
+      <h3>7.5 aloe2wasm の役割</h3>
       <ul>
         <li>Aloe ソース → AloeBC → AloeVM 実行 という経路とは別に、
           <ul>
@@ -965,162 +1175,6 @@ A | filter(F) | B;
         <li>このとき、AloeVM 命令セットと WASM 命令セットが近いほど、コンパイラ実装が単純になる。</li>
         <li>理想的には「AloeVM 命令列をそのまま WASM にシリアライズするだけ」で動作するレベルを目指す。</li>
       </ul>
-
-      <h3>7.4 暫定オペコード表（抜粋）</h3>
-      <p>
-        以下は AloeVM の代表的な命令をまとめた <strong>暫定的なオペコード表</strong> である。<br>
-        数値としての opcode 割り当てはまだ固定ではなく、将来変更される可能性がある。
-      </p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>カテゴリ</th>
-              <th>命令名</th>
-              <th>スタック入出力（概念）</th>
-              <th>概要</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td rowspan="4">スタック操作</td>
-              <td>PUSH_CONST</td>
-              <td>… → …, value</td>
-              <td>定数プールから値をロードしてスタックに積む。</td>
-            </tr>
-            <tr>
-              <td>POP</td>
-              <td>…, value → …</td>
-              <td>スタックトップを捨てる。</td>
-            </tr>
-            <tr>
-              <td>DUP</td>
-              <td>…, value → …, value, value</td>
-              <td>スタックトップを複製して 1 つ積む。</td>
-            </tr>
-            <tr>
-              <td>SWAP</td>
-              <td>…, a, b → …, b, a</td>
-              <td>スタックトップ 2 要素の順序を入れ替える。</td>
-            </tr>
-
-            <tr>
-              <td rowspan="3">算術（整数）</td>
-              <td>ADD_I4</td>
-              <td>…, a, b → …, (a + b)</td>
-              <td>int32 の加算。</td>
-            </tr>
-            <tr>
-              <td>SUB_I4</td>
-              <td>…, a, b → …, (a - b)</td>
-              <td>int32 の減算。</td>
-            </tr>
-            <tr>
-              <td>MUL_I4</td>
-              <td>…, a, b → …, (a * b)</td>
-              <td>int32 の乗算。</td>
-            </tr>
-
-            <tr>
-              <td rowspan="2">比較</td>
-              <td>CMPEQ</td>
-              <td>…, a, b → …, bool</td>
-              <td>a == b なら true、それ以外は false を返す。</td>
-            </tr>
-            <tr>
-              <td>CMPLT</td>
-              <td>…, a, b → …, bool</td>
-              <td>a &lt; b なら true。</td>
-            </tr>
-
-            <tr>
-              <td rowspan="3">制御フロー</td>
-              <td>JMP</td>
-              <td>… → …</td>
-              <td>無条件ジャンプ。</td>
-            </tr>
-            <tr>
-              <td>JMP_IF_TRUE</td>
-              <td>…, cond → …</td>
-              <td><code>cond</code> が true のときにジャンプ。</td>
-            </tr>
-            <tr>
-              <td>JMP_IF_FALSE</td>
-              <td>…, cond → …</td>
-              <td><code>cond</code> が false のときにジャンプ。</td>
-            </tr>
-
-            <tr>
-              <td rowspan="2">呼び出し</td>
-              <td>CALL</td>
-              <td>…, argN, …, arg1 → …, ret?</td>
-              <td>関数テーブルのエントリを呼び出し、新しいフレームを作成する。</td>
-            </tr>
-            <tr>
-              <td>RET</td>
-              <td>…, ret? → …, ret?</td>
-              <td>現在のフレームを破棄し、呼び出し元に戻る。</td>
-            </tr>
-
-            <tr>
-              <td rowspan="3">オブジェクト</td>
-              <td>NEWOBJ</td>
-              <td>…, ctorArgN, …, ctorArg1 → …, objHandle</td>
-              <td>指定された型のインスタンスをヒープに確保し、コンストラクタを実行する。</td>
-            </tr>
-            <tr>
-              <td>GETFIELD</td>
-              <td>…, objHandle → …, value</td>
-              <td>フィールドの値を読み出す。</td>
-            </tr>
-            <tr>
-              <td>SETFIELD</td>
-              <td>…, objHandle, value → …</td>
-              <td>フィールドに値を書き込む。</td>
-            </tr>
-
-            <tr>
-              <td rowspan="6">pipe / filter</td>
-              <td>PIPE_NEW</td>
-              <td>… → …, pipeHandle</td>
-              <td><code>pipe&lt;T&gt;</code> を生成する。未対応実装では <code>NEWOBJ</code> で代用可。</td>
-            </tr>
-            <tr>
-              <td>PIPE_SEND</td>
-              <td>…, pipeHandle, value → …</td>
-              <td>pipe に 1 要素を書き込む。</td>
-            </tr>
-            <tr>
-              <td>PIPE_RECV</td>
-              <td>…, pipeHandle → …, value</td>
-              <td>pipe から 1 要素を読み出す。</td>
-            </tr>
-            <tr>
-              <td>PIPE_CLOSE</td>
-              <td>…, pipeHandle → …</td>
-              <td>pipe の書き込み側を閉じ、EOF を通知する。</td>
-            </tr>
-            <tr>
-              <td>PIPE_CONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>pipe と producer / filter / consumer を接続する（オプション命令）。</td>
-            </tr>
-            <tr>
-              <td>PIPE_DISCONNECT</td>
-              <td>…, pipeHandle, endpointHandle → …</td>
-              <td>pipe と endpoint の接続を解除する（オプション命令）。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="note">
-        <ul>
-          <li>ここに挙げた命令はあくまで「代表的な抜粋」であり、完全な命令セット表は別途ドキュメントとして拡張される想定である。</li>
-          <li>opcode の数値割り当ては、AloeBC のバイナリレイアウト検討と合わせて確定させる。</li>
-          <li>pipe / filter 関連命令は、第 5 章のライフサイクル説明と整合する範囲で最小限を定義し、
-            実装に応じてランタイム API との二重実装（糖衣命令）として扱ってよい。</li>
-        </ul>
-      </div>
     </section>
 
     <!-- 8. 未決事項・TODO -->
