@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
   <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event）</title>
-  <meta name="last-updated" content="2025-11-29T13:00:00+09:00" />
+  <meta name="last-updated" content="2025-11-30T12:00:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -136,7 +137,7 @@
   <aside class="sidebar">
     <h1>Aloe 言語仕様書</h1>
     <div class="tagline">ドラフト / Pipe, Filter, Producer, Consumer + delete/with/lock/クラス継承/ジェネリクス/event</div>
-    <div class="updated">最終更新: 2025-11-29 13:00:00</div>
+    <div class="updated">最終更新: 2025-11-30 12:00:00</div>
     <nav>
       <div class="section-title">概要</div>
       <a href="#intro">1. はじめに</a>
@@ -349,7 +350,35 @@ var C: User = clone A;  // 浅いコピーされた新しいインスタンス�
         <code>clone</code> の上に追加することで表現できる。
       </p>
 
-      <h3>4.5.2 クラス継承（単一継承）</h3>
+      <h3>4.5.2 共通基底クラス Object と ToString / Dump</h3>
+      <p>
+        Aloe のすべてのクラス型は、暗黙に共通基底クラス <code>Object</code> を継承する。
+        （ユーザーが明示的に <code>: Object</code> と書く必要はない。）
+      </p>
+      <ul>
+        <li>
+          <code>Object</code> は参照型のルートであり、次のメソッドを提供する：
+          <ul>
+            <li><code>method ToString(): String</code></li>
+            <li><code>method Dump(): String</code></li>
+          </ul>
+        </li>
+        <li>
+          <code>ToString()</code> の既定実装は、そのインスタンスの<strong>型名</strong>を返す。<br />
+          クラスは必要に応じてこれを override し、人間が読みやすい文字列表現を返してもよい。
+        </li>
+        <li>
+          <code>Dump()</code> の既定実装は、そのインスタンスの<strong>デバッグ向け表現</strong>を返す。
+          具体的な文字列表現は実装依存とするが、クラスはフィールド内容などを含めた詳細なダンプを行うよう
+          override してもよい。
+        </li>
+        <li>
+          <code>Dump()</code> は、組み込み consumer <code>dump</code>（6.5.3 節）から呼び出されることを前提とした
+          「var_dump 相当」の文字列生成用途を想定している。
+        </li>
+      </ul>
+
+      <h3>4.5.3 クラス継承（単一継承）</h3>
       <p>
         Aloe の <code>class</code> は <strong>単一継承</strong> のみをサポートする。<br />
         つまり、クラスが指定できる基底クラスはちょうど 1 つである。
@@ -372,7 +401,7 @@ class Bad : Base, OtherBase {
         <li>クラス継承は状態と振る舞いの再利用のためのメカニズムである。</li>
       </ul>
 
-      <h3>4.5.3 interface と trait</h3>
+      <h3>4.5.4 interface と trait</h3>
       <p>
         クラスに対して多重継承を許可する代わりに、
         Aloe では <strong>interface</strong> と <strong>trait</strong> を使って振る舞いの合成を行う。
@@ -416,7 +445,7 @@ class FileHandle : BaseFile implements IDisposable with Printable {
         本ドラフトでは完全には定義しない。ここでは方向性のみを示す。
       </p>
 
-      <h3>4.5.4 sealed クラス</h3>
+      <h3>4.5.5 sealed クラス</h3>
       <p>
         特定のクラスからの継承を禁止するために、Aloe は <code>sealed</code> 修飾子を提供する。
       </p>
@@ -440,7 +469,7 @@ class KeywordToken : Token {
         </li>
       </ul>
 
-      <h3>4.5.5 readonly とクラス</h3>
+      <h3>4.5.6 readonly とクラス</h3>
       <ul>
         <li>クラスのフィールドはデフォルトで可変である。</li>
         <li>フィールドに <code>readonly</code> 修飾子を付けると、そのフィールドは不変になる：
@@ -1071,13 +1100,73 @@ producer ReadLines(Path: String) {
         <h4>6.5.3 代表的な consumer</h4>
         <pre><code>consumer ToArray&lt;T&gt; {
   in: Pipe&lt;T&gt;;
-  bound(input) { ... }   // 戻り値は T[]
+
+  bound(input) {
+    var buffer: List&lt;T&gt;;
+    // 疑似コード:
+    //   for each item in input:
+    //     buffer.add(item);
+    //   return buffer.toArray();
+    return buffer.toArray();
+  }
 }
 
 consumer Count&lt;T&gt; {
   in: Pipe&lt;T&gt;;
-  bound(input) { ... }   // 戻り値は Int
+
+  bound(input) {
+    var c: Int = 0;
+    // 疑似コード:
+    //   for each item in input:
+    //     c = c + 1;
+    //   return c;
+    return c;
+  }
+}
+
+// デバッグ用の組み込み consumer
+consumer dump {
+  in: Object;
+
+  bound(input) {
+    // 実装依存:
+    // input が単一オブジェクト、コレクション、木構造などであることを判別し、
+    // 適切に input.Dump() または要素の Dump() を呼び出してデバッグ出力に書き出す。
+    // 戻り値は Unit（戻り値なし）として扱われる。
+  }
 }</code></pre>
+
+        <p>
+          <code>dump</code> は組み込み consumer であり、パイプラインの末尾で
+          <code>|&gt; dump</code> と書くことで、任意のオブジェクトの <code>Dump()</code> メソッドを使った
+          デバッグ表示を行う。
+        </p>
+        <ul>
+          <li>
+            入力が通常のオブジェクトである場合、そのオブジェクトに対してちょうど 1 回
+            <code>Dump()</code> を呼び出し、その結果の文字列を実装依存のデバッグ出力に書き出す。
+          </li>
+          <li>
+            入力がコレクション（<code>Pipe&lt;T&gt;</code> や配列など反復可能な型）である場合、
+            すべての要素に対して順番に <code>Dump()</code> を呼び出す。
+          </li>
+          <li>
+            入力が木構造またはそれに類するオブジェクトグラフである場合、
+            実装はノードを順番にたどりながら各ノードの <code>Dump()</code> を呼び出してよい。
+          </li>
+          <li>
+            オブジェクトグラフの走査中に循環参照（同一インスタンスを 2 回以上たどろうとする状態）が
+            検出された場合、その時点より下位の要素のダンプはスキップしなければならない。
+          </li>
+          <li>
+            ただし、コレクション全体としては処理を継続し、
+            循環を含んだ要素の次の要素以降についてはダンプを続行する。
+          </li>
+        </ul>
+        <p class="small">
+          実装は循環参照を検出した箇所で「<code>(cycle)</code>」などのマーカーを出力してもよいが、
+          その具体的な文言や表現は実装依存とする。
+        </p>
 
         <h4>6.5.4 使用例</h4>
         <pre><code>let ActiveUserNames: String[] =
@@ -1086,7 +1175,12 @@ consumer Count&lt;T&gt; {
     |&gt; Map   (ParseUser)
     |&gt; Where (.IsActive)
     |&gt; Map   (.Name)
-    |&gt; ToArray();</code></pre>
+    |&gt; ToArray();
+
+// デバッグ目的でパイプラインの途中結果を確認する例
+ReadLines("users.json")
+  |&gt; Where (.Trim().Length &gt; 0)
+  |&gt; dump;   // 各行の Dump() を呼び出してデバッグ出力する</code></pre>
       </section>
     </section>
 
@@ -1719,3 +1813,4 @@ bound Hub {
 </div>
 </body>
 </html>
+
