@@ -314,7 +314,33 @@ yield
           それらの合成（配列・コレクション・enum / struct / class など）によって決まる。
         </p>
 
-        <h3>3.5 宣言の基本形</h3>
+        <h3>3.5 Statement terminator（文の終端）</h3>
+        <pre><code>var x = 10;
+x = x + 1;
+print(x);
+</code></pre>
+        <ul>
+          <li>すべての文はセミコロン <code>;</code> で終わる。</li>
+          <li>行末や改行による <strong>自動セミコロン挿入は行わない</strong>。</li>
+          <li>複数行にまたがる式を書く場合も、最後は必ず <code>;</code> で終端する必要がある。</li>
+        </ul>
+
+        <h3>3.6 Whitespace（空白）</h3>
+        <ul>
+          <li>スペース、タブ、改行はトークン区切りとして扱われる。</li>
+          <li>連続する空白は 1 つの区切りとみなされ、意味的な違いはない。</li>
+          <li>インデント（見た目の字下げ）に意味はない（Python とは異なる）。</li>
+          <li>コードスタイルとしては、一般的なインデント幅（2〜4 スペース）を推奨するが、仕様として強制はしない。</li>
+        </ul>
+
+        <h3>3.7 Case sensitivity（大文字小文字）</h3>
+        <ul>
+          <li>識別子とキーワードは <strong>大文字小文字を区別する</strong>。</li>
+          <li>キーワードはすべて小文字で書く必要がある（<code>Class</code> や <code>IF</code> はキーワードとして認識されない）。</li>
+          <li><code>value</code> と <code>Value</code> は別の変数として扱われる。</li>
+        </ul>
+
+        <h3>3.8 宣言の基本形</h3>
 
         <h4>変数・定数</h4>
         <pre><code>var Count: int = 0;        // 再代入可能
@@ -328,7 +354,7 @@ let Name: string = "Aloe"; // 再代入不可</code></pre>
   return Left + Right;
 }</code></pre>
 
-        <h3>3.6 ブロックとスコープ</h3>
+        <h3>3.9 ブロックとスコープ</h3>
         <ul>
           <li><code>{ ... }</code> でブロックを作り、ローカルスコープを形成する。</li>
           <li><code>with</code> ブロックは別途「リソース管理」で定義する。</li>
