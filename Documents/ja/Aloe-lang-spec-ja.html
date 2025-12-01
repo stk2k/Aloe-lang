@@ -1,4 +1,4 @@
-```html
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -182,7 +182,7 @@
         </ul>
 
         <pre><code>// これは 1 行コメント
-method PrintHello(): Void {
+method PrintHello(): void {
   Print("Hello");
 }</code></pre>
 
@@ -202,14 +202,14 @@ method PrintHello(): Void {
         <h3>3.3 宣言の基本形</h3>
 
         <h4>変数・定数</h4>
-        <pre><code>var Count: Int = 0;       // 再代入可能
-let Name: String = "Aloe"; // 再代入不可</code></pre>
+        <pre><code>var Count: int = 0;       // 再代入可能
+let Name: string = "Aloe"; // 再代入不可</code></pre>
 
         <h4>メソッド</h4>
         <p>
           メソッドは <code>method Name(引数): 戻り値型</code> で定義する。
         </p>
-        <pre><code>method Add(Left: Int, Right: Int): Int {
+        <pre><code>method Add(Left: int, Right: int): int {
   return Left + Right;
 }</code></pre>
 
@@ -224,13 +224,21 @@ let Name: String = "Aloe"; // 再代入不可</code></pre>
         <h2>4. 型システム</h2>
 
         <h3>4.1 プリミティブ型</h3>
+        <p>
+          Aloe のプリミティブ型は、すべて <strong>小文字キーワード</strong> で表記する。
+        </p>
         <ul>
-          <li><code>Bool</code></li>
-          <li><code>Int</code>（実装上の幅は VM 仕様で定義）</li>
-          <li><code>Float</code></li>
-          <li><code>String</code></li>
-          <li><code>Void</code>（戻り値なしの意味として使用）</li>
+          <li><code>bool</code> / <code>boolean</code> – 真偽値。<code>boolean</code> は <code>bool</code> のエイリアス。</li>
+          <li><code>int</code> / <code>integer</code> – 符号付き整数。<code>integer</code> は <code>int</code> のエイリアス。実装上のビット幅は VM 仕様で定義。</li>
+          <li><code>float</code> – 浮動小数点数。</li>
+          <li><code>decimal</code> – 高精度な 10 進小数。</li>
+          <li><code>string</code> – 文字列（不変のテキスト）。</li>
+          <li><code>null</code> – 値が存在しないことを表す特殊値／型。主に参照型やオプション型との組み合わせで用いる（詳細仕様は null 安全性の章で拡張予定）。</li>
+          <li><code>void</code> – 戻り値なしを表す型。関数・メソッドの戻り値位置でのみ使用される。</li>
         </ul>
+        <p>
+          スタイルガイドとしては、短い形（<code>bool</code> / <code>int</code>）を推奨し、長い形（<code>boolean</code> / <code>integer</code>）は互換性・可読性のためのエイリアスとする。
+        </p>
 
         <h3>4.2 配列・コレクション</h3>
         <p>代表的なコンテナ型：</p>
@@ -244,18 +252,19 @@ let Name: String = "Aloe"; // 再代入不可</code></pre>
           関数型はすべて <code>Func&lt;引数型列:戻り値型&gt;</code> で表現する。
         </p>
 
-        <pre><code>var Callback: Func&lt;Int:String&gt;;                   // Int を受け取り String を返す
-var AsyncCallback: Func&lt;String:Task&gt;;           // String を受け取り Task を返す
-var AsyncWithResult: Func&lt;Int:Task&lt;String&gt;&gt;; // Int を受け取り Task&lt;String&gt; を返す</code></pre>
+        <pre><code>var Callback: Func&lt;int:string&gt;;                   // int を受け取り string を返す
+var AsyncCallback: Func&lt;string:Task&gt;;           // string を受け取り Task を返す
+var AsyncWithResult: Func&lt;int:Task&lt;string&gt;&gt;; // int を受け取り Task&lt;string&gt; を返す</code></pre>
 
         <p>
-          戻り値なしの関数は <code>Func&lt;Args:Void&gt;</code>、または戻り値型の省略記法
+          戻り値なしの関数は <code>Func&lt;Args:void&gt;</code>、または戻り値型の省略記法
           <code>Func&lt;Args:&gt;</code> を許可してよい。
         </p>
 
         <h3>4.4 null と Option</h3>
         <p>
           参照の有無を表すために、<code>Option&lt;T&gt;</code> を用意する案がある。詳細は未確定。
+          <code>null</code> との関係や、どの型に <code>null</code> を代入可能とするかは、今後の null 安全設計で明示する。
         </p>
       </section>
 
@@ -279,7 +288,7 @@ var AsyncWithResult: Func&lt;Int:Task&lt;String&gt;&gt;; // Int を受け取り 
           パイプラインは <code>|</code> でつなぐ。
         </p>
 
-        <pre><code>var Lines: Array&lt;String&gt; =
+        <pre><code>var Lines: Array&lt;string&gt; =
   File.ReadLines("users.txt")
     | filter Trim()
     | filter Where(Name =&gt; Name != "")
@@ -297,7 +306,7 @@ var AsyncWithResult: Func&lt;Int:Task&lt;String&gt;&gt;; // Int を受け取り 
 }
 
 struct Consumer&lt;T&gt; {
-  method Push(Item: T): Void;
+  method Push(Item: T): void;
 }</code></pre>
 
         <p>実際の VM 実装では、パイプラインを最適化した形で表現する。</p>
@@ -311,9 +320,9 @@ struct Consumer&lt;T&gt; {
           コレクションもパイプライン構文と統一的に扱う。
         </p>
 
-        <pre><code>var Numbers: Array&lt;Int&gt; = [1, 2, 3, 4, 5];
+        <pre><code>var Numbers: Array&lt;int&gt; = [1, 2, 3, 4, 5];
 
-var Result: Array&lt;Int&gt; =
+var Result: Array&lt;int&gt; =
   Numbers
     | filter Where(X =&gt; X % 2 == 0)
     | filter Select(X =&gt; X * 10)
@@ -334,7 +343,7 @@ var Result: Array&lt;Int&gt; =
           <code>with</code> は、「そのスコープ内でオブジェクトが安全に使われ、スコープ終端で必ずクリーンアップされる」ことを保証する。
         </p>
 
-        <pre><code>method UseFile(Path: String): Void {
+        <pre><code>method UseFile(Path: string): void {
   with File.Open(Path) as F {
     F.WriteLine("Hello");
   }
@@ -373,13 +382,13 @@ delete Buffer; // 以降の使用はコンパイルエラーまたは未定義�
         </ul>
 
         <pre><code>struct Point {
-  var X: Int;
-  var Y: Int;
+  var X: int;
+  var Y: int;
 }
 
 class User {
-  var Id: Int;
-  var Name: String;
+  var Id: int;
+  var Name: string;
 }</code></pre>
 
         <h3>8.2 クラス継承</h3>
@@ -388,11 +397,11 @@ class User {
         </p>
 
         <pre><code>class Animal {
-  method Speak(): Void { }
+  method Speak(): void { }
 }
 
 class Dog : Animal {
-  override method Speak(): Void {
+  override method Speak(): void {
     Print("Bow");
   }
 }</code></pre>
@@ -410,7 +419,7 @@ class Dog : Animal {
         <h3>9.1 基本</h3>
         <pre><code>struct Result&lt;T&gt; {
   var Value: T;
-  var IsOk: Bool;
+  var IsOk: bool;
 }</code></pre>
 
         <h3>9.2 ジェネリックメソッド</h3>
@@ -427,7 +436,7 @@ class Dog : Animal {
 
         <h3>10.1 enum の基本</h3>
         <p>
-          enum の内部表現は <strong>Int 固定</strong> とし、他の基になる整数型を指定することはできない。
+          enum の内部表現は <strong>int 固定</strong> とし、他の基になる整数型を指定することはできない。
         </p>
 
         <pre><code>enum Color {
@@ -487,7 +496,7 @@ class Dog : Animal {
         </p>
 
         <pre><code>bound Button {
-  method OnNativeClick(Id: String): Task {
+  method OnNativeClick(Id: string): Task {
     let Args: ClickedArgs = { ButtonId = Id };
     await Clicked.Raise(Args);
   }
@@ -503,9 +512,9 @@ class Dog : Animal {
         </p>
 
         <pre><code>union Response {
-  Ok(Value: String);
+  Ok(Value: string);
   NotFound();
-  Error(Message: String);
+  Error(Message: string);
 }</code></pre>
 
         <h3>12.2 match 式（案）</h3>
@@ -513,7 +522,7 @@ class Dog : Animal {
           union に対するパターンマッチは、<code>match</code> 式で記述する。
         </p>
 
-        <pre><code>method Handle(ResponseValue: Response): Void {
+        <pre><code>method Handle(ResponseValue: Response): void {
   match (ResponseValue) {
     Ok(Value) {
       Print("OK: " + Value);
@@ -542,11 +551,11 @@ class Dog : Animal {
           <li><code>await</code> は式として定義し、<code>Task</code> 系の値の完了を待つ。</li>
         </ul>
 
-        <pre><code>method DelayMs(Millis: Int): Task {
+        <pre><code>method DelayMs(Millis: int): Task {
   // 実装はランタイム側
 }
 
-method FetchUser(Name: String): Task&lt;User&gt; {
+method FetchUser(Name: string): Task&lt;User&gt; {
   // ユーザを非同期に取得する
 }</code></pre>
 
@@ -604,12 +613,12 @@ await DelayMs(1000);           // Task の場合は値なしとして扱う</cod
   await DelayMs(1000);            // OK
 }
 
-method Bar(): Task&lt;Int&gt; {
+method Bar(): Task&lt;int&gt; {
   let U: User = await FetchUser("Foo"); // OK
   return U.Id;
 }
 
-method Ng(): Int {
+method Ng(): int {
   await DelayMs(1000);            // コンパイルエラー
   return 1;
 }</code></pre>
@@ -657,7 +666,7 @@ method Ng(): Int {
 }
 
 bound Button {
-  method OnNativeClick(Id: String): Task {
+  method OnNativeClick(Id: string): Task {
     let Args: ClickedArgs = { ButtonId = Id };
     await Clicked.Raise(Args);
   }
@@ -692,4 +701,3 @@ method SetupButton(): Task {
   </div>
 </body>
 </html>
-```
