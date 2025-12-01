@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event/async）</title>
-  <meta name="last-updated" content="2025-11-30T12:00:00+09:00" />
+  <meta name="last-updated" content="2025-12-01T17:00:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -381,10 +381,30 @@ let Name: string = "Aloe"; // 再代入不可</code></pre>
           スタイルガイドとしては、短い形（<code>bool</code> / <code>int</code>）を推奨し、長い形（<code>boolean</code> / <code>integer</code>）は互換性・可読性のためのエイリアスとする。
         </p>
 
-        <h3>4.2 配列・コレクション</h3>
+        <h3>4.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
         <p>
-          Aloe には、旧仕様書で定義されていた以下の 4 種類のコレクション型が存在し、<br>
-          新仕様ではそれぞれに <strong>ジェネリック型名</strong> と <strong>短縮記法</strong> の両方を定義する。
+          プリミティブ型以外に、次のような合成型・ユーザー定義型が存在する。
+        </p>
+        <ul>
+          <li>配列：<code>T[]</code> または <code>Array&lt;T&gt;</code></li>
+          <li>リスト：<code>T()</code> または <code>List&lt;T&gt;</code></li>
+          <li>セット：<code>T{}</code> または <code>Set&lt;T&gt;</code></li>
+          <li>マップ：<code>map&lt;T&gt;</code> または <code>map&lt;K/V&gt;</code>（＝ <code>Map&lt;K, V&gt;</code>）</li>
+          <li><code>struct</code></li>
+          <li><code>class</code></li>
+          <li><code>enum</code>, <code>bitfield enum</code></li>
+          <li>非同期タスク：<code>Task</code>, <code>Task&lt;T&gt;</code></li>
+          <li>パイプ：<code>pipe&lt;T&gt;</code>（18章参照）</li>
+        </ul>
+        <p>
+          これらはすべて静的に型付けされ、<code>any</code> 型や動的型付け機能は持たない。
+          実際のメモリレイアウトや実装上の最適化は AloeVM 側の仕様に委ねる。
+        </p>
+
+        <h3>4.3 配列・コレクション</h3>
+        <p>
+          Aloe には次の 4 種類の基本的なコレクション型があり、<br>
+          それぞれに <strong>ジェネリック型名</strong> と <strong>短縮記法</strong> の両方を定義する。
         </p>
 
         <ul>
@@ -419,7 +439,7 @@ let Name: string = "Aloe"; // 再代入不可</code></pre>
             <ul>
               <li>型表記：
                 <code>Map&lt;K, V&gt;</code> と <code>map&lt;K/V&gt;</code> は等価。</li>
-              <li>キー型省略時（旧仕様互換）：
+              <li>キー型省略時：
                 <code>map&lt;V&gt;</code> は <code>Map&lt;string, V&gt;</code> とみなす。</li>
               <li>リテラル：
                 <code>["key1": 10, "key2": 20]</code>（ここでは <code>Map&lt;string, int&gt;</code>）。</li>
@@ -435,18 +455,18 @@ var S: int{}        = {1, 2, 3};                 // Set&lt;int&gt;
 var M: map&lt;string/int&gt; = ["key": 10];           // Map&lt;string, int&gt;
 
 // ジェネリック表記を使うこともできる
-var A2: Array&lt;int&gt;   = [1, 2, 3];
-var L2: List&lt;string&gt; = ("a", "b", "c");
-var S2: Set&lt;int&gt;     = {1, 2, 3};
+var A2: Array&lt;int&gt;        = [1, 2, 3];
+var L2: List&lt;string&gt;      = ("a", "b", "c");
+var S2: Set&lt;int&gt;          = {1, 2, 3};
 var M2: Map&lt;string, float&gt; = ["pi": 3.14];</code></pre>
 
         <p>
-          旧仕様書で定義されていた <code>T[] / T() / T{}</code> / <code>map&lt;K/V&gt;</code> の記法はすべて有効であり、<br>
-          新仕様ではそれらを <code>Array&lt;T&gt; / List&lt;T&gt; / Set&lt;T&gt; / Map&lt;K,V&gt;</code> の
+          従来から使用している <code>T[] / T() / T{}</code> / <code>map&lt;K/V&gt;</code> の記法はすべて有効であり、<br>
+          この仕様ではそれらを <code>Array&lt;T&gt; / List&lt;T&gt; / Set&lt;T&gt; / Map&lt;K,V&gt;</code> の
           <strong>構文糖衣</strong> として正式に位置づける。
         </p>
 
-        <h3>4.3 関数型</h3>
+        <h3>4.4 関数型</h3>
         <p>
           関数型はすべて <code>Func&lt;引数型列:戻り値型&gt;</code> で表現する。
         </p>
@@ -460,7 +480,7 @@ var AsyncWithResult: Func&lt;int:Task&lt;string&gt;&gt;; // int を受け取り 
           <code>Func&lt;Args:&gt;</code> を許可してよい。
         </p>
 
-        <h3>4.4 null と Option</h3>
+        <h3>4.5 null と Option</h3>
         <p>
           参照の有無を表すために、<code>Option&lt;T&gt;</code> を用意する案がある。詳細は未確定。
           <code>null</code> との関係や、どの型に <code>null</code> を代入可能とするかは、今後の null 安全設計で明示する。
@@ -900,4 +920,3 @@ method SetupButton(): Task {
   </div>
 </body>
 </html>
-
