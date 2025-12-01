@@ -231,16 +231,65 @@ method PrintHello(): void {
         </p>
 
         <h3>3.3 キーワード</h3>
-        <p>主要なキーワード（抜粋）：</p>
+        <pre><code>abstract
+as
+async
+bitfield
+break
+case
+catch
+class
+const
+construct
+continue
+delete
+do
+else
+enum
+extends
+false
+field
+finally
+for
+if
+import
+implements
+in
+interface
+is
+let
+main
+method
+namespace
+new
+null
+private
+protected
+public
+readonly
+return
+sealed
+static
+struct
+super
+switch
+swap
+this
+throw
+throws
+trait
+true
+try
+var
+void
+while
+with
+yield
+</code></pre>
         <ul>
-          <li><code>var</code> / <code>let</code>（変数・定数）</li>
-          <li><code>method</code>（メソッド定義）</li>
-          <li><code>struct</code> / <code>class</code> / <code>union</code></li>
-          <li><code>enum</code></li>
-          <li><code>with</code> / <code>delete</code> / <code>lock</code></li>
-          <li><code>pipe</code> / <code>filter</code> / <code>producer</code> / <code>consumer</code></li>
-          <li><code>event</code></li>
-          <li><code>await</code></li>
+          <li><code>package</code> は使わず、<code>namespace</code> を使用する。</li>
+          <li><code>final</code> は廃止され、拡張禁止には <code>sealed</code> を用いる。</li>
+          <li><code>instanceof</code> は廃止され、型チェックには <code>is</code> を用いる。</li>
         </ul>
 
         <h3>3.4 宣言の基本形</h3>
