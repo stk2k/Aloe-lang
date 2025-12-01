@@ -292,7 +292,29 @@ yield
           <li><code>instanceof</code> は廃止され、型チェックには <code>is</code> を用いる。</li>
         </ul>
 
-        <h3>3.4 宣言の基本形</h3>
+        <h3>3.4 Literals（リテラル）</h3>
+        <ul>
+          <li>整数リテラル：<code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code> など</li>
+          <li>浮動小数点リテラル：<code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
+          <li>10進リテラル（decimal）：<code>10.12345678901234567890:d</code> など</li>
+          <li>真偽値：<code>true</code>, <code>false</code></li>
+          <li>文字列：<code>"Hello, World!"</code></li>
+          <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
+          <li>null リテラル：<code>null</code>（リテラルとして存在するが、直接代入には制約がある。型推論ができない <code>var x = null;</code> はコンパイルエラーなど）</li>
+          <li>配列リテラル：<code>[1, 2, 3]</code>（型は文脈から <code>int[]</code> や <code>Array&lt;int&gt;</code> などに推論）</li>
+          <li>リストリテラル：<code>(1, 2, 3)</code>（<code>int()</code> / <code>List&lt;int&gt;</code>）</li>
+          <li>セットリテラル：<code>{1, 2, 3}</code>（<code>int{}</code> / <code>Set&lt;int&gt;</code>）</li>
+          <li>マップリテラル：<code>["key1": 10, "key2": 20]</code>（<code>map&lt;int&gt;</code> / <code>Map&lt;string,int&gt;</code>）</li>
+          <li>enum リテラル：<code>EnumType.Value1</code></li>
+          <li>struct リテラル：<code>Point { X: 0, Y: 1 }</code></li>
+          <li>オブジェクト生成：<code>new ClassName()</code></li>
+        </ul>
+        <p>
+          リテラルそのものの型は、プリミティブ型（<code>int</code> / <code>float</code> / <code>decimal</code> / <code>bool</code> / <code>string</code> / <code>char</code>）および
+          それらの合成（配列・コレクション・enum / struct / class など）によって決まる。
+        </p>
+
+        <h3>3.5 宣言の基本形</h3>
 
         <h4>変数・定数</h4>
         <pre><code>var Count: int = 0;        // 再代入可能
@@ -306,7 +328,7 @@ let Name: string = "Aloe"; // 再代入不可</code></pre>
   return Left + Right;
 }</code></pre>
 
-        <h3>3.5 ブロックとスコープ</h3>
+        <h3>3.6 ブロックとスコープ</h3>
         <ul>
           <li><code>{ ... }</code> でブロックを作り、ローカルスコープを形成する。</li>
           <li><code>with</code> ブロックは別途「リソース管理」で定義する。</li>
