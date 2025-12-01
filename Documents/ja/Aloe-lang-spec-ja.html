@@ -2,23 +2,28 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event/async）</title>
-  <meta name="last-updated" content="2025-12-01T18:00:00+09:00" />
+  <meta charset="UTF-8">
+  <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
   <style>
-    /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
+    :root {
+      color-scheme: light dark;
+    }
     body {
       margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+                   "Hiragino Sans", "Yu Gothic", sans-serif;
+      line-height: 1.7;
+      background: #f5f5f7;
     }
     .layout {
       display: flex;
       min-height: 100vh;
     }
     .sidebar {
-      width: 320px;
+      width: 260px;
       background: #111827;
       color: #e5e7eb;
-      padding: 1.2rem 1rem;
+      padding: 1.5rem 1.25rem;
       box-sizing: border-box;
       position: sticky;
       top: 0;
@@ -27,211 +32,206 @@
       overflow-y: auto;
     }
     .sidebar h1 {
-      font-size: 1rem;
-      margin: 0 0 0.25rem;
+      font-size: 1.1rem;
+      margin: 0 0 0.4rem;
     }
-    .sidebar p {
-      margin: 0 0 0.75rem;
+    .sidebar .subtitle {
       font-size: 0.8rem;
       color: #9ca3af;
+      margin-bottom: 1.4rem;
     }
-    .sidebar nav a {
-      display: block;
+    .sidebar h2 {
       font-size: 0.85rem;
-      color: #d1d5db;
+      margin: 1.2rem 0 0.4rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #9ca3af;
+    }
+    .sidebar nav ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 0.9rem;
+    }
+    .sidebar nav li {
+      margin: 0.15rem 0;
+    }
+    .sidebar a {
+      color: inherit;
       text-decoration: none;
-      padding: 0.2rem 0;
-      white-space: nowrap;
+      display: block;
+      padding: 0.25rem 0.4rem;
+      border-radius: 0.35rem;
     }
-    .sidebar nav a:hover {
-      color: #ffffff;
+    .sidebar a:hover {
+      background: #1f2937;
     }
+    .sidebar .chapter-index {
+      font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-right: 0.35rem;
+    }
+
     .content {
       flex: 1;
-      padding: 1.5rem 2rem 3rem;
+      max-width: 1100px;
+      padding: 2rem 3rem;
       box-sizing: border-box;
+      margin: 0 auto;
+      background: #f9fafb;
     }
-    .content h1 {
-      font-size: 1.6rem;
+    h1, h2, h3, h4, h5 {
+      margin-top: 1.6em;
+      color: #111827;
+    }
+    h1 {
       margin-top: 0;
     }
-    .content h2 {
-      font-size: 1.3rem;
-      margin-top: 2rem;
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 0.25rem;
-    }
-    .content h3 {
-      font-size: 1.1rem;
-      margin-top: 1.4rem;
-    }
-    .content p {
-      line-height: 1.6;
-      margin: 0.4rem 0;
-    }
-    .content ul, .content ol {
-      margin: 0.4rem 0 0.8rem 1.4rem;
-    }
-    code {
-      font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+    pre, code {
+      font-family: "JetBrains Mono", "Cascadia Code", Consolas,
+                   "Ricty Diminished", monospace;
       font-size: 0.9rem;
-      background: #f3f4f6;
-      padding: 0.1rem 0.2rem;
-      border-radius: 3px;
     }
     pre {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 4px;
-      padding: 0.75rem 0.9rem;
+      background: #1118270d;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
       overflow-x: auto;
-      font-size: 0.9rem;
-      line-height: 1.4;
-    }
-    pre code {
-      background: transparent;
-      padding: 0;
-    }
-    table {
-      border-collapse: collapse;
-      margin: 0.5rem 0 1rem;
-      width: 100%;
-      max-width: 100%;
-    }
-    th, td {
       border: 1px solid #e5e7eb;
-      padding: 0.3rem 0.5rem;
+    }
+    ul, ol {
+      padding-left: 1.4em;
+    }
+    hr {
+      margin: 2.2rem 0;
+      border: none;
+      border-top: 1px solid #e5e7eb;
+    }
+    .note {
       font-size: 0.9rem;
-      text-align: left;
-    }
-    th {
-      background: #f3f4f6;
-    }
-    .tag {
-      display: inline-block;
-      font-size: 0.75rem;
-      background: #e5e7eb;
-      color: #111827;
-      padding: 0.05rem 0.4rem;
-      border-radius: 999px;
-      margin-right: 0.25rem;
+      color: #4b5563;
     }
   </style>
 </head>
 <body>
-  <div class="layout">
-    <aside class="sidebar">
-      <h1>Aloe 言語仕様書</h1>
-      <p>ドラフト版 / 設計検討用</p>
-      <nav>
-        <a href="#overview">1. 概要</a>
-        <a href="#goals">2. 設計目標</a>
-        <a href="#syntax">3. 基本文法</a>
-        <a href="#types">4. 型システム</a>
-        <a href="#pipe-filter">5. パイプ／フィルタ／producer／consumer</a>
-        <a href="#collections">6. コレクションとパイプライン</a>
-        <a href="#resource">7. リソース管理（with / delete / lock）</a>
-        <a href="#classes">8. クラス／struct／継承</a>
-        <a href="#generics">9. ジェネリクス</a>
-        <a href="#enums">10. enum とビットフラグ</a>
-        <a href="#events">11. event とデリゲート</a>
-        <a href="#pattern-union">12. パターンマッチと union</a>
-        <a href="#async">13. 非同期処理（async/await と Task）</a>
-        <a href="#future">14. 今後の拡張</a>
-      </nav>
-    </aside>
-    <main class="content">
-      <header>
-        <h1 id="overview">1. 概要</h1>
-        <p>
-          Aloe は、生成 AI と一緒に設計している、静的型付きで小さくシンプルな
-          <span class="tag">パイプ指向</span>
-          言語である。
-        </p>
-        <p>
-          文字列・テキスト処理・REST 呼び出し・ストリーミングを、
-          <code>pipe</code> と <code>filter</code> を使って書きやすくすることを第一の目的とする。
-        </p>
+<div class="layout">
+
+  <!-- 左側メニュー -->
+  <aside class="sidebar">
+    <h1>Aloe Language Spec</h1>
+    <div class="subtitle">Draft • Japanese translation + with 拡張</div>
+
+    <h2>Chapters</h2>
+    <nav>
+      <ul>
+        <li><a href="#ch0"><span class="chapter-index">0.</span>概要 (Overview)</a></li>
+        <li><a href="#ch1"><span class="chapter-index">1.</span>基本文法 (Basic Syntax)</a></li>
+        <li><a href="#ch2"><span class="chapter-index">2.</span>型システム (Type System)</a></li>
+        <li><a href="#ch3"><span class="chapter-index">3.</span>数値と変換 (Numbers &amp; Conversions)</a></li>
+        <li><a href="#ch4"><span class="chapter-index">4.</span>ブロックとスコープ (Blocks &amp; Scope)</a></li>
+        <li><a href="#ch5"><span class="chapter-index">5.</span>変数と定数 (Variables &amp; Constants)</a></li>
+        <li><a href="#ch6"><span class="chapter-index">6.</span>フィールド (Fields)</a></li>
+        <li><a href="#ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
+        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; null</a></li>
+        <li><a href="#ch9"><span class="chapter-index">9.</span>is 演算子 (is Operator)</a></li>
+        <li><a href="#ch10"><span class="chapter-index">10.</span>コレクション (Collections)</a></li>
+        <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
+        <li><a href="#ch12"><span class="chapter-index">12.</span>main ブロック (main Block)</a></li>
+        <li><a href="#ch13"><span class="chapter-index">13.</span>一時変数 <code>_</code> (Temp Variable)</a></li>
+        <li><a href="#ch14"><span class="chapter-index">14.</span>swap キーワード</a></li>
+        <li><a href="#ch15"><span class="chapter-index">15.</span>演算子 (Operators)</a></li>
+        <li><a href="#ch16"><span class="chapter-index">16.</span>例外 (Exceptions)</a></li>
+        <li><a href="#ch17"><span class="chapter-index">17.</span>Modules / namespace / import</a></li>
+        <li><a href="#ch18"><span class="chapter-index">18.</span>Pipes &amp; Filters</a></li>
+      </ul>
+    </nav>
+
+    <h2>Key Section</h2>
+    <nav>
+      <ul>
+        <li><a href="#with-blocks">4.2 with ブロック</a></li>
+        <li><a href="#with-type">4.2.1 型名対象 with 拡張</a></li>
+      </ul>
+    </nav>
+  </aside>
+
+  <!-- 本文 -->
+  <main class="content">
+    <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
+    <p class="note">
+      この文書は、英語版仕様
+      <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>
+      をベースにした日本語ドラフトです。<br>
+      その上で <strong>4.2 with-blocks</strong> に
+      <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
+      の拡張を追加しています。<br>
+      それ以外の仕様は原文にできるだけ忠実に訳しています。
+    </p>
+
+    <hr>
+
+    <h2 id="ch0">0. Overview（概要）</h2>
+    <p>
+      Aloe は静的型付けのスクリプト言語であり、シンプルで直感的な構文を目指している。<br>
+      スタックベースの仮想マシン（AloeVM）上で動作し、主に次のような目標を持つ。
+    </p>
+    <ul>
+      <li>教育用途や小規模アプリケーションで読み書きしやすいこと</li>
+      <li>C# ランタイムおよび WebAssembly (WASM) 環境で動作すること</li>
+      <li><code>pipe</code> と <code>filter</code> によって、I/O と並行処理を静的型付けのまま制御できること</li>
+    </ul>
+    <p>特徴：</p>
+    <ul>
+      <li>静的型付け
         <ul>
-          <li>静的型付き・コンパイル言語</li>
-          <li>スタックベース VM と WebAssembly を意識したバイトコード（AloeBC）</li>
-          <li>pipe / filter / producer / consumer を第一級機能としてサポート</li>
-          <li><code>with</code> によるメモリ・リソースの安全なスコープ管理</li>
-          <li>クラス継承・ジェネリクス・event・async/await をサポート</li>
+          <li><code>var</code> による型推論</li>
+          <li><code>let</code> による明示的な型指定</li>
         </ul>
-      </header>
-
-      <section id="goals">
-        <h2>2. 設計目標</h2>
+      </li>
+      <li>値型 / 参照型
         <ul>
-          <li><strong>小さく覚えやすい文法</strong>：構文ルールを少なくし、規則性を重視する。</li>
-          <li><strong>テキストと I/O に強い</strong>：パイプラインでのデータ変換を標準機能化する。</li>
-          <li><strong>言語仕様として明示</strong>：曖昧な挙動を避け、仕様書に書けるレベルで定義する。</li>
-          <li><strong>Wasm と相性がよい</strong>：AloeVM を Wasm 上に載せやすくする設計。</li>
-          <li><strong>GC 依存を減らす</strong>：<code>with</code> とリソース管理規約で安全性を担保する。</li>
+          <li><code>struct</code> … 値型</li>
+          <li><code>class</code> … 参照型</li>
         </ul>
-      </section>
-
-      <section id="syntax">
-        <h2>3. 基本文法</h2>
-
-        <h3>3.1 コメント</h3>
+      </li>
+      <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
+      <li><code>= null</code> をソースコード中に直接書かない
         <ul>
-          <li><code>//</code> から行末までがコメント。</li>
-          <li><code>/* ... */</code> のブロックコメントも将来的には追加予定。</li>
+          <li>参照型は内部的には null を取り得るが、<code>delete</code> による糖衣構文で扱う。</li>
         </ul>
+      </li>
+      <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
+    </ul>
 
-        <pre><code>// これは 1 行コメント
-method PrintHello(): void {
-  Print("Hello");
-}</code></pre>
+    <hr>
 
-        <h3>3.2 識別子（Identifiers）</h3>
-        <p>Aloe の識別子は、変数名・メソッド名・クラス名など、ユーザーが定義するあらゆる名前を指す。</p>
-        <ul>
-          <li>使用可能文字：
-            <ul>
-              <li>英字 <code>A–Z</code>, <code>a–z</code></li>
-              <li>数字 <code>0–9</code></li>
-              <li>アンダースコア <code>_</code></li>
-              <li>一部のユニコード文字（字母カテゴリのもの）</li>
-            </ul>
-          </li>
-          <li>先頭文字は英字または <code>_</code> でなければならない。
-            <ul>
-              <li><code>_foo</code>, <code>Value1</code> は有効。</li>
-              <li><code>1Value</code> は無効。</li>
-            </ul>
-          </li>
-          <li>大文字小文字は区別される。
-            <ul>
-              <li><code>value</code> と <code>Value</code> は別の識別子。</li>
-            </ul>
-          </li>
-          <li>キーワードと同じ綴りは識別子として使用できない。
-            <ul>
-              <li><code>class</code>, <code>if</code>, <code>while</code> などは予約語。</li>
-            </ul>
-          </li>
-          <li><code>_</code> で始まる識別子は「非公開／内部用」の慣習的プレフィックスとして扱われる。
-            <ul>
-              <li>コンパイラレベルでのアクセス制御とは直結しないが、ライブラリ設計ガイドライン上は「外から触らないこと」を推奨する。</li>
-            </ul>
-          </li>
-          <li>ユニコード識別子：
-            <ul>
-              <li>日本語のクラス名や変数名（例：<code>変数</code>、<code>会員情報</code>）を許可してもよいが、
-                  仕様レベルでは「字母カテゴリの文字」を許可し、空白や記号類は除外する。</li>
-            </ul>
-          </li>
-        </ul>
-        <p>
-          スタイルガイドとしては、クラス名・メソッド名にはパスカルケース（<code>MyClass</code>, <code>ToString</code>）、
-          ローカル変数・引数にはキャメルケース（<code>userName</code>, <code>index</code>）を用いることを推奨する。
-        </p>
+    <h2 id="ch1">1. Basic Syntax（基本文法）</h2>
 
-        <h3>3.3 キーワード</h3>
-        <pre><code>abstract
+    <h3>1.1 Comments（コメント）</h3>
+<pre><code>// single-line comment
+
+/* multi-line
+   comment */
+</code></pre>
+    <ul>
+      <li><code>//</code> から行末までが行コメント。</li>
+      <li><code>/*</code> ～ <code>*/</code> が複数行コメント。</li>
+      <li>ネストした <code>/* */</code> は未定義（サポートしない想定）。</li>
+    </ul>
+
+    <h3>1.2 Identifiers（識別子）</h3>
+    <ul>
+      <li>使用可能文字：英字 (A–Z, a–z)、数字 (0–9)、アンダースコア <code>_</code></li>
+      <li>先頭文字は英字または <code>_</code> でなければならない。</li>
+      <li>大文字小文字は区別される。</li>
+      <li>キーワードと同じ綴りは使用できない。</li>
+      <li><code>_</code> で始まる識別子は「プライベート」扱い（外部からは参照しない慣習）。</li>
+      <li>ユニコード文字も使用できる（空白や区切り記号などは除外）。</li>
+    </ul>
+
+    <h3>1.3 Keywords（キーワード）</h3>
+<pre><code>abstract
 as
 async
 bitfield
@@ -286,725 +286,894 @@ while
 with
 yield
 </code></pre>
-        <ul>
-          <li><code>package</code> は使わず、<code>namespace</code> を使用する。</li>
-          <li><code>final</code> は廃止され、拡張禁止には <code>sealed</code> を用いる。</li>
-          <li><code>instanceof</code> は廃止され、型チェックには <code>is</code> を用いる。</li>
-        </ul>
+    <ul>
+      <li><code>package</code> は使わず、<code>namespace</code> を使用する。</li>
+      <li><code>final</code> は廃止され、拡張禁止には <code>sealed</code> を用いる。</li>
+      <li><code>instanceof</code> は廃止され、型チェックには <code>is</code> を用いる。</li>
+    </ul>
 
-        <h3>3.4 Literals（リテラル）</h3>
-        <ul>
-          <li>整数リテラル：<code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code> など</li>
-          <li>浮動小数点リテラル：<code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
-          <li>10進リテラル（decimal）：<code>10.12345678901234567890:d</code> など</li>
-          <li>真偽値：<code>true</code>, <code>false</code></li>
-          <li>文字列：<code>"Hello, World!"</code></li>
-          <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
-          <li>null リテラル：<code>null</code>（リテラルとして存在するが、直接代入には制約がある。型推論ができない <code>var x = null;</code> はコンパイルエラーなど）</li>
-          <li>配列リテラル：<code>[1, 2, 3]</code>（要素型は最小上界から推論、ここでは <code>int[]</code>）</li>
-          <li>リストリテラル：<code>(1, 2, 3)</code>（<code>int()</code> / <code>List&lt;int&gt;</code>）</li>
-          <li>セットリテラル：<code>{1, 2, 3}</code>（<code>int{}</code> / <code>Set&lt;int&gt;</code>）</li>
-          <li>マップリテラル：<code>["key1": 10, "key2": 20]</code>（<code>map&lt;int&gt;</code> / <code>Map&lt;string,int&gt;</code>）</li>
-          <li>enum リテラル：<code>EnumType.Value1</code></li>
-          <li>struct リテラル：<code>Point { X: 0, Y: 1 }</code></li>
-          <li>オブジェクト生成：<code>new ClassName()</code></li>
-        </ul>
-        <p>
-          リテラルそのものの型は、プリミティブ型（<code>int</code> / <code>float</code> / <code>decimal</code> / <code>bool</code> / <code>string</code> / <code>char</code>）および
-          それらの合成（配列・コレクション・enum / struct / class など）によって決まる。
-        </p>
+    <h3>1.4 Literals（リテラル）</h3>
+    <ul>
+      <li>整数リテラル：<code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code> など</li>
+      <li>浮動小数点リテラル：<code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
+      <li>10進リテラル：<code>10.12345678901234567890:d</code> など</li>
+      <li>真偽値：<code>true</code>, <code>false</code></li>
+      <li>文字列：<code>"Hello, World!"</code></li>
+      <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
+      <li>null リテラル：<code>null</code></li>
+      <li>配列リテラル：<code>[1, 2, 3]</code></li>
+      <li>リストリテラル：<code>(1, 2, 3)</code></li>
+      <li>セットリテラル：<code>{1, 2, 3}</code></li>
+      <li>マップリテラル：<code>["key1": 10, "key2": 20]</code></li>
+      <li>enum リテラル：<code>EnumType.Value1</code></li>
+      <li>struct リテラル：<code>Point { x: 0, y: 1 }</code></li>
+      <li>オブジェクト生成：<code>new ClassName()</code></li>
+    </ul>
 
-        <h3>3.5 Statement terminator（文の終端）</h3>
-        <pre><code>var x = 10;
+    <h3>1.5 Statement terminator（文の終端）</h3>
+<pre><code>var x = 10;
 x = x + 1;
 print(x);
 </code></pre>
+    <ul>
+      <li>すべての文はセミコロン <code>;</code> で終わる。</li>
+      <li>改行による自動セミコロン挿入は行わない。</li>
+    </ul>
+
+    <h3>1.6 Whitespace（空白）</h3>
+    <ul>
+      <li>スペース、タブ、改行はトークン区切りとして扱われる。</li>
+      <li>連続する空白は 1 つの区切りとみなされる。</li>
+      <li>インデントに意味はない（Python とは異なる）。</li>
+    </ul>
+
+    <h3>1.7 Case sensitivity（大文字小文字）</h3>
+    <ul>
+      <li>識別子とキーワードは大文字小文字を区別する。</li>
+      <li>キーワードはすべて小文字。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch2">2. Type System（型システム）</h2>
+
+    <h3>2.1 Primitive types（プリミティブ型）</h3>
+    <p>
+      Aloe における「プリミティブ型」は、次の 7 種類とする。
+    </p>
+    <ul>
+      <li><code>bool</code> / <code>boolean</code> – 真偽値。</li>
+      <li><code>int</code> / <code>integer</code> – 符号付き整数。</li>
+      <li><code>float</code> – 浮動小数点数。</li>
+      <li><code>decimal</code> – 高精度 10 進数。</li>
+      <li><code>string</code> – 文字列（内部的には Unicode）。</li>
+      <li><code>null</code> – 「値が存在しない」ことを表す特別な型兼値。</li>
+      <li><code>void</code> – 戻り値なし（メソッド戻り値専用）。</li>
+    </ul>
+    <p>
+      <code>any</code> 型は存在せず、動的型付けはサポートしない。<br>
+      <code>char</code> や <code>byte</code> は言語としてはサポートされるが、プリミティブ型のカテゴリからは外し、
+      数値と変換の章（3 章）で別途扱う値型とする。
+    </p>
+
+    <h3>2.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
+    <ul>
+      <li>配列：<code>T[]</code></li>
+      <li>リスト：<code>T()</code></li>
+      <li>セット：<code>T{}</code></li>
+      <li>マップ：<code>map&lt;T&gt;</code> または <code>map&lt;K/V&gt;</code></li>
+      <li><code>struct</code></li>
+      <li><code>class</code></li>
+      <li><code>enum</code>, <code>bitfield enum</code></li>
+      <li>非同期タスク：<code>task</code></li>
+      <li>パイプ：<code>pipe&lt;T&gt;</code>（18章参照）</li>
+    </ul>
+    <p><code>any</code> 型は存在せず、動的型付けはサポートしない。</p>
+
+    <h3>2.3 Value types / reference types（値型 / 参照型）</h3>
+    <ul>
+      <li>値型：
         <ul>
-          <li>すべての文はセミコロン <code>;</code> で終わる。</li>
-          <li>行末や改行による <strong>自動セミコロン挿入は行わない</strong>。</li>
-          <li>複数行にまたがる式を書く場合も、最後は必ず <code>;</code> で終端する必要がある。</li>
-        </ul>
-
-        <h3>3.6 Whitespace（空白）</h3>
-        <ul>
-          <li>スペース、タブ、改行はトークン区切りとして扱われる。</li>
-          <li>連続する空白は 1 つの区切りとみなされ、意味的な違いはない。</li>
-          <li>インデント（見た目の字下げ）に意味はない（Python とは異なる）。</li>
-          <li>コードスタイルとしては、一般的なインデント幅（2〜4 スペース）を推奨するが、仕様として強制はしない。</li>
-        </ul>
-
-        <h3>3.7 Case sensitivity（大文字小文字）</h3>
-        <ul>
-          <li>識別子とキーワードは <strong>大文字小文字を区別する</strong>。</li>
-          <li>キーワードはすべて小文字で書く必要がある（<code>Class</code> や <code>IF</code> はキーワードとして認識されない）。</li>
-          <li><code>value</code> と <code>Value</code> は別の変数として扱われる。</li>
-        </ul>
-
-        <h3>3.8 宣言の基本形</h3>
-
-        <h4>変数・定数</h4>
-        <pre><code>var Count: int = 0;        // 再代入可能
-let Name: string = "Aloe"; // 再代入不可</code></pre>
-
-        <h4>メソッド</h4>
-        <p>
-          メソッドは <code>method Name(引数): 戻り値型</code> で定義する。
-        </p>
-        <pre><code>method Add(Left: int, Right: int): int {
-  return Left + Right;
-}</code></pre>
-
-        <h3>3.9 ブロックとスコープ</h3>
-        <ul>
-          <li><code>{ ... }</code> でブロックを作り、ローカルスコープを形成する。</li>
-          <li><code>with</code> ブロックは別途「リソース管理」で定義する。</li>
-        </ul>
-      </section>
-
-      <section id="types">
-        <h2>4. 型システム</h2>
-
-        <h3>4.1 プリミティブ型</h3>
-        <p>
-          Aloe のプリミティブ型は、すべて <strong>小文字キーワード</strong> で表記する。
-        </p>
-        <ul>
-          <li><code>bool</code> / <code>boolean</code> – 真偽値。<code>boolean</code> は <code>bool</code> のエイリアス。</li>
-          <li><code>int</code> / <code>integer</code> – 符号付き整数。<code>integer</code> は <code>int</code> のエイリアス。実装上のビット幅は VM 仕様で定義。</li>
-          <li><code>float</code> – 浮動小数点数。</li>
-          <li><code>decimal</code> – 高精度な 10 進小数。</li>
-          <li><code>string</code> – 文字列（不変のテキスト）。</li>
-          <li><code>null</code> – 値が存在しないことを表す特殊値／型。主に参照型やオプション型との組み合わせで用いる（詳細仕様は null 安全性の章で拡張予定）。</li>
-          <li><code>void</code> – 戻り値なしを表す型。関数・メソッドの戻り値位置でのみ使用される。</li>
-        </ul>
-        <p>
-          スタイルガイドとしては、短い形（<code>bool</code> / <code>int</code>）を推奨し、長い形（<code>boolean</code> / <code>integer</code>）は互換性・可読性のためのエイリアスとする。
-        </p>
-
-        <h3>4.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
-        <p>
-          プリミティブ型以外に、次のような合成型・ユーザー定義型が存在する。
-        </p>
-        <ul>
-          <li>配列：<code>T[]</code> または <code>Array&lt;T&gt;</code></li>
-          <li>リスト：<code>T()</code> または <code>List&lt;T&gt;</code></li>
-          <li>セット：<code>T{}</code> または <code>Set&lt;T&gt;</code></li>
-          <li>マップ：<code>map&lt;T&gt;</code> または <code>map&lt;K/V&gt;</code>（＝ <code>Map&lt;K, V&gt;</code>）</li>
+          <li><code>int</code>, <code>float</code>, <code>decimal</code>, <code>bool</code>, <code>byte</code>, <code>char</code></li>
           <li><code>struct</code></li>
+          <li><code>enum</code>, <code>bitfield enum</code>（内部表現は int32）</li>
+        </ul>
+      </li>
+      <li>参照型：
+        <ul>
           <li><code>class</code></li>
-          <li><code>enum</code>, <code>bitfield enum</code></li>
-          <li>非同期タスク：<code>Task</code>, <code>Task&lt;T&gt;</code></li>
-          <li>パイプ：<code>pipe&lt;T&gt;</code>（18章参照）</li>
+          <li><code>string</code>（実装上は参照型）</li>
+          <li><code>task</code>, <code>pipe&lt;T&gt;</code> など</li>
         </ul>
-        <p>
-          これらはすべて静的に型付けされ、<code>any</code> 型や動的型付け機能は持たない。
-          実際のメモリレイアウトや実装上の最適化は AloeVM 側の仕様に委ねる。
-        </p>
+      </li>
+    </ul>
 
-        <h3>4.3 Value types / reference types（値型 / 参照型）</h3>
+    <h4>Struct restrictions and copying（struct の制約とコピー）</h4>
+    <ul>
+      <li>struct のフィールドにはプリミティブ型と他の struct のみを持てる。</li>
+      <li>class などの参照型フィールドは持てない。</li>
+      <li>struct の代入は常に値コピー。</li>
+      <li>最大サイズなどは仕様で制限しない。</li>
+    </ul>
+
+    <h4>Class vs struct（class と struct）</h4>
+    <ul>
+      <li>class は struct をフィールドとして持てる。</li>
+      <li>class インスタンスを別変数に代入すると参照がコピーされる（オブジェクト本体は共有）。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch3">3. Numbers &amp; Conversions（数値と暗黙変換）</h2>
+
+    <h3>3.1 int and float</h3>
+    <ul>
+      <li><code>int</code> と <code>float</code> を混在させた式の結果は <code>float</code> になる。
         <ul>
-          <li>値型：
-            <ul>
-              <li><code>int</code>, <code>float</code>, <code>decimal</code>, <code>bool</code>, <code>byte</code>, <code>char</code></li>
-              <li><code>struct</code></li>
-              <li><code>enum</code>, <code>bitfield enum</code>（内部表現は int32）</li>
-            </ul>
-          </li>
-          <li>参照型：
-            <ul>
-              <li><code>class</code></li>
-              <li><code>string</code>（実装上は参照型）</li>
-              <li><code>Task</code>, <code>Task&lt;T&gt;</code></li>
-              <li><code>pipe&lt;T&gt;</code> など</li>
-            </ul>
-          </li>
+          <li><code>int + float → float</code></li>
+          <li><code>int - float → float</code></li>
+          <li><code>int * float → float</code></li>
+          <li><code>int / float → float</code></li>
         </ul>
+      </li>
+    </ul>
 
-        <h4>Struct restrictions and copying（struct の制約とコピー）</h4>
+    <h3>3.2 decimal</h3>
+    <ul>
+      <li><code>decimal</code> は高精度な 10 進数。</li>
+      <li><code>int</code> / <code>float</code> と混在する式は、必要に応じて <code>decimal</code> に昇格しうる。</li>
+      <li>オーバーフロー / アンダーフロー / 精度問題は <code>OverflowException</code> として扱う。</li>
+    </ul>
+
+    <h3>3.3 enum and int</h3>
+    <ul>
+      <li>Aloe にはキャスト構文がない。</li>
+      <li>enum と int の暗黙 / 明示変換はいずれも禁止。</li>
+      <li>enum と数値型の混在式はコンパイルエラー（bitfield enum のビット演算を除く）。</li>
+      <li>内部表現としては enum / bitfield enum はすべて int32。</li>
+    </ul>
+
+    <h3>3.4 byte and char</h3>
+    <ul>
+      <li><code>byte</code>：
         <ul>
-          <li>struct のフィールドにはプリミティブ型と他の struct のみを持てる。</li>
-          <li>class などの参照型フィールドは持てない。</li>
-          <li>struct の代入は常に <strong>値コピー</strong>。</li>
-          <li>最大サイズなどは仕様で制限しないが、実装によっては最適化上の制約を設ける場合がある。</li>
+          <li>範囲は 0–255。</li>
+          <li>byte 同士の演算は許されるが、範囲外はエラーになり得る。</li>
+          <li>byte と int の混在式は int に昇格。</li>
         </ul>
-
-        <h4>Class vs struct（class と struct）</h4>
+      </li>
+      <li><code>char</code>：
         <ul>
-          <li>class は struct をフィールドとして持てる。</li>
-          <li>class インスタンスを別変数に代入すると参照がコピーされる（オブジェクト本体は共有）。</li>
-          <li>値型／参照型の違いによって、関数呼び出し時のコピーコストやメモリレイアウトが異なる。</li>
+          <li>char の算術演算は不可。</li>
+          <li>比較演算（<code>==</code>, <code>&lt;</code>, <code>&gt;</code> 等）は char 同士のみ。</li>
+          <li>数値型との暗黙変換はない。</li>
         </ul>
-
-        <h3>4.4 配列・コレクション</h3>
-        <p>
-          Aloe には次の 4 種類の基本的なコレクション型があり、<br>
-          それぞれに <strong>ジェネリック型名</strong> と <strong>短縮記法</strong> の両方を定義する。
-        </p>
-
-        <ul>
-          <li><strong>配列（Array）</strong>
-            <ul>
-              <li>型表記：
-                <code>Array&lt;T&gt;</code> と <code>T[]</code> は等価。</li>
-              <li>リテラル：
-                <code>[1, 2, 3]</code>（要素型は最小上界から推論、ここでは <code>int[]</code>）。</li>
-              <li>固定長・ランダムアクセス向きのシーケンス。</li>
-            </ul>
-          </li>
-          <li><strong>リスト（List）</strong>
-            <ul>
-              <li>型表記：
-                <code>List&lt;T&gt;</code> と <code>T()</code> は等価。</li>
-              <li>リテラル：
-                <code>(1, 2, 3)</code>（ここでは <code>int()</code>）。</li>
-              <li>可変長の順序付きコレクション。</li>
-            </ul>
-          </li>
-          <li><strong>セット（Set）</strong>
-            <ul>
-              <li>型表記：
-                <code>Set&lt;T&gt;</code> と <code>T{}</code> は等価。</li>
-              <li>リテラル：
-                <code>{1, 2, 3}</code>（ここでは <code>int{}</code>）。</li>
-              <li>要素は一意であり、順序は未定義。</li>
-            </ul>
-          </li>
-          <li><strong>マップ（Map）</strong>
-            <ul>
-              <li>型表記：
-                <code>Map&lt;K, V&gt;</code> と <code>map&lt;K/V&gt;</code> は等価。</li>
-              <li>キー型省略時：
-                <code>map&lt;V&gt;</code> は <code>Map&lt;string, V&gt;</code> とみなす。</li>
-              <li>リテラル：
-                <code>["key1": 10, "key2": 20]</code>（ここでは <code>Map&lt;string, int&gt;</code>）。</li>
-            </ul>
-          </li>
-        </ul>
-
-        <p>代表的な使用例：</p>
-
-        <pre><code>var A: int[]             = [1, 2, 3];                 // Array&lt;int&gt;
-var B: int()             = (1, 2, 3);                 // List&lt;int&gt;
-var S: int{}             = {1, 2, 3};                 // Set&lt;int&gt;
-var M: map&lt;string/int&gt;  = ["key": 10];               // Map&lt;string, int&gt;
-
-// ジェネリック表記を使うこともできる
-var A2: Array&lt;int&gt;         = [1, 2, 3];
-var L2: List&lt;string&gt;       = ("a", "b", "c");
-var S2: Set&lt;int&gt;           = {1, 2, 3};
-var M2: Map&lt;string, float&gt; = ["pi": 3.14];</code></pre>
-
-        <p>
-          ここで定義している記法は、以前から利用していた <code>T[] / T() / T{}</code> / <code>map&lt;K/V&gt;</code> を
-          <code>Array&lt;T&gt; / List&lt;T&gt; / Set&lt;T&gt; / Map&lt;K,V&gt;</code> の
-          <strong>構文糖衣</strong> として正式に位置づけたものである。
-        </p>
-
-        <h3>4.5 関数型</h3>
-        <p>
-          関数型はすべて <code>Func&lt;引数型列:戻り値型&gt;</code> で表現する。
-        </p>
-
-        <pre><code>var Callback: Func&lt;int:string&gt;;                   // int を受け取り string を返す
-var AsyncCallback: Func&lt;string:Task&gt;;           // string を受け取り Task を返す
-var AsyncWithResult: Func&lt;int:Task&lt;string&gt;&gt;; // int を受け取り Task&lt;string&gt; を返す</code></pre>
-
-        <p>
-          戻り値なしの関数は <code>Func&lt;Args:void&gt;</code>、または戻り値型の省略記法
-          <code>Func&lt;Args:&gt;</code> を許可してよい。
-        </p>
-
-        <h3>4.6 null と Option</h3>
-        <p>
-          参照の有無を表すために、<code>Option&lt;T&gt;</code> を用意する案がある。詳細は未確定。
-          <code>null</code> との関係や、どの型に <code>null</code> を代入可能とするかは、今後の null 安全設計で明示する。
-        </p>
-
-        <h3>4.7 Numbers &amp; Conversions（数値と暗黙変換）</h3>
-
-        <h4>4.7.1 int と float</h4>
-        <ul>
-          <li><code>int</code> と <code>float</code> を混在させた式の結果は <code>float</code> になる。
-            <ul>
-              <li><code>int + float → float</code></li>
-              <li><code>int - float → float</code></li>
-              <li><code>int * float → float</code></li>
-              <li><code>int / float → float</code></li>
-            </ul>
-          </li>
-        </ul>
-
-        <h4>4.7.2 decimal</h4>
-        <ul>
-          <li><code>decimal</code> は高精度な 10 進数。</li>
-          <li><code>int</code> / <code>float</code> と混在する式は、必要に応じて <code>decimal</code> に昇格しうる。</li>
-          <li>オーバーフロー / アンダーフロー / 精度問題は <code>OverflowException</code> として扱う。</li>
-        </ul>
-
-        <h4>4.7.3 enum と int</h4>
-        <ul>
-          <li>Aloe にはキャスト構文がない。</li>
-          <li>enum と int の暗黙 / 明示変換はいずれも禁止。</li>
-          <li>enum と数値型の混在式はコンパイルエラー（bitfield enum のビット演算を除く）。</li>
-          <li>内部表現としては enum / bitfield enum はすべて int32。</li>
-        </ul>
-
-        <h4>4.7.4 byte と char</h4>
-        <ul>
-          <li><code>byte</code>：
-            <ul>
-              <li>範囲は 0–255。</li>
-              <li>byte 同士の演算は許されるが、範囲外はエラーになり得る。</li>
-              <li>byte と int の混在式は int に昇格。</li>
-            </ul>
-          </li>
-          <li><code>char</code>：
-            <ul>
-              <li>char の算術演算は不可。</li>
-              <li>比較演算（<code>==</code>, <code>&lt;</code>, <code>&gt;</code> 等）は char 同士のみ。</li>
-              <li>数値型との暗黙変換はない。</li>
-            </ul>
-          </li>
-        </ul>
-
-        <h4>4.7.5 NaN / Infinity</h4>
-        <ul>
-          <li>数値オーバーフロー / アンダーフローは NaN / Infinity ではなく例外で扱う。</li>
-          <li><code>ZeroDivisionException</code> は 0 / 0.0 で常に投げる。</li>
-        </ul>
-      </section>
-
-      <section id="pipe-filter">
-        <h2>5. パイプ／フィルタ／producer／consumer</h2>
-
-        <h3>5.1 基本コンセプト</h3>
-        <p>
-          Aloe の中心となるのが、ストリーム指向の
-          <code>pipe</code> と <code>filter</code> モデルである。
-        </p>
-
-        <ul>
-          <li><span class="tag">producer</span>: データを生成する側</li>
-          <li><span class="tag">consumer</span>: データを消費する側</li>
-          <li><span class="tag">filter</span>: ストリーム中のデータを変換・フィルタする処理</li>
-        </ul>
-
-        <h3>5.2 パイプ演算子</h3>
-        <p>
-          パイプラインは <code>|</code> でつなぐ。
-        </p>
-
-        <pre><code>var Lines: string[] =
-  File.ReadLines("users.txt")
-    | filter Trim()
-    | filter Where(Name =&gt; Name != "")
-    | filter ToArray();</code></pre>
-
-        <p>
-          ここで <code>filter</code> は、ストリーム上で要素ごとに呼ばれる関数を登録する構文糖衣として定義する。
-        </p>
-
-        <h3>5.3 producer / consumer インターフェース</h3>
-        <p>概念的には以下の二つのインターフェースが存在する：</p>
-
-        <pre><code>struct Producer&lt;T&gt; {
-  method Next(): Option&lt;T&gt;;
-}
-
-struct Consumer&lt;T&gt; {
-  method Push(Item: T): void;
-}</code></pre>
-
-        <p>実際の VM 実装では、パイプラインを最適化した形で表現する。</p>
-      </section>
-
-      <section id="collections">
-        <h2>6. コレクションとパイプライン</h2>
-
-        <h3>6.1 コレクションパイプライン</h3>
-        <p>
-          コレクションもパイプライン構文と統一的に扱う。
-        </p>
-
-        <pre><code>var Numbers: int[] = [1, 2, 3, 4, 5];
-
-var Result: int[] =
-  Numbers
-    | filter Where(X =&gt; X % 2 == 0)
-    | filter Select(X =&gt; X * 10)
-    | filter ToArray();</code></pre>
-
-        <h3>6.2 Lazy / Eager</h3>
-        <ul>
-          <li>基本は遅延評価のストリーム。</li>
-          <li><code>ToArray</code> や <code>ToList</code> などを呼んだ時点で実データが確定する。</li>
-        </ul>
-      </section>
-
-      <section id="resource">
-        <h2>7. リソース管理（with / delete / lock）</h2>
-
-        <h3>7.1 with ブロック</h3>
-        <p>
-          <code>with</code> は、「そのスコープ内でオブジェクトが安全に使われ、スコープ終端で必ずクリーンアップされる」ことを保証する。
-        </p>
-
-        <pre><code>method UseFile(Path: string): void {
-  with File.Open(Path) as F {
-    F.WriteLine("Hello");
-  }
-}</code></pre>
-
-        <p>
-          <code>with</code> の対象型は、「スコープ終端時に呼ばれる <code>Dispose</code> または同等のメソッド」を実装している必要がある。
-        </p>
-
-        <h3>7.2 delete</h3>
-        <p>
-          <code>delete</code> は、明示的にオブジェクトを破棄したいときに使うキーワードとして予約しておく。
-        </p>
-
-        <pre><code>var Buffer: ByteBuffer = ByteBuffer.Create(1024);
-// 何か利用する
-delete Buffer; // 以降の使用はコンパイルエラーまたは未定義とする</code></pre>
-
-        <h3>7.3 lock</h3>
-        <p>
-          <code>lock</code> は排他制御のための構文として予約する。
-        </p>
-
-        <pre><code>lock Mutex {
-  SharedState.Value = SharedState.Value + 1;
-}</code></pre>
-      </section>
-
-      <section id="classes">
-        <h2>8. クラス／struct／継承</h2>
-
-        <h3>8.1 struct と class</h3>
-        <ul>
-          <li><code>struct</code> は値型（コピーセマンティクス）。</li>
-          <li><code>class</code> は参照型（参照セマンティクス）。</li>
-        </ul>
-
-        <pre><code>struct Point {
-  var X: int;
-  var Y: int;
-}
-
-class User {
-  var Id: int;
-  var Name: string;
-}</code></pre>
-
-        <h3>8.2 クラス継承</h3>
-        <p>
-          クラスは単一継承を行う。構文は <code>class Sub : Base</code>。
-        </p>
-
-        <pre><code>class Animal {
-  method Speak(): void { }
-}
-
-class Dog : Animal {
-  override method Speak(): void {
-    Print("Bow");
-  }
-}</code></pre>
-
-        <h3>8.3 メンバ名のスタイル</h3>
-        <ul>
-          <li>プロパティ名、メソッド名は <strong>パスカルケース</strong>（先頭大文字）とする。</li>
-          <li>ローカル変数・引数はキャメルケースを推奨するが、仕様としては強制しない。</li>
-        </ul>
-      </section>
-
-      <section id="generics">
-        <h2>9. ジェネリクス</h2>
-
-        <h3>9.1 基本</h3>
-        <pre><code>struct Result&lt;T&gt; {
-  var Value: T;
-  var IsOk: bool;
-}</code></pre>
-
-        <h3>9.2 ジェネリックメソッド</h3>
-        <pre><code>method FirstOrDefault&lt;T&gt;(Items: Array&lt;T&gt;): Option&lt;T&gt; {
-  if (Items.Length == 0) {
-    return None;
-  }
-  return Some(Items[0]);
-}</code></pre>
-      </section>
-
-      <section id="enums">
-        <h2>10. enum とビットフラグ</h2>
-
-        <h3>10.1 enum の基本</h3>
-        <p>
-          enum の内部表現は <strong>int 固定</strong> とし、他の基になる整数型を指定することはできない。
-        </p>
-
-        <pre><code>enum Color {
-  Red = 0;
-  Green = 1;
-  Blue = 2;
-}</code></pre>
-
-        <h3>10.2 ビットフラグ enum</h3>
-        <p>
-          ビットフラグ用途の enum は「最大 32 個まで」という制限を設ける。
-        </p>
-
-        <pre><code>enum FileAccess {
-  Read  = 0x1;
-  Write = 0x2;
-  Exec  = 0x4;
-}</code></pre>
-      </section>
-
-      <section id="events">
-        <h2>11. event とデリゲート</h2>
-
-        <h3>11.1 デリゲート型</h3>
-        <p>
-          Aloe では専用の <code>delegate</code> 構文を持たず、すべて <code>Func&lt;...:...&gt;</code> で表現する。
-        </p>
-
-        <pre><code>type EventHandler&lt;TArgs&gt; = Func&lt;TArgs:Task&gt;;</code></pre>
-
-        <p>
-          この定義により、「イベントハンドラはすべて非同期であり <code>Task</code> を返す」という世界観で統一される。
-        </p>
-
-        <h3>11.2 event 宣言</h3>
-        <pre><code>struct Button {
-  event Clicked&lt;ClickedArgs&gt;;
-}</code></pre>
-
-        <p>
-          <code>event Name&lt;TArgs&gt;</code> は、内部的には <code>EventHandler&lt;TArgs&gt;</code> を複数保持するコレクションとして実装される。
-        </p>
-
-        <h3>11.3 購読と解除</h3>
-        <pre><code>method Setup(ButtonInstance: Button): Task {
-  ButtonInstance.Clicked += async (Args: ClickedArgs): Task {
-    Print("Clicked: " + Args.ButtonId);
-  };
-
-  // 解除構文の詳細は未確定（-= を想定）
-}</code></pre>
-
-        <h3>11.4 Raise の挙動</h3>
-        <p>
-          <code>event</code> は <code>Raise</code> メソッドを通じて発火する。<br />
-          <code>Raise</code> 自体も <code>Task</code> を返し、内部で登録されたハンドラの <code>Task</code> を順に <code>await</code> する。
-        </p>
-
-        <pre><code>bound Button {
-  method OnNativeClick(Id: string): Task {
-    let Args: ClickedArgs = { ButtonId = Id };
-    await Clicked.Raise(Args);
-  }
-}</code></pre>
-      </section>
-
-      <section id="pattern-union">
-        <h2>12. パターンマッチと union</h2>
-
-        <h3>12.1 union 型</h3>
-        <p>
-          union は「排他的なバリアント型」を表す。
-        </p>
-
-        <pre><code>union Response {
-  Ok(Value: string);
-  NotFound();
-  Error(Message: string);
-}</code></pre>
-
-        <h3>12.2 match 式（案）</h3>
-        <p>
-          union に対するパターンマッチは、<code>match</code> 式で記述する。
-        </p>
-
-        <pre><code>method Handle(ResponseValue: Response): void {
-  match (ResponseValue) {
-    Ok(Value) {
-      Print("OK: " + Value);
+      </li>
+    </ul>
+
+    <h3>3.5 NaN / Infinity</h3>
+    <ul>
+      <li>数値オーバーフロー/アンダーフローは NaN/Infinity ではなく例外で扱う。</li>
+      <li><code>ZeroDivisionException</code> は 0 / 0.0 で常に投げる。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch4">4. Blocks &amp; Scope（ブロックとスコープ）</h2>
+
+    <p>
+      ブロックは <code>{</code> と <code>}</code> で区切られ、各ブロックが新しいスコープを導入する。
+    </p>
+    <ul>
+      <li><code>main</code> ブロック</li>
+      <li>クラス定義ブロック</li>
+      <li>メソッド定義ブロック</li>
+      <li>任意の <code>{ ... }</code> ブロック</li>
+    </ul>
+
+    <h3>4.1 Static (lexical) scope and shadowing（静的スコープとシャドウイング）</h3>
+<pre><code>class Sample {
+    field value: int = 1;
+    method foo(): void {
+        var value = 2;        // shadows the field
+        print(value);         // 2
+        print(this.value);    // 1
     }
-    NotFound() {
-      Print("Not found");
+}
+</code></pre>
+    <ul>
+      <li>Aloe は静的（レキシカル）スコープ。</li>
+      <li>内側ブロックで同名変数を宣言すると、外側の変数をシャドウする。</li>
+      <li>フィールド名とローカル変数名がぶつかった場合、ローカル変数が優先される。
+        フィールドは <code>this.</code> で参照する。</li>
+    </ul>
+
+    <h3 id="with-blocks">4.2 with-blocks（メンバー省略記法）</h3>
+    <p>
+      Aloe には、同一オブジェクトのメンバーアクセスを簡潔に書くための
+      <code>with</code> ブロックがある。
+    </p>
+<pre><code>with (user) {
+    .name = "Alice";
+    .age = .age + 1;
+    print(.name);
+}
+</code></pre>
+    <ul>
+      <li><code>with (expr) { ... }</code> ブロック内では：
+        <ul>
+          <li><code>.Member</code> は <code>(expr).Member</code> の省略形。</li>
+          <li><code>expr</code> はブロックの先頭で 1 度だけ評価され、内部一時変数に保持される。</li>
+          <li>特別な一時変数 <code>_</code> は「with 対象オブジェクト」を指す。
+            <ul>
+              <li><code>log(_);</code> のように渡すことができる。</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li>ネストした <code>with</code> ブロック：
+        <ul>
+          <li>内側の <code>with</code> が <code>.</code> の解決および <code>_</code> をシャドウする。</li>
+          <li>外側オブジェクトへは通常の変数名でアクセスできる。</li>
+        </ul>
+      </li>
+      <li>C# の <code>using</code> スタイルのように、同じブロックに複数の <code>with</code> を並べられる：</li>
+    </ul>
+<pre><code>with (user), (profile) {
+    .name = "Alice";  // resolved against both user and profile
+}
+</code></pre>
+    <ul>
+      <li>どのオブジェクトのメンバーに解決されるかの順序は実装依存。</li>
+      <li>ただし曖昧な場合（複数オブジェクトが同じメンバーを持つ）はコンパイルエラー。</li>
+    </ul>
+    <p>
+      <code>with</code> はあくまで構文糖衣であり、意味的にはすべて
+      明示的な <code>obj.member</code> 呼び出しに書き換えた上で
+      型チェック・コード生成を行うことができる。
+    </p>
+
+    <h4 id="with-type">4.2.1 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
+    <p>
+      通常の <code>with (expr)</code> に加えて、<strong>型名</strong> を対象にした
+      <code>with</code> を利用できる。
+    </p>
+<pre><code>with (TypeName) {
+    .SomeStaticMethod();
+    .SomeStaticField = 1;
+}
+</code></pre>
+    <p>ここで <code>TypeName</code> は次のいずれか：</p>
+    <ul>
+      <li><code>class</code> 型</li>
+      <li><code>struct</code> 型</li>
+      <li><code>enum</code> / <code>bitfield enum</code></li>
+    </ul>
+    <p>この場合、<code>with</code> は「型コンテキスト with」として解釈される：</p>
+    <ul>
+      <li><code>()</code> 内の式は実行時に値として評価されない。
+        <ul>
+          <li>コンパイラは <code>TypeName</code> を型として解決し、インスタンス生成などは行わない。</li>
+        </ul>
+      </li>
+      <li>ブロック内では：
+        <ul>
+          <li><code>.Member</code> は <code>TypeName.Member</code> の省略形。
+            <ul>
+              <li>対象となる <code>Member</code> は
+                <ul>
+                  <li>static フィールド</li>
+                  <li>static メソッド</li>
+                  <li>enum / bitfield enum の列挙子</li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li>一時変数 <code>_</code> は、<code>TypeName</code> の static コンテキストを表す擬似オブジェクトとして振る舞う。
+            <ul>
+              <li><code>_.Member</code> も <code>TypeName.Member</code> と等価。</li>
+            </ul>
+          </li>
+          <li>型ベース with 内でインスタンスメンバーにアクセスすることはコンパイルエラー。</li>
+        </ul>
+      </li>
+    </ul>
+    <p>
+      なお、型ベース with でもローカル変数や外側スコープの変数が同名で存在すればそちらが優先される。
+      列挙子や static メンバーを明示したいときは <code>TypeName.Member</code> または <code>.Member</code> / <code>_.Member</code> を用いる。
+    </p>
+
+    <h5>例：class / struct の static アクセス</h5>
+<pre><code>struct AngleUtil {
+    static field Pi: float = 3.14159;
+
+    static method degToRad(deg: float): float {
+        return deg * Pi / 180.0;
     }
-    Error(Message) {
-      Print("Error: " + Message);
+}
+
+class MathUtil {
+    static method max(a: int, b: int): int {
+        if (a > b) return a;
+        return b;
     }
-  }
-}</code></pre>
-
-        <p>
-          網羅性チェック（全バリアントをカバーしているか）はコンパイル時に行う方針とする。
-        </p>
-      </section>
-
-      <section id="async">
-        <h2>13. 非同期処理（async/await と Task）</h2>
-
-        <h3>13.1 基本方針</h3>
-        <ul>
-          <li>非同期処理は <code>Task</code> と <code>Task&lt;T&gt;</code> の 2 種類で表現する。</li>
-          <li>専用の <code>async</code> キーワードをメソッド宣言には使わない。</li>
-          <li><code>await</code> は式として定義し、<code>Task</code> 系の値の完了を待つ。</li>
-        </ul>
-
-        <pre><code>method DelayMs(Millis: int): Task {
-  // 実装はランタイム側
 }
 
-method FetchUser(Name: string): Task&lt;User&gt; {
-  // ユーザを非同期に取得する
-}</code></pre>
+main(args: string[]) {
+    with (AngleUtil) {
+        var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
+        print(.Pi);                // AngleUtil.Pi
+    }
 
-        <h3>13.2 Task と Task&lt;T&gt;</h3>
-        <ul>
-          <li><code>Task</code> は「戻り値なしの非同期処理」を表す。</li>
-          <li><code>Task&lt;T&gt;</code> は「型 <code>T</code> の値を返す非同期処理」を表す。</li>
-        </ul>
+    with (MathUtil) {
+        var m = max(10, 20);       // MathUtil.max(10, 20)
+        print(m);
+    }
+}
+</code></pre>
 
-        <h3>13.3 await 式の型ルール</h3>
-        <p>
-          <code>await Expr</code> は、<code>Expr</code> の型によって結果の型が決まる。
-        </p>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Expr の型</th>
-              <th>await Expr の型</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><code>Task&lt;T&gt;</code></td>
-              <td><code>T</code></td>
-            </tr>
-            <tr>
-              <td><code>Task</code></td>
-              <td>値なし（式の結果は使用不可）</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <pre><code>var UserTask: Task&lt;User&gt; = FetchUser("Foo");
-var U: User = await UserTask;  // await Task&lt;User&gt; の結果は User
-
-await DelayMs(1000);           // Task の場合は値なしとして扱う</code></pre>
-
-        <p>
-          <code>Task</code> に対する <code>await</code> を変数に代入しようとした場合はコンパイルエラーとする。
-        </p>
-
-        <h3>13.4 await を使える場所</h3>
-        <p>
-          <code>await</code> は、次のいずれかに該当するコンテキストの中でのみ使用できる。
-        </p>
-        <ul>
-          <li>戻り値型が <code>Task</code> のメソッド</li>
-          <li>戻り値型が <code>Task&lt;T&gt;</code> のメソッド</li>
-          <li>型が <code>Func&lt;...:Task&gt;</code> のラムダ式</li>
-          <li>型が <code>Func&lt;...:Task&lt;T&gt;&gt;</code> のラムダ式</li>
-        </ul>
-
-        <pre><code>method Foo(): Task {
-  await DelayMs(1000);            // OK
+    <h5>例：enum の列挙子アクセス</h5>
+<pre><code>enum Color {
+    Red,
+    Green,
+    Blue
 }
 
-method Bar(): Task&lt;int&gt; {
-  let U: User = await FetchUser("Foo"); // OK
-  return U.Id;
+main(args: string[]) {
+    with (Color) {
+        var c1: Color = Red;   // Color.Red
+        var c2: Color = Blue;  // Color.Blue
+        print(c1);
+        print(c2);
+    }
+}
+</code></pre>
+    <p>
+      型ベース <code>with</code> も複数ターゲット構文に混在させられる：
+    </p>
+<pre><code>with (user), (Color) {
+    .name = "Alice"; // user.name
+    var c: Color = Red; // Color.Red
+}
+</code></pre>
+    <p>
+      この場合も解決順は実装依存だが、曖昧であればコンパイルエラーとする。
+    </p>
+
+    <hr>
+
+    <h2 id="ch5">5. Variables &amp; Constants（変数と定数）</h2>
+
+    <h3>5.1 var（型推論）</h3>
+<pre><code>var i = 10;
+var f = 10.5;
+var s = "Hello";
+var c = 'A';
+var b = 255;
+var arr = [1, 2, 3];
+var lst = (1, 2, 3);
+var st  = {1, 2, 3};
+var mp  = ["key": 10];
+var fb  = new FizzBuzz();
+</code></pre>
+    <ul>
+      <li>変数の型は右辺の式から推論される。</li>
+      <li><code>var x = 1;</code> は常に <code>int</code>。</li>
+      <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
+      <li><code>var x = null;</code> はコンパイルエラー（型が推論できない）。</li>
+    </ul>
+
+    <h3>5.2 let（明示的な型）</h3>
+<pre><code>let i: int = 10;
+let f: float = 10.5;
+let d: decimal = 10.12345678901234567890:d;
+let s: string = "Hello, Aloe!";
+let c: char = 'A';
+let b: byte = 255;
+
+let arr: int[] = [1, 2, 3];
+let lst: int() = (1, 2, 3);
+let st : int{} = {1, 2, 3};
+let mp : map&lt;string/int&gt; = ["key": 10];
+</code></pre>
+
+    <h3>5.3 Constants（const）</h3>
+<pre><code>const MaxCount: int = 100;
+const Pi: float = 3.14159;
+const AppName: string = "Aloe VM";
+</code></pre>
+    <ul>
+      <li><code>const</code> 変数は再代入不可。</li>
+      <li>const には型注釈が必須。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch6">6. Fields（フィールド宣言）</h2>
+    <p>class / struct のフィールドは <code>field</code> キーワードで宣言する。</p>
+<pre><code>class Sample {
+    field count: int = 0;
+    field name: string = "default";
+
+    readonly field id: int;
+
+    construct(id: int) {
+        this.id = id; // OK: inside the constructor
+    }
+    method change(): void {
+        this.count = this.count + 1; // OK
+        // this.id = 2; // NG: readonly field cannot be changed outside constructor
+    }
+}
+</code></pre>
+    <ul>
+      <li><code>field</code> … 通常のフィールド。</li>
+      <li><code>readonly field</code> … コンストラクタ内のみ代入可、それ以降は読み取り専用。</li>
+      <li>struct / class の両方で同じ意味。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch7">7. Class / Struct / Interface / Trait</h2>
+
+    <h3>7.1 class</h3>
+<pre><code>class FizzBuzz {
+    field _count: int = 0;
+    field name: string = "FizzBuzz";
+
+    construct() {
+    }
+
+    method run(): void {
+        var i = 1;
+        while (i &lt;= 100) {
+            // ...
+            i = i + 1;
+        }
+    }
+}
+</code></pre>
+    <ul>
+      <li>class は参照型。</li>
+      <li><code>sealed class</code> は <code>extends</code> による継承不可。</li>
+      <li>単一継承のみサポート。</li>
+    </ul>
+
+    <h3>7.2 struct</h3>
+<pre><code>struct Point {
+    field x: int;
+    field y: int;
+
+    construct(x: int, y: int) {
+        this.x = x;
+        this.y = y;
+    }
+}
+</code></pre>
+    <ul>
+      <li>struct は値型。</li>
+      <li>フィールドはプリミティブ型か他の struct に限定（参照型フィールドは禁止）。</li>
+      <li>struct のコピーは常に値コピー。</li>
+      <li>struct の継承はサポートしない（<code>sealed struct</code> は「拡張禁止」マーカー）。</li>
+    </ul>
+
+    <h3>7.3 Inheritance and sealed</h3>
+<pre><code>class Base {
+    method foo(): void { }
 }
 
-method Ng(): int {
-  await DelayMs(1000);            // コンパイルエラー
-  return 1;
-}</code></pre>
-
-        <h3>13.5 ラムダと await</h3>
-        <p>
-          ラムダ式に関しては、<code>Func&lt;Args:Task&gt;</code> や <code>Func&lt;Args:Task&lt;T&gt;&gt;</code> を返す場合に <code>await</code> を中で使える。
-        </p>
-
-        <pre><code>let Handler: Func&lt;ClickedArgs:Task&gt; =
-  async (Args: ClickedArgs): Task {
-    await DelayMs(500);
-    Print("Clicked");
-  };</code></pre>
-
-        <p>
-          ここで <code>async</code> は構文糖衣としてのキーワード候補であり、
-          「このラムダは <code>Task</code> または <code>Task&lt;T&gt;</code> を返す」ことを示す。
-          メソッド定義に <code>async</code> を付ける必要はない。
-        </p>
-
-        <h3>13.6 例外処理との関係</h3>
-        <p>
-          <code>await Expr</code> の評価中に、対応する <code>Task</code> 側で例外が発生していた場合、
-          その例外は <code>await</code> の位置で再スローされる。
-        </p>
-
-        <pre><code>method UseAsync(): Task {
-  try {
-    let U: User = await FetchUser("Foo");
-    Print(U.Name);
-  } catch (Ex: Error) {
-    LogError(Ex);
-  }
-}</code></pre>
-
-        <h3>13.7 event モデルとの統合</h3>
-        <p>
-          前述のとおり、イベントハンドラ型は <code>EventHandler&lt;TArgs&gt; = Func&lt;TArgs:Task&gt;</code> で定義されている。
-          そのため、イベントハンドラ内では自然に <code>await</code> を使うことができる。
-        </p>
-
-        <pre><code>struct Button {
-  event Clicked&lt;ClickedArgs&gt;;
+class Derived extends Base {
+    method bar(): void { }
 }
 
-bound Button {
-  method OnNativeClick(Id: string): Task {
-    let Args: ClickedArgs = { ButtonId = Id };
-    await Clicked.Raise(Args);
-  }
+sealed class FinalDerived extends Base {
+    // cannot be extended further
+}
+</code></pre>
+
+    <h3>7.4 interface</h3>
+<pre><code>interface ILogger {
+    method log(msg: string): void;
 }
 
-method SetupButton(): Task {
-  var Btn: Button = CreateButton("OK");
+class ConsoleLogger implements ILogger {
+    method log(msg: string): void {
+        print(msg);
+    }
+}
+</code></pre>
+    <ul>
+      <li><code>implements</code> キーワードでインタフェースを実装。</li>
+      <li><code>is</code> 演算子でインタフェース実装有無を判定。</li>
+    </ul>
 
-  Btn.Clicked += async (Args: ClickedArgs): Task {
-    await DelayMs(100);
-    Print("Clicked: " + Args.ButtonId);
-  };
-}</code></pre>
+    <h3>7.5 trait</h3>
+<pre><code>trait Trait_A {
+    method hello(): void {
+        print("Hello from Trait_A");
+    }
+}
+</code></pre>
 
-        <p>
-          <code>Clicked.Raise(Args)</code> は <code>Task</code> を返し、内部で登録済みハンドラの <code>Task</code> を順に <code>await</code> する。
-          これにより、「イベントを発火した側が、ハンドラの完了を待つ」スタイルを自然に書ける。
-        </p>
-      </section>
+    <h4>Applying traits with with</h4>
+<pre><code>var obj = new SomeClass() with Trait_A;
+obj.hello(); // method from Trait_A (if no conflicts)
+</code></pre>
 
-      <section id="future">
-        <h2>14. 今後の拡張</h2>
-        <ul>
-          <li>Option 型と null 安全性の詳細設計</li>
-          <li>エラー型と例外、どこまでを例外、どこからを戻り値とするかの整理</li>
-          <li>pipe/filter の VM レベル最適化と Wasm 対応</li>
-          <li>AloeBC（バイトコード形式）仕様との突き合わせ</li>
-          <li>分散実行・リモート pipe（別プロセスや別ノードへのストリーム接続）</li>
-        </ul>
-      </section>
-    </main>
-  </div>
+    <h4>Non-destructive add/remove（+ / -）</h4>
+<pre><code>var obj2 = obj + Trait_A;      // obj unchanged; obj2 has Trait_A
+var obj3 = obj2 - Trait_A;     // obj3 is obj2 without Trait_A
+</code></pre>
+
+    <h4>Alias with as</h4>
+<pre><code>var obj2 = obj + Trait_A as a;
+obj2.a.hello(); // OK
+
+// obj2.hello(); // NG: alias only; no direct member flattening
+</code></pre>
+
+    <h4>Trait conflicts</h4>
+    <ul>
+      <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
+      <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
+      <li>クラス本体と trait メンバとの衝突の扱いは将来バージョンで定義予定。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch8">8. delete &amp; null</h2>
+<pre><code>var obj = new FizzBuzz();
+delete obj;  // equivalent to: obj = null (at VM level)
+</code></pre>
+    <ul>
+      <li><code>delete obj;</code> は VM レベルでは <code>obj = null</code> と等価。</li>
+      <li>ソースコード中で <code>obj = null;</code> と書くことはできない。</li>
+      <li>参照型は内部的には null を取り得るが、型システムは null を追跡しない。</li>
+      <li>null 状態でのアクセスは <code>NullReferenceException</code> を引き起こす可能性がある。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch9">9. is Operator（is 演算子）</h2>
+<pre><code>if (obj is FizzBuzz) {
+    // true if runtime type is FizzBuzz or a subclass
+}
+
+if (obj is ILogger) {
+    // true if obj implements ILogger
+}
+
+if (obj is Trait_A) {
+    // true if obj has Trait_A applied (with / +)
+}
+</code></pre>
+    <ul>
+      <li><code>is</code> は実行時の型チェックを行う。</li>
+      <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
+      <li>インタフェースや trait に対しても使用できる。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch10">10. Collections（配列 / リスト / セット / マップ）</h2>
+
+    <h3>10.1 Arrays (T[])</h3>
+<pre><code>var arr: int[] = [1, 2, 3];
+var matrix: float[][] = [[1.0, 2.0], [3.0, 4.0]];
+</code></pre>
+
+    <h3>10.2 Lists (T())</h3>
+<pre><code>var lst: int() = (1, 2, 3);
+var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
+</code></pre>
+
+    <h3>10.3 Sets (T{})</h3>
+<pre><code>var st: int{} = {1, 2, 3};
+var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
+</code></pre>
+
+    <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
+<pre><code>var mp: map&lt;int&gt; = ["key1": 10, "key2": 20];          // default key type is string
+var mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
+var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
+</code></pre>
+
+    <hr>
+
+    <h2 id="ch11">11. enum and bitfield enum</h2>
+
+    <h3>11.1 Normal enum</h3>
+<pre><code>enum Color {
+    Red,
+    Green,
+    Blue
+}
+</code></pre>
+    <ul>
+      <li>内部表現は常に int32。</li>
+      <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code> のような基礎型の変更は許可されない。</li>
+      <li>enum 型も型ベース with の対象となり、<code>with (Color) { Red; }</code> などで列挙子に短縮アクセスできる。</li>
+    </ul>
+
+    <h3>11.2 bitfield enum</h3>
+<pre><code>bitfield enum LogFlags {
+    None = 1 &lt;&lt; 0,
+    Info = 1 &lt;&lt; 3,
+    Warn,
+}
+</code></pre>
+
+    <h4>b(n) 記法</h4>
+<pre><code>bitfield enum LogFlags {
+    None : b(0),
+    Info : b(3),
+    Warn,            // highest b(n) so far is 3; Warn becomes b(4) = 1 &lt;&lt; 4
+}
+</code></pre>
+    <ul>
+      <li><code>b(n)</code> はビット n（<code>1 &lt;&lt; n</code>）を表す。</li>
+      <li><code>Name : b(n)</code> でその列挙子にビット n を割り当てる。</li>
+      <li><code>bitfield enum</code> で使用可能なビットは最大 32（n は 0–31）。</li>
+      <li>同一ビットを共有する列挙子があっても、コンパイラは警告にとどめ、エラーにはしない。</li>
+      <li>基礎型は常に int32 であり、<code>bitfield enum&lt;byte&gt;</code> などはコンパイルエラー。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch12">12. main Block（エントリポイント）</h2>
+<pre><code>main(args: string[]) {
+    var fb = new FizzBuzz();
+    fb.run();
+    _ = 0; // process exit code (int)
+}
+</code></pre>
+    <ul>
+      <li>プログラムのエントリポイント。</li>
+      <li><code>args</code> はコマンドライン引数。</li>
+      <li>main ブロックでは、一時変数 <code>_</code> は常に <code>int</code> 型であり、その値がプロセスの終了コードとなる。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch13">13. Temp Variable <code>_</code>（一時変数）</h2>
+<pre><code>main(args: string[]) {
+    var x = 10;
+    _ = x + 5;   // _ is int (exit code)
+}
+
+method foo(): void {
+    var x = 10;
+    _ = x + 5;   // type of _ is inferred in this block
+}
+</code></pre>
+    <ul>
+      <li><code>_</code> は任意のブロックで宣言なしに使用できる特別な一時変数。</li>
+      <li>main では常に int。</li>
+      <li>その他のブロックでは、そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
+      <li>with ブロック内では、追加で「現在の with 対象」を指す意味を持つ（4.2 参照）。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch14">14. swap Keyword（swap キーワード）</h2>
+<pre><code>var a = 10;
+var b = 20;
+swap (a, b);
+print(a); // 20
+print(b); // 10
+</code></pre>
+    <ul>
+      <li><code>swap (x, y);</code> は x と y の値（または参照）を入れ替える。</li>
+      <li>swap が妥当かどうかはコンパイル時にチェックされる。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch15">15. Operators（演算子）</h2>
+
+    <h3>15.1 優先順位（高い順）</h3>
+    <ol>
+      <li>メンバー / 呼び出し：<code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
+      <li>単項：<code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
+      <li>乗除：<code>*</code>, <code>/</code>, <code>%</code></li>
+      <li>加減：<code>+</code>, <code>-</code></li>
+      <li>シフト：<code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
+      <li>関係：<code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
+      <li>等価：<code>==</code>, <code>!=</code></li>
+      <li>ビット AND：<code>&amp;</code></li>
+      <li>ビット XOR：<code>^</code></li>
+      <li>ビット OR：<code>|</code>（pipeline 文では別語義）</li>
+      <li>論理 AND：<code>&amp;&amp;</code></li>
+      <li>論理 OR：<code>||</code></li>
+      <li>代入：<code>=</code></li>
+    </ol>
+    <p>複合代入（<code>+=</code> 等）はまだ仕様化されていない。</p>
+
+    <h3>15.2 結合規則</h3>
+    <ul>
+      <li>単項演算子：右結合。</li>
+      <li>代入：右結合。</li>
+      <li>その他の 2 項演算子：左結合。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch16">16. Exceptions（例外）</h2>
+<pre><code>try {
+    // code that might throw
+}
+catch (e) {
+    // handle exception
+}
+finally {
+    // cleanup
+}
+</code></pre>
+
+    <h3>16.1 標準例外の概要</h3>
+<pre><code>Exception
+├── SystemException
+│   ├── NullReferenceException
+│   ├── IndexOutOfBoundsException
+│   ├── OverflowException
+│   ├── ZeroDivisionException
+│   ├── InvalidOperationException
+│   ├── NotImplementedException
+│   ├── TimeoutException
+│   ├── ArgumentException
+│   │   ├── ArgumentNullException
+│   │   └── ArgumentOutOfRangeException
+│   └── FormatException
+└── IOException
+    ├── FileNotFoundException
+    ├── EndOfStreamException
+    └── IOException (general)
+</code></pre>
+    <ul>
+      <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
+      <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
+      <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
+      <li>その他の VM レベルの致命的エラーは実装依存。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch17">17. Modules / namespace / import</h2>
+<pre><code>namespace Aloe.Sample {
+    import Aloe.Core.Logging;
+
+    class App {
+        // ...
+    }
+}
+</code></pre>
+    <ul>
+      <li><code>namespace</code> は論理的な名前空間を定義する。</li>
+      <li><code>import</code> は他の namespace / シンボルへの参照を導入する。</li>
+      <li>ファイル構成や循環 import の扱いなど詳細はモジュール仕様で定義される。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch18">18. Pipes &amp; Filters（パイプとフィルタ）</h2>
+
+    <p>
+      Aloe は <code>pipe&lt;T&gt;</code> と <code>filter(...)</code> を用いて、
+      サーバ / CLI / Web アプリなどのストリーミング処理を構成する。
+    </p>
+
+    <h3>18.1 pipe&lt;T&gt; の基本</h3>
+    <ul>
+      <li><code>pipe&lt;T&gt;</code> は T 型要素のストリーム。</li>
+      <li><code>pipe&lt;byte&gt;</code> … 標準入力やソケットなどのバイト列。</li>
+      <li><code>pipe&lt;string&gt;</code> … 文字列ストリーム。</li>
+      <li>pipe は共有メモリではなく値コピーを前提とする。</li>
+    </ul>
+
+    <h4>18.1.1 組み込みパイプ</h4>
+    <ul>
+      <li><code>stdin : pipe&lt;byte&gt;</code></li>
+      <li><code>stdout : pipe&lt;byte&gt;</code></li>
+      <li><code>stderr : pipe&lt;byte&gt;</code>（任意）</li>
+    </ul>
+
+    <h3>18.2 filter(...) の基本</h3>
+    <p><code>filter(F)</code> はパイプライン中の中間変換ステージ。</p>
+
+    <h4>18.2.1 フィルタ定義</h4>
+<pre><code>filter lineSplit {
+    in:  pipe&lt;string&gt;;
+    out: pipe&lt;string&gt;;
+
+    bound(input, output) {
+        foreach (chunk in input) {
+            let lines = chunk.split("\n");
+            foreach (line in lines) {
+                output.write(line);
+            }
+        }
+        output.close();
+    }
+}
+</code></pre>
+
+    <h4>18.2.2 フィルタオプション</h4>
+<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
+</code></pre>
+    <ul>
+      <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
+      <li>各フィルタは自前のオプション型（bitfield enum 等）を持つ。</li>
+    </ul>
+
+    <h3>18.3 パイプライン文と <code>|</code></h3>
+<pre><code>stdin
+    | filter(utf8)
+    | filter(json&lt;DateTime&gt;)
+    | dates;
+</code></pre>
+    <ul>
+      <li><code>A | B | C;</code> で A の出力が B へ、B の出力が C へ接続される。</li>
+      <li>型チェックにより各ステージの入出力型整合性を確認。</li>
+      <li>パイプライン文そのものは値を返さない（副作用として接続を張るだけ）。</li>
+    </ul>
+
+    <h3>18.4 foreach と pipe</h3>
+<pre><code>foreach (line in lines) {
+    print("Input: " + line);
+}
+</code></pre>
+    <ul>
+      <li><code>foreach (x in p)</code> は内部的に <code>p.next()</code> を EOF まで呼ぶ。</li>
+      <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
+    </ul>
+
+    <h3>18.5 close と EOF 伝播</h3>
+    <ul>
+      <li><code>p.close()</code> 後の <code>write()</code> は無効（エラーになり得る）。</li>
+      <li>フィルタは入力 EOF を検知したら出力側も <code>close()</code> すべき。</li>
+    </ul>
+
+    <h3>18.6 pipe を使った並行モデル</h3>
+    <ul>
+      <li>タスク同士の主な通信手段は <code>pipe&lt;T&gt;</code>。</li>
+      <li>shared-nothing モデルを前提とし、共有可変データ構造は持たない設計を推奨。</li>
+    </ul>
+
+    <h3>18.7 例：簡単な REST 風パイプライン</h3>
+<pre><code>class User {
+    field id: int;
+    field name: string;
+}
+
+main(args: string[]) {
+    let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.create();
+    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
+
+    stdin
+        | filter(utf8)
+        | filter(json&lt;User&gt;)
+        | users;
+
+    let u: User? = users.next();
+    if (u is User) {
+        print("User: " + u.name);
+    }
+
+    _ = 0;
+}
+</code></pre>
+    <p class="note">
+      <code>utf8</code> や <code>json&lt;T&gt;</code> などの標準フィルタの詳細は、
+      コア言語仕様ではなく別途「標準フィルタライブラリ」仕様で定義される。
+    </p>
+
+    <hr>
+    <p class="note">
+      以上が、元の英語仕様に基づき、
+      <strong>with ブロックの型対応拡張を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+    </p>
+
+  </main>
+</div>
 </body>
 </html>
-
