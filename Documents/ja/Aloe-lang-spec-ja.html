@@ -186,7 +186,51 @@ method PrintHello(): void {
   Print("Hello");
 }</code></pre>
 
-        <h3>3.2 キーワード</h3>
+        <h3>3.2 識別子（Identifiers）</h3>
+        <p>Aloe の識別子は、変数名・メソッド名・クラス名など、ユーザーが定義するあらゆる名前を指す。</p>
+        <ul>
+          <li>使用可能文字：
+            <ul>
+              <li>英字 <code>A–Z</code>, <code>a–z</code></li>
+              <li>数字 <code>0–9</code></li>
+              <li>アンダースコア <code>_</code></li>
+              <li>一部のユニコード文字（字母カテゴリのもの）</li>
+            </ul>
+          </li>
+          <li>先頭文字は英字または <code>_</code> でなければならない。
+            <ul>
+              <li><code>_foo</code>, <code>Value1</code> は有効。</li>
+              <li><code>1Value</code> は無効。</li>
+            </ul>
+          </li>
+          <li>大文字小文字は区別される。
+            <ul>
+              <li><code>value</code> と <code>Value</code> は別の識別子。</li>
+            </ul>
+          </li>
+          <li>キーワードと同じ綴りは識別子として使用できない。
+            <ul>
+              <li><code>class</code>, <code>if</code>, <code>while</code> などは予約語。</li>
+            </ul>
+          </li>
+          <li><code>_</code> で始まる識別子は「非公開／内部用」の慣習的プレフィックスとして扱われる。
+            <ul>
+              <li>コンパイラレベルでのアクセス制御とは直結しないが、ライブラリ設計ガイドライン上は「外から触らないこと」を推奨する。</li>
+            </ul>
+          </li>
+          <li>ユニコード識別子：
+            <ul>
+              <li>日本語のクラス名や変数名（例：<code>変数</code>、<code>会員情報</code>）を許可してもよいが、
+                  仕様レベルでは「字母カテゴリの文字」を許可し、空白や記号類は除外する。</li>
+            </ul>
+          </li>
+        </ul>
+        <p>
+          スタイルガイドとしては、クラス名・メソッド名にはパスカルケース（<code>MyClass</code>, <code>ToString</code>）、
+          ローカル変数・引数にはキャメルケース（<code>userName</code>, <code>index</code>）を用いることを推奨する。
+        </p>
+
+        <h3>3.3 キーワード</h3>
         <p>主要なキーワード（抜粋）：</p>
         <ul>
           <li><code>var</code> / <code>let</code>（変数・定数）</li>
@@ -199,7 +243,7 @@ method PrintHello(): void {
           <li><code>await</code></li>
         </ul>
 
-        <h3>3.3 宣言の基本形</h3>
+        <h3>3.4 宣言の基本形</h3>
 
         <h4>変数・定数</h4>
         <pre><code>var Count: int = 0;        // 再代入可能
@@ -213,7 +257,7 @@ let Name: string = "Aloe"; // 再代入不可</code></pre>
   return Left + Right;
 }</code></pre>
 
-        <h3>3.4 ブロックとスコープ</h3>
+        <h3>3.5 ブロックとスコープ</h3>
         <ul>
           <li><code>{ ... }</code> でブロックを作り、ローカルスコープを形成する。</li>
           <li><code>with</code> ブロックは別途「リソース管理」で定義する。</li>
