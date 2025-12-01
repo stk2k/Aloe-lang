@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event/async）</title>
-  <meta name="last-updated" content="2025-12-01T17:30:00+09:00" />
+  <meta name="last-updated" content="2025-12-01T18:00:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -301,7 +301,7 @@ yield
           <li>文字列：<code>"Hello, World!"</code></li>
           <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
           <li>null リテラル：<code>null</code>（リテラルとして存在するが、直接代入には制約がある。型推論ができない <code>var x = null;</code> はコンパイルエラーなど）</li>
-          <li>配列リテラル：<code>[1, 2, 3]</code>（型は文脈から <code>int[]</code> や <code>Array&lt;int&gt;</code> などに推論）</li>
+          <li>配列リテラル：<code>[1, 2, 3]</code>（要素型は最小上界から推論、ここでは <code>int[]</code>）</li>
           <li>リストリテラル：<code>(1, 2, 3)</code>（<code>int()</code> / <code>List&lt;int&gt;</code>）</li>
           <li>セットリテラル：<code>{1, 2, 3}</code>（<code>int{}</code> / <code>Set&lt;int&gt;</code>）</li>
           <li>マップリテラル：<code>["key1": 10, "key2": 20]</code>（<code>map&lt;int&gt;</code> / <code>Map&lt;string,int&gt;</code>）</li>
@@ -489,15 +489,15 @@ var S: int{}             = {1, 2, 3};                 // Set&lt;int&gt;
 var M: map&lt;string/int&gt;  = ["key": 10];               // Map&lt;string, int&gt;
 
 // ジェネリック表記を使うこともできる
-var A2: Array&lt;int&gt;        = [1, 2, 3];
-var L2: List&lt;string&gt;      = ("a", "b", "c");
-var S2: Set&lt;int&gt;          = {1, 2, 3};
+var A2: Array&lt;int&gt;         = [1, 2, 3];
+var L2: List&lt;string&gt;       = ("a", "b", "c");
+var S2: Set&lt;int&gt;           = {1, 2, 3};
 var M2: Map&lt;string, float&gt; = ["pi": 3.14];</code></pre>
 
         <p>
-          従来から使用している <code>T[] / T() / T{}</code> / <code>map&lt;K/V&gt;</code> の記法はすべて有効であり、<br>
-          この仕様ではそれらを <code>Array&lt;T&gt; / List&lt;T&gt; / Set&lt;T&gt; / Map&lt;K,V&gt;</code> の
-          <strong>構文糖衣</strong> として正式に位置づける。
+          ここで定義している記法は、以前から利用していた <code>T[] / T() / T{}</code> / <code>map&lt;K/V&gt;</code> を
+          <code>Array&lt;T&gt; / List&lt;T&gt; / Set&lt;T&gt; / Map&lt;K,V&gt;</code> の
+          <strong>構文糖衣</strong> として正式に位置づけたものである。
         </p>
 
         <h3>4.5 関数型</h3>
@@ -519,6 +519,59 @@ var AsyncWithResult: Func&lt;int:Task&lt;string&gt;&gt;; // int を受け取り 
           参照の有無を表すために、<code>Option&lt;T&gt;</code> を用意する案がある。詳細は未確定。
           <code>null</code> との関係や、どの型に <code>null</code> を代入可能とするかは、今後の null 安全設計で明示する。
         </p>
+
+        <h3>4.7 Numbers &amp; Conversions（数値と暗黙変換）</h3>
+
+        <h4>4.7.1 int と float</h4>
+        <ul>
+          <li><code>int</code> と <code>float</code> を混在させた式の結果は <code>float</code> になる。
+            <ul>
+              <li><code>int + float → float</code></li>
+              <li><code>int - float → float</code></li>
+              <li><code>int * float → float</code></li>
+              <li><code>int / float → float</code></li>
+            </ul>
+          </li>
+        </ul>
+
+        <h4>4.7.2 decimal</h4>
+        <ul>
+          <li><code>decimal</code> は高精度な 10 進数。</li>
+          <li><code>int</code> / <code>float</code> と混在する式は、必要に応じて <code>decimal</code> に昇格しうる。</li>
+          <li>オーバーフロー / アンダーフロー / 精度問題は <code>OverflowException</code> として扱う。</li>
+        </ul>
+
+        <h4>4.7.3 enum と int</h4>
+        <ul>
+          <li>Aloe にはキャスト構文がない。</li>
+          <li>enum と int の暗黙 / 明示変換はいずれも禁止。</li>
+          <li>enum と数値型の混在式はコンパイルエラー（bitfield enum のビット演算を除く）。</li>
+          <li>内部表現としては enum / bitfield enum はすべて int32。</li>
+        </ul>
+
+        <h4>4.7.4 byte と char</h4>
+        <ul>
+          <li><code>byte</code>：
+            <ul>
+              <li>範囲は 0–255。</li>
+              <li>byte 同士の演算は許されるが、範囲外はエラーになり得る。</li>
+              <li>byte と int の混在式は int に昇格。</li>
+            </ul>
+          </li>
+          <li><code>char</code>：
+            <ul>
+              <li>char の算術演算は不可。</li>
+              <li>比較演算（<code>==</code>, <code>&lt;</code>, <code>&gt;</code> 等）は char 同士のみ。</li>
+              <li>数値型との暗黙変換はない。</li>
+            </ul>
+          </li>
+        </ul>
+
+        <h4>4.7.5 NaN / Infinity</h4>
+        <ul>
+          <li>数値オーバーフロー / アンダーフローは NaN / Infinity ではなく例外で扱う。</li>
+          <li><code>ZeroDivisionException</code> は 0 / 0.0 で常に投げる。</li>
+        </ul>
       </section>
 
       <section id="pipe-filter">
