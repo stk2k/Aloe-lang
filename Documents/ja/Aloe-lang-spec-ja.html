@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Aloe 言語仕様書（ドラフト – パイプ／フィルタ／producer／consumer + delete/with/lock/クラス継承/ジェネリクス/event/async）</title>
-  <meta name="last-updated" content="2025-12-01T17:00:00+09:00" />
+  <meta name="last-updated" content="2025-12-01T17:30:00+09:00" />
   <style>
     /* レイアウトのみ最低限。フォントはブラウザ標準に任せる */
     body {
@@ -401,7 +401,41 @@ let Name: string = "Aloe"; // 再代入不可</code></pre>
           実際のメモリレイアウトや実装上の最適化は AloeVM 側の仕様に委ねる。
         </p>
 
-        <h3>4.3 配列・コレクション</h3>
+        <h3>4.3 Value types / reference types（値型 / 参照型）</h3>
+        <ul>
+          <li>値型：
+            <ul>
+              <li><code>int</code>, <code>float</code>, <code>decimal</code>, <code>bool</code>, <code>byte</code>, <code>char</code></li>
+              <li><code>struct</code></li>
+              <li><code>enum</code>, <code>bitfield enum</code>（内部表現は int32）</li>
+            </ul>
+          </li>
+          <li>参照型：
+            <ul>
+              <li><code>class</code></li>
+              <li><code>string</code>（実装上は参照型）</li>
+              <li><code>Task</code>, <code>Task&lt;T&gt;</code></li>
+              <li><code>pipe&lt;T&gt;</code> など</li>
+            </ul>
+          </li>
+        </ul>
+
+        <h4>Struct restrictions and copying（struct の制約とコピー）</h4>
+        <ul>
+          <li>struct のフィールドにはプリミティブ型と他の struct のみを持てる。</li>
+          <li>class などの参照型フィールドは持てない。</li>
+          <li>struct の代入は常に <strong>値コピー</strong>。</li>
+          <li>最大サイズなどは仕様で制限しないが、実装によっては最適化上の制約を設ける場合がある。</li>
+        </ul>
+
+        <h4>Class vs struct（class と struct）</h4>
+        <ul>
+          <li>class は struct をフィールドとして持てる。</li>
+          <li>class インスタンスを別変数に代入すると参照がコピーされる（オブジェクト本体は共有）。</li>
+          <li>値型／参照型の違いによって、関数呼び出し時のコピーコストやメモリレイアウトが異なる。</li>
+        </ul>
+
+        <h3>4.4 配列・コレクション</h3>
         <p>
           Aloe には次の 4 種類の基本的なコレクション型があり、<br>
           それぞれに <strong>ジェネリック型名</strong> と <strong>短縮記法</strong> の両方を定義する。
@@ -449,10 +483,10 @@ let Name: string = "Aloe"; // 再代入不可</code></pre>
 
         <p>代表的な使用例：</p>
 
-        <pre><code>var A: int[]        = [1, 2, 3];                 // Array&lt;int&gt;
-var B: int()        = (1, 2, 3);                 // List&lt;int&gt;
-var S: int{}        = {1, 2, 3};                 // Set&lt;int&gt;
-var M: map&lt;string/int&gt; = ["key": 10];           // Map&lt;string, int&gt;
+        <pre><code>var A: int[]             = [1, 2, 3];                 // Array&lt;int&gt;
+var B: int()             = (1, 2, 3);                 // List&lt;int&gt;
+var S: int{}             = {1, 2, 3};                 // Set&lt;int&gt;
+var M: map&lt;string/int&gt;  = ["key": 10];               // Map&lt;string, int&gt;
 
 // ジェネリック表記を使うこともできる
 var A2: Array&lt;int&gt;        = [1, 2, 3];
@@ -466,7 +500,7 @@ var M2: Map&lt;string, float&gt; = ["pi": 3.14];</code></pre>
           <strong>構文糖衣</strong> として正式に位置づける。
         </p>
 
-        <h3>4.4 関数型</h3>
+        <h3>4.5 関数型</h3>
         <p>
           関数型はすべて <code>Func&lt;引数型列:戻り値型&gt;</code> で表現する。
         </p>
@@ -480,7 +514,7 @@ var AsyncWithResult: Func&lt;int:Task&lt;string&gt;&gt;; // int を受け取り 
           <code>Func&lt;Args:&gt;</code> を許可してよい。
         </p>
 
-        <h3>4.5 null と Option</h3>
+        <h3>4.6 null と Option</h3>
         <p>
           参照の有無を表すために、<code>Option&lt;T&gt;</code> を用意する案がある。詳細は未確定。
           <code>null</code> との関係や、どの型に <code>null</code> を代入可能とするかは、今後の null 安全設計で明示する。
@@ -920,3 +954,4 @@ method SetupButton(): Task {
   </div>
 </body>
 </html>
+
