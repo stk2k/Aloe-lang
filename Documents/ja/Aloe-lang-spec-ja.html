@@ -405,7 +405,7 @@ print(x);
     <h3>2.4 Result&lt;T&gt; 型</h3>
     <p>
       <code>Result&lt;T&gt;</code> は、Railway Oriented Programming（ROP）の考え方に基づき、
-      「成功」または「失敗」のいずれかの状態を表現するための汎用コンテナ型である。
+      「成功」または「失敗」の いずれかの状態を表現するための汎用コンテナ型である。
       主にパイプライン処理やフィルタ内で使用される。
     </p>
 <pre><code>// 概念的な定義（実際の実装はランタイム依存）
@@ -502,11 +502,11 @@ struct Result&lt;T&gt; {
 
     <h3>4.1 Static (lexical) scope and shadowing（静的スコープとシャドウイング）</h3>
 <pre><code>class Sample {
-    field value: int = 1;
-    method foo(): void {
-        var value = 2;        // shadows the field
-        print(value);         // 2
-        print(this.value);    // 1
+    field Value: int = 1;
+    method Foo(): void {
+        var Value = 2;        // shadows the field
+        print(Value);         // 2
+        print(this.Value);    // 1
     }
 }
 </code></pre>
@@ -1315,6 +1315,51 @@ UsersIn
       これにより、成功レールとエラーレールの二本レール構造を崩さずに変換を重ねられる。
     </p>
 
+    <h4>18.5.3 コレクションパイプライン向け map テンプレート</h4>
+    <p>
+      コレクション型（例：<code>User()</code>）に対しては、
+      「コレクションパイプライン」構文と組み合わせたテンプレート形式の
+      <code>map</code> を用いて、別の型のコレクションに変換できる。
+    </p>
+<pre><code>let Users: User() = ...;
+
+// Users の各要素を u として扱い、Customer にマッピングする例
+Users as u
+    | map Customer {
+        Name    = u.Name,
+        Address = u.Address,
+    }
+    | Customers;
+</code></pre>
+    <ul>
+      <li><code>Users as u</code> は、コレクション <code>Users</code> の各要素を
+        エイリアス <code>u</code> としてパイプラインに流す「コレクションパイプライン」の開始を表す。</li>
+      <li><code>map Customer { ... }</code> は、ターゲット型 <code>Customer</code> の
+        オブジェクト初期化テンプレートであり、ブロック内の各フィールド初期化式は
+        現在の要素 <code>u</code> を参照できる。</li>
+      <li>上記の例は、概念的には次のようなコードと等価である：</li>
+    </ul>
+<pre><code>let Customers: Customer() = ();
+
+foreach (u in Users) {
+    let c: Customer = Customer {
+        Name    = u.Name,
+        Address = u.Address,
+    };
+    Customers.Add(c);
+}
+</code></pre>
+    <ul>
+      <li>テンプレート内で指定されなかったフィールドは、<code>Customer</code> の
+        デフォルト値（コンストラクタやフィールド初期値）に従う。</li>
+      <li><code>Users as u | map Customer { ... }</code> の結果は、
+        後続のパイプラインステージ（例：<code>| Customers;</code>）で受け取られる
+        <code>Customer()</code> コレクションである。</li>
+      <li>このテンプレート形式の <code>map</code> は、
+        コレクションから別のコレクションへの「型付きプロジェクション」を簡潔に記述するための
+        構文糖衣であり、コアのパイプ / filter モデルとは独立して定義される。</li>
+    </ul>
+
     <h3>18.6 close と EOF 伝播</h3>
     <ul>
       <li><code>p.close()</code> 後の <code>write()</code> は無効（エラーになり得る）。</li>
@@ -1419,7 +1464,8 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張・Result&lt;T&gt;・ROP・map / match パイプラインを加えた
+      <strong>with ブロックの型対応拡張・Result&lt;T&gt;・ROP・map / match パイプライン・
+      コレクションパイプライン向け map テンプレートを加えた
       Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
