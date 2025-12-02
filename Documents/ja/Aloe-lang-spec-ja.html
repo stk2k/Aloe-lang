@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="3">
-  <meta name="edit-date" content="2025-12-02T10:45:00+09:00">
+  <meta name="edit-version" content="4">
+  <meta name="edit-date" content="2025-12-02T11:05:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -931,7 +931,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <ul>
       <li><code>b(n)</code> はビット n（<code>1 &lt;&lt; n</code>）を表す。</li>
       <li><code>Name : b(n)</code> でその列挙子にビット n を割り当てる。</li>
-      <li><code>bitfield enum</code> で使用可能なビットは最大 32（n は 0–31）。</li>
+      <li><code>bitfield enum</code>で使用可能なビットは最大 32（n は 0–31）。</li>
       <li>同一ビットを共有する列挙子があっても、コンパイラは警告にとどめ、エラーにはしない。</li>
       <li>基礎型は常に int32 であり、<code>bitfield enum&lt;byte&gt;</code> などはコンパイルエラー。</li>
     </ul>
@@ -1053,7 +1053,7 @@ finally {
     <ul>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
-      <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
+      <li><code>パースやフォーマットエラーは <code>FormatException</code>。</code></li>
       <li>その他の VM レベルの致命的エラーは実装依存。</li>
     </ul>
 
@@ -1357,6 +1357,7 @@ function main(args: string[]): int {
       ・関係ない箇所については基本的に変更は禁止とする。意味的に同じであっても、文言や変数名を勝手に変更しない。<br>
       ・「ここも直した方がよさそう」と感じた場合は、編集を中断し、ユーザーに確認してから反映する。<br>
       ・直前に出力した全文 HTML を常に「正」とみなし、次の編集はその版に対する最小限の差分に限定する。<br>
+      ・前のHTML（直前の「正」）が見えなくなった／再現できなくなった場合は、修正を中断し、必ずユーザーに相談する。<br>
     </p>
 
   </main>
