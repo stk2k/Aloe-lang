@@ -1135,6 +1135,7 @@ finally {
     <p>
       Aloe の標準ライブラリは、ROP での利用を想定した汎用的な結果型 <code>Result&lt;T&gt;</code> を提供する。
       これは「成功した値」または「失敗時のエラー情報」のいずれかを保持する値型である。
+      以下の定義は擬似コードとしてのイメージであり、実装レベルでは最適化や補助メソッドが追加されうる。
     </p>
 <pre><code>struct Result&lt;T&gt; {
     field IsOk: bool;
@@ -1156,13 +1157,25 @@ finally {
         r.Error = error;
         return r;
     }
+
+    // 補助的なヘルパー（T = void を想定した成功値）
+    // 実装ではジェネリック特殊化や別名型 ResultVoid などで提供してもよい。
+    static method Ok(): Result&lt;void&gt; {
+        let r: Result&lt;void&gt;;
+        r.IsOk = true;
+        // Value は使用しない
+        // Error は未使用
+        return r;
+    }
 }
 </code></pre>
     <ul>
       <li><code>IsOk</code> … 結果が成功かどうかを表すフラグ（<code>true</code> なら成功）。</li>
       <li><code>Value</code> … 成功時の値。<code>IsOk == true</code> の場合のみ有効。</li>
       <li><code>Error</code> … 失敗時の例外情報。<code>IsOk == false</code> の場合のみ有効。</li>
-      <li><code>Ok</code> / <code>Error</code> は、それぞれ成功 / 失敗の <code>Result&lt;T&gt;</code> を生成するヘルパーメソッドである。</li>
+      <li><code>Ok(value)</code> / <code>Error(error)</code> は、それぞれ成功 / 失敗の <code>Result&lt;T&gt;</code> を生成するヘルパーメソッドである。</li>
+      <li>値を返さず成功 / 失敗だけを表したい場合には <code>Result&lt;void&gt;</code> を用い、
+        フィルタの <code>bound</code> などから <code>Result&lt;void&gt;.Ok()</code> を返すことを想定する。</li>
     </ul>
     <p>
       フィルタやメソッドの戻り値として <code>Result&lt;T&gt;</code> を用いることで、
@@ -1206,16 +1219,26 @@ finally {
     constructor(opts: LineSplitOptions) {
         // options から内部状態を初期化してもよい
         // 例: オプションに応じて区切り文字を変えるなど
+        Separator = "\n";
     }
 
-    bound(input, output) {
-        foreach (chunk in input) {
-            let parts = chunk.split(Separator);
-            foreach (part in parts) {
-                output.write(part);
+    // パイプライン実行時に呼ばれる本体。
+    // 処理が正常に完了したかどうかを Result&lt;void&gt; で返す。
+    bound(input, output): Result&lt;void&gt; {
+        try {
+            foreach (chunk in input) {
+                let parts = chunk.split(Separator);
+                foreach (part in parts) {
+                    output.write(part);
+                }
             }
+            output.close();
+            return Result&lt;void&gt;.Ok();
         }
-        output.close();
+        catch (e: Exception) {
+            // 必要に応じてログ出力などを行った上でエラーとして返す
+            return Result&lt;void&gt;.Error(e);
+        }
     }
 }
 </code></pre>
@@ -1248,10 +1271,14 @@ finally {
           <li><code>constructor</code> の有無は任意であり、省略してもよい。</li>
         </ul>
       </li>
-      <li><code>bound(input, output)</code> … 実際の変換処理を記述する本体。
+      <li><code>bound(input, output): Result&lt;void&gt;</code> … 実際の変換処理を記述する本体。
         <ul>
           <li><code>input</code> と <code>output</code> の型は、それぞれ <code>in</code> / <code>out</code> に対応する。</li>
           <li>EOF を検知したら <code>output.close()</code> を呼び、下流へ EOF を伝播させる。</li>
+          <li>正常に完了した場合は <code>Result&lt;void&gt;.Ok()</code> を返し、
+            何らかのエラーがあれば <code>Result&lt;void&gt;.Error(e)</code> のようにエラー情報付きで返す。</li>
+          <li>例外を直接スローする実装も可能だが、パイプライン全体の制御性・テスト容易性の観点から、
+            ROP 的には「例外を捕捉して <code>Result&lt;void&gt;</code> に畳み込む」スタイルを推奨する。</li>
         </ul>
       </li>
     </ul>
@@ -1334,11 +1361,10 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型の設計指針を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型 / filter.bound の戻り値を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
 </div>
 </body>
 </html>
-
