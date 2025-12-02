@@ -1212,7 +1212,7 @@ finally {
     // フィルタ内部状態（各フィルタインスタンスごとに保持される）
     field Separator: string = "\n";
 
-    // このフィルタが受け取るオプションクラス（bitfield enum 等）
+    // このフィルタが受け取るオプションクラス（通常は bitfield enum）
     options: LineSplitOptions;
 
     // インスタンス生成時に 1 度だけ呼ばれるコンストラクタ
@@ -1259,9 +1259,10 @@ finally {
           </li>
         </ul>
       </li>
-      <li><code>options: SomeOptions;</code> … このフィルタが受け取るオプション型（通常は bitfield enum）を宣言する。
+      <li><code>options: SomeOptions;</code> … このフィルタが受け取るオプションクラス（通常は bitfield enum）を宣言する。
         <ul>
-          <li>18.2.2 で説明する <code>filter(json&lt;T&gt;: JsonOptions.Foo | ...)</code> の <code>JsonOptions</code> に対応する。</li>
+          <li>18.2.2 で説明する <code>filter(json&lt;T&gt;: JsonOptions.Foo | ...)</code> の
+            <code>JsonOptions</code> に対応する。</li>
           <li>省略した場合、そのフィルタはオプションを受け取らない。</li>
         </ul>
       </li>
@@ -1285,13 +1286,27 @@ finally {
 
     <h4>18.2.2 フィルタオプション</h4>
 <pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
+
+// options で JsonOptions を指定している場合、クラス名は省略できる：
+filter(json&lt;User&gt;: PrettyPrint | IncludeNulls)
 </code></pre>
     <ul>
-      <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
-      <li>各フィルタは、自身の filter 定義内で
-        <code>options: JsonOptions;</code> のようにオプションクラス（通常は bitfield enum）を宣言する。
+      <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定する。</li>
+      <li>各フィルタは、自身の filter 定義内の <code>options</code> 項目で
+        <code>options: JsonOptions;</code> のように「そのフィルタが受け取るオプションクラス」を指定できる。
       </li>
-      <li>パイプライン文で指定される各識別子（<code>JsonOptions.PrettyPrint</code> など）は、そのオプション型の列挙子でなければならない。</li>
+      <li><code>options</code> で指定したクラスの列挙子をパイプライン文の <code>:</code> の後で使用する場合、
+        <code>JsonOptions.PrettyPrint</code> のようにクラス名を明示してもよいし、
+        上記サンプルのように <code>PrettyPrint</code>, <code>IncludeNulls</code> のように
+        クラス名を省略して記述してもよい。
+        <ul>
+          <li>クラス名省略時、コンパイラはまず <code>options</code> で指定されたクラス
+           （この例では <code>JsonOptions</code>）の列挙子として解決を試みる。</li>
+          <li>同名のローカル変数や他のシンボルと衝突する場合、その識別子は曖昧としてコンパイルエラー。</li>
+        </ul>
+      </li>
+      <li>パイプライン文でクラス名付きで指定する場合（<code>JsonOptions.PrettyPrint</code> など）は、
+        その識別子は常にそのクラスのメンバーとして解釈されるため、曖昧さが解消される。</li>
       <li>実装側では、これらのオプション値を 1 つの bitfield などに畳み込み、
         フィルタの <code>constructor</code> へ渡して内部状態の初期化に利用できる。</li>
     </ul>
@@ -1361,10 +1376,11 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型 / filter.bound の戻り値を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型 / filter.bound の戻り値 / フィルタオプションの省略記法を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
 </div>
 </body>
 </html>
+
