@@ -303,7 +303,7 @@ yield
       <li>null リテラル：<code>null</code></li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
-      <li>セットリテラル：<code>{1, 2, 3]</code> ※要修正</li>
+      <li>セットリテラル：<code>{1, 2, 3}</code></li>
       <li>マップリテラル：<code>["key1": 10, "key2": 20]</code></li>
       <li>enum リテラル：<code>EnumType.Value1</code></li>
       <li>struct リテラル：<code>Point { x: 0, y: 1 }</code></li>
@@ -367,6 +367,7 @@ print(x);
       <li><code>enum</code>, <code>bitfield enum</code></li>
       <li>非同期タスク：<code>task</code></li>
       <li>パイプ：<code>pipe&lt;T&gt;</code>（18章参照）</li>
+      <li>汎用結果型：<code>Result&lt;T&gt;</code>（18.0.1 節参照）</li>
     </ul>
     <p><code>any</code> 型は存在せず、動的型付けはサポートしない。</p>
 
@@ -1119,23 +1120,58 @@ finally {
       Aloe の <code>pipe</code> / <code>filter</code> は、まさにこのステージの連鎖を表現する仕組みであり、
       各フィルタを「同じ入力なら常に同じ出力を返す」関数として設計することで、
       ROP 的な読みやすさとテストのしやすさを得られる。
-      エラーは <code>Result</code> 型やエラーパイプなどに明示的に流すことを推奨する。
-      （コア仕様では具体的な <code>Result</code> 型などは定義せず、設計方針のみを示す。）
+      エラーは 18.0.1 節で定義する <code>Result&lt;T&gt;</code> 型や専用のエラーパイプなどに
+      明示的に流すことを推奨する。
     </p>
     <figure>
-<pre><code>入力
-  │
-  ▼
-[ Filter A ]
-  │ 正常
-  ▼
-[ Filter B ] ───▶ 正常系の出力
-  │ 異常
-  ▼
-エラー情報（ログ / エラーパイプ / Result 型 など）
+<pre><code>入力 ──▶ [ Filter A ] ──▶ [ Filter B ] ──▶ 正常系の出力
+           │
+           └──────▶ エラー（ログ / エラーパイプ / Result&lt;T&gt; など）
 </code></pre>
-      <figcaption>図: ROP 的な「二本の線路（成功レーン / 失敗レーン）」イメージ</figcaption>
+      <figcaption>図: ROP 的な「二本の線路（成功レーン / 失敗レーン）」のイメージ（左から右へ流れる）</figcaption>
     </figure>
+
+    <h4>18.0.1 Result&lt;T&gt; 型（成功 / 失敗の 2 値表現）</h4>
+    <p>
+      Aloe の標準ライブラリは、ROP での利用を想定した汎用的な結果型 <code>Result&lt;T&gt;</code> を提供する。
+      これは「成功した値」または「失敗時のエラー情報」のいずれかを保持する値型である。
+    </p>
+<pre><code>struct Result&lt;T&gt; {
+    field IsOk: bool;
+    field Value: T;
+    field Error: Exception;
+
+    static method Ok(value: T): Result&lt;T&gt; {
+        let r: Result&lt;T&gt;;
+        r.IsOk = true;
+        r.Value = value;
+        // Error は未使用（VM レベルでは未定義または null 相当）
+        return r;
+    }
+
+    static method Error(error: Exception): Result&lt;T&gt; {
+        let r: Result&lt;T&gt;;
+        r.IsOk = false;
+        // Value は未定義（読み出してはならない）
+        r.Error = error;
+        return r;
+    }
+}
+</code></pre>
+    <ul>
+      <li><code>IsOk</code> … 結果が成功かどうかを表すフラグ（<code>true</code> なら成功）。</li>
+      <li><code>Value</code> … 成功時の値。<code>IsOk == true</code> の場合のみ有効。</li>
+      <li><code>Error</code> … 失敗時の例外情報。<code>IsOk == false</code> の場合のみ有効。</li>
+      <li><code>Ok</code> / <code>Error</code> は、それぞれ成功 / 失敗の <code>Result&lt;T&gt;</code> を生成するヘルパーメソッドである。</li>
+    </ul>
+    <p>
+      フィルタやメソッドの戻り値として <code>Result&lt;T&gt;</code> を用いることで、
+      「正常系の値」と「エラー情報」を同一の型で扱うことができ、
+      ROP 的な「二本の線路」をコード上で明示しやすくなる。
+      ドメイン固有のエラー型を用いたい場合は、<code>Exception</code> の代わりに
+      独自の <code>struct</code> / <code>class</code> を用いた
+      別の <code>Result&lt;TError, TValue&gt;</code> などを定義してもよい。
+    </p>
 
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
     <ul>
@@ -1298,7 +1334,7 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張と ROP 的な設計指針を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型の設計指針を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
