@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="4">
-  <meta name="edit-date" content="2025-12-02T11:05:00+09:00">
+  <meta name="edit-version" content="5">
+  <meta name="edit-date" content="2025-12-02T11:40:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -277,6 +277,7 @@ new
 null
 options
 or
+override
 pipe
 private
 protected
@@ -297,6 +298,7 @@ trait
 true
 try
 var
+virtual
 void
 while
 with
@@ -786,6 +788,45 @@ class Derived extends Base {
 
 sealed class FinalDerived extends Base {
     // cannot be extended further
+}
+</code></pre>
+    <h4>abstract / virtual / override</h4>
+    <ul>
+      <li><code>abstract</code> が class の前に置かれた場合、そのクラスは抽象クラスとなり、直接インスタンス化できない。</li>
+      <li><code>abstract</code> がメソッド定義の前に置かれた場合、そのメソッドは抽象メソッドとなり、本体（ブロック）を持たない。
+        抽象クラスを継承した具体クラス（非 <code>abstract</code> class）は、その抽象メソッドを
+        <code>override</code> で必ず実装しなければならない。</li>
+      <li><code>virtual</code> のついたメソッドは既定の実装を持ちながら、継承したクラス側で
+        <code>override</code> によって上書き可能となる。</li>
+      <li><code>override</code> は、基底クラスの <code>abstract</code> または <code>virtual</code> メソッドを
+        オーバーライドすることを明示するキーワードである。</li>
+    </ul>
+<pre><code>abstract class Shape {
+    abstract method area(): float;
+}
+
+class Circle extends Shape {
+    field r: float;
+
+    construct(r: float) {
+        this.r = r;
+    }
+
+    override method area(): float {
+        return 3.14159 * r * r;
+    }
+}
+
+class BaseGreeter {
+    virtual method greet(): void {
+        print("Hello");
+    }
+}
+
+class FriendlyGreeter extends BaseGreeter {
+    override method greet(): void {
+        print("Hello, Aloe!");
+    }
 }
 </code></pre>
 
