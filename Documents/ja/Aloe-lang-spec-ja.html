@@ -989,6 +989,7 @@ print(b); // 10
       <li>ビット OR：<code>|</code>（pipeline 文では別語義）</li>
       <li>論理 AND：<code>&amp;&amp;</code></li>
       <li>論理 OR：<code>||</code></li>
+      <li>パイプライン / パイプ with：<code>|</code>, <code>|&gt;</code>（パイプライン文内でのみ使用）</li>
       <li>代入：<code>=</code></li>
     </ol>
     <p>複合代入（<code>+=</code> 等）はまだ仕様化されていない。</p>
@@ -1109,7 +1110,7 @@ finally {
       <li>各フィルタは自前のオプション型（bitfield enum 等）を持つ。</li>
     </ul>
 
-    <h3>18.3 パイプライン文と <code>|</code></h3>
+    <h3>18.3 パイプライン文と <code>|</code> / パイプ with 演算子 <code>|&gt;</code></h3>
 <pre><code>stdin
     | filter(utf8)
     | filter(json&lt;DateTime&gt;)
@@ -1119,6 +1120,23 @@ finally {
       <li><code>A | B | C;</code> で A の出力が B へ、B の出力が C へ接続される。</li>
       <li>型チェックにより各ステージの入出力型整合性を確認。</li>
       <li>パイプライン文そのものは値を返さない（副作用として接続を張るだけ）。</li>
+    </ul>
+
+    <p>
+      パイプ with 演算子 <code>|&gt;</code> は、<br>
+      <code>source | filter(if 条件式)</code> を短く書くための糖衣構文として扱われる。
+    </p>
+<pre><code>users
+    |> .Age &gt;= 20 and .Gender == Gender.Male;
+// 上記は概念的には次と等価：
+//
+// users
+//     | filter(if (.Age &gt;= 20 and .Gender == Gender.Male));
+</code></pre>
+    <ul>
+      <li><code>source |> 条件式</code> は、各要素に対して条件式を評価し、<code>true</code> となる要素だけを通すフィルタに展開される。</li>
+      <li>条件式内の <code>.</code> は、現在処理中の要素を指す（with ブロックと同様の解決ルール）。</li>
+      <li><code>|&gt;</code> はあくまでパイプライン文の中でのみ使用される演算子であり、通常の式の一部としては使用しない。</li>
     </ul>
 
     <h3>18.4 foreach と pipe</h3>
