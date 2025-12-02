@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
   <meta name="edit-version" content="5">
-  <meta name="edit-date" content="2025-12-02T11:40:00+09:00">
+  <meta name="edit-date" content="2025-12-02T12:10:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -348,7 +348,7 @@ print(x);
     <h3>1.7 Case sensitivity（大文字小文字）</h3>
     <ul>
       <li>識別子とキーワードは大文字小文字を区別する。</li>
-      <li>キーワードはすべて小文字。</li>
+      <li>キーワードはすべて小文字（<code>Result</code> を除く）。</li>
     </ul>
 
     <hr>
@@ -385,6 +385,7 @@ print(x);
       <li><code>enum</code>, <code>bitfield enum</code></li>
       <li>非同期タスク：<code>task</code></li>
       <li>パイプ：<code>pipe&lt;T&gt;</code>（18章参照）</li>
+      <li>結果型：<code>Result&lt;T&gt;</code>（18章参照）</li>
     </ul>
     <p><code>any</code> 型は存在せず、動的型付けはサポートしない。</p>
 
@@ -401,7 +402,7 @@ print(x);
         <ul>
           <li><code>class</code></li>
           <li><code>string</code>（実装上は参照型）</li>
-          <li><code>task</code>, <code>pipe&lt;T&gt;</code> など</li>
+          <li><code>task</code>, <code>pipe&lt;T&gt;</code>, <code>Result&lt;T&gt;</code> など</li>
         </ul>
       </li>
     </ul>
@@ -790,45 +791,6 @@ sealed class FinalDerived extends Base {
     // cannot be extended further
 }
 </code></pre>
-    <h4>abstract / virtual / override</h4>
-    <ul>
-      <li><code>abstract</code> が class の前に置かれた場合、そのクラスは抽象クラスとなり、直接インスタンス化できない。</li>
-      <li><code>abstract</code> がメソッド定義の前に置かれた場合、そのメソッドは抽象メソッドとなり、本体（ブロック）を持たない。
-        抽象クラスを継承した具体クラス（非 <code>abstract</code> class）は、その抽象メソッドを
-        <code>override</code> で必ず実装しなければならない。</li>
-      <li><code>virtual</code> のついたメソッドは既定の実装を持ちながら、継承したクラス側で
-        <code>override</code> によって上書き可能となる。</li>
-      <li><code>override</code> は、基底クラスの <code>abstract</code> または <code>virtual</code> メソッドを
-        オーバーライドすることを明示するキーワードである。</li>
-    </ul>
-<pre><code>abstract class Shape {
-    abstract method area(): float;
-}
-
-class Circle extends Shape {
-    field r: float;
-
-    construct(r: float) {
-        this.r = r;
-    }
-
-    override method area(): float {
-        return 3.14159 * r * r;
-    }
-}
-
-class BaseGreeter {
-    virtual method greet(): void {
-        print("Hello");
-    }
-}
-
-class FriendlyGreeter extends BaseGreeter {
-    override method greet(): void {
-        print("Hello, Aloe!");
-    }
-}
-</code></pre>
 
     <h3>7.4 interface</h3>
 <pre><code>interface ILogger {
@@ -876,6 +838,71 @@ obj2.a.hello(); // OK
       <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
       <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
       <li>クラス本体と trait メンバとの衝突の扱いは将来バージョンで定義予定。</li>
+    </ul>
+
+    <h3>7.6 abstract / virtual / override</h3>
+    <p>
+      継承階層における多態性を表現するために、<code>abstract</code> / <code>virtual</code> /
+      <code>override</code> の 3 つのキーワードを用いる。
+    </p>
+
+    <h4>abstract class / abstract method</h4>
+<pre><code>abstract class Animal {
+    method SayName(): void {
+        print("Unknown");
+    }
+
+    abstract method Speak(): void; // 本体を持たない抽象メソッド
+}
+</code></pre>
+    <ul>
+      <li><code>abstract</code> が class の前に付いた場合、そのクラスは抽象クラスとなる。</li>
+      <li>抽象クラスは直接インスタンス化できない（<code>new Animal()</code> はコンパイルエラー）。</li>
+      <li><code>abstract method</code> は本体（メソッドブロック）を持たず、宣言のみを行う。</li>
+      <li>抽象メソッドを持つクラスは必ず <code>abstract class</code> でなければならない。</li>
+    </ul>
+
+<pre><code>class Dog extends Animal {
+    override method Speak(): void {
+        print("Bowwow");
+    }
+}
+</code></pre>
+    <ul>
+      <li>抽象メソッドは、具象クラス（非 abstract クラス）側で <code>override</code> によって必ず実装しなければならない。</li>
+    </ul>
+
+    <h4>virtual method と override</h4>
+<pre><code>class BaseLogger {
+    virtual method Log(message: string): void {
+        print("[Base] " + message);
+    }
+}
+
+class FileLogger extends BaseLogger {
+    override method Log(message: string): void {
+        print("[File] " + message);
+    }
+}
+</code></pre>
+    <ul>
+      <li><code>virtual</code> が付いたメソッドは、派生クラスで <code>override</code> 可能なメソッドである。</li>
+      <li><code>virtual</code> メソッドは本体を持つ（抽象メソッドとは異なる）。</li>
+      <li>派生クラス側でオーバーライドする場合、必ず <code>override</code> を付ける。</li>
+      <li><code>override</code> を付けたメソッドのシグネチャ（名前、引数、戻り値）は、基底クラスの抽象 / virtual メソッドと一致していなければならない。</li>
+      <li>基底クラスに対応する virtual / abstract メソッドが存在しないのに <code>override</code> を付けた場合はコンパイルエラー。</li>
+    </ul>
+
+    <h4>呼び出しの挙動</h4>
+<pre><code>BaseLogger logger = new FileLogger();
+logger.Log("Hello");  // 実行時型に応じて FileLogger.Log が呼ばれる（仮想呼び出し）
+
+FileLogger fl = new FileLogger();
+fl.Log("Hello");      // 当然 FileLogger.Log が呼ばれる
+</code></pre>
+    <ul>
+      <li>virtual / override メソッドは、変数の静的型ではなく実行時型に基づいて解決される（仮想メソッド呼び出し）。</li>
+      <li>基底クラス側の実装を呼び出したい場合は <code>super.Log(...)</code> のような構文（将来拡張）を用いる想定。</li>
     </ul>
 
     <hr>
@@ -1094,7 +1121,8 @@ finally {
     <ul>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
-      <li><code>パースやフォーマットエラーは <code>FormatException</code>。</code></li>
+      <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
+      <li><code>InvalidOperationException</code> は、不正な状態での操作（例：<code>Result</code> の状態と合わないプロパティアクセスなど）に用いる。</li>
       <li>その他の VM レベルの致命的エラーは実装依存。</li>
     </ul>
 
@@ -1145,19 +1173,52 @@ finally {
       <strong>Result&lt;T&gt;</strong> 型と <strong>Railway Oriented Programming（ROP）</strong> の考え方で扱う。
     </p>
     <ul>
-      <li><code>Result&lt;T&gt;</code> は「成功（Ok）」または「失敗（Error）」のどちらかを表す言語組み込みジェネリック型。</li>
-      <li>フィルタや将来のパイプ定義は、通常 <code>Result&lt;T&gt;</code> を返すことで、
-          成功 / 失敗を明示的に表現する。</li>
+      <li><code>Result&lt;T&gt;</code> は「成功（Success = true）」または「失敗（Success = false）」のどちらかを表す、言語組み込みのジェネリック型。</li>
+      <li>フィルタやパイプは通常 <code>Result&lt;T&gt;</code> を返すことで、成功 / 失敗を明示的に表現する。</li>
     </ul>
 
-    <h4>18.2.1 Result&lt;T&gt; の概念的な定義</h4>
+    <h4>18.2.1 Result&lt;T&gt; の型仕様（概要）</h4>
 <pre><code>// 擬似コードによる概念図（構文は今後確定）
-Result&lt;T&gt; =
-    Ok(value: T)
-  | Error(message: string);  // またはエラー情報オブジェクト
+class Result&lt;T&gt; {
+    // 状態
+    // Success == true のとき: Value が有効
+    // Success == false のとき: ErrorMessage が有効
+    field Success: bool;
+    field Value: T;
+    field ErrorMessage: string;
+
+    // ファクトリメソッド（言語組み込み）
+    static method Ok(value: T): Result&lt;T&gt;;
+    static method Error(message: string): Result&lt;T&gt;;
+}
 </code></pre>
+    <ul>
+      <li><code>Success</code> が <code>true</code> の場合：
+        <ul>
+          <li><code>Value</code> に有効な値が格納されている。</li>
+          <li><code>ErrorMessage</code> は空文字列や実装依存の値だが、読み出してもよい。</li>
+        </ul>
+      </li>
+      <li><code>Success</code> が <code>false</code> の場合：
+        <ul>
+          <li><code>ErrorMessage</code> にエラーメッセージ（またはその一部）が格納されている。</li>
+          <li><code>Value</code> は「存在しない値」とみなされ、読み出しは不正な操作である。</li>
+        </ul>
+      </li>
+      <li>状態（<code>Success</code>）と一致しないプロパティへのアクセス（例：<code>Success == false</code> なのに <code>Value</code> を読む、など）は
+          実行時に <code>InvalidOperationException</code> を投げるものとする（コンパイラが静的に検出できる場合はコンパイルエラーとしてもよい）。</li>
+      <li><code>Result&lt;void&gt;</code> については、値を持たない成功を表現するために
+          <code>Result&lt;void&gt;.Ok()</code>（引数なし）を特別に許可する：
+        <ul>
+          <li>この場合も <code>Success == true</code> となり、<code>ErrorMessage</code> は通常空を意味する。</li>
+          <li><code>Result&lt;void&gt;</code> に対して <code>Value</code> を読み出そうとした場合は常に不正であり、
+              <code>InvalidOperationException</code> を投げる。</li>
+        </ul>
+      </li>
+    </ul>
     <p>
-      実際の構文や Error 側のペイロードは VM / ランタイム仕様および将来の拡張で厳密に定義される。
+      上記はあくまで論理モデルであり、実際のフィールド名や実装詳細は VM / ランタイム仕様で調整される余地がある。
+      ただし「Success フラグを軸に、有効なプロパティだけにアクセスする」という契約自体は言語仕様として保証される。
     </p>
 
     <h4>18.2.2 ROP（Railway Oriented Programming）のイメージ</h4>
@@ -1206,7 +1267,7 @@ Result&lt;T&gt; =
             }
         }
         output.close();
-        return Ok(); // 処理が成功したことを示す
+        return Result&lt;void&gt;.Ok(); // 処理が成功したことを示す
     }
 }
 </code></pre>
@@ -1218,8 +1279,8 @@ Result&lt;T&gt; =
           副作用を持つフィールドは最小限にとどめることが推奨される。</li>
       <li><code>constructor</code> は任意で定義でき、オプション値や外部パラメータを受け取って初期化を行う。</li>
       <li><code>bound(input, output): Result&lt;void&gt;</code> は
-          フィルタの実行本体であり、成功時には <code>Ok()</code>、失敗時には <code>Error(...)</code>
-          を返すことができる。</li>
+          フィルタの実行本体であり、成功時には <code>Result&lt;void&gt;.Ok()</code>、
+          失敗時には <code>Result&lt;void&gt;.Error(...)</code> を返すことができる。</li>
     </ul>
 
     <h4>18.3.2 フィルタオプション（filter オプション指定）</h4>
