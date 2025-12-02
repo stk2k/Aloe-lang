@@ -308,7 +308,7 @@ yield
       <li>null リテラル：<code>null</code></li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
-      <li>セットリテラル：<code>{1, 2, 3}</code></li>
+      <li>セットリテラル：<code>{1, 2, 3]</code></li>
       <li>マップリテラル：<code>["key1": 10, "key2": 20]</code></li>
       <li>enum リテラル：<code>EnumType.Value1</code></li>
       <li>struct リテラル：<code>Point { x: 0, y: 1 }</code></li>
@@ -599,7 +599,7 @@ print(x);
 
 class MathUtil {
     static method max(a: int, b: int): int {
-        if (a > b) return a;
+        if (a &gt; b) return a;
         return b;
     }
 }
@@ -1124,17 +1124,17 @@ finally {
 
     <p>
       パイプ with 演算子 <code>|&gt;</code> は、<br>
-      <code>source | filter(if 条件式)</code> を短く書くための糖衣構文として扱われる。
+      <code>source | filter(if : 条件式)</code> を短く書くための糖衣構文として扱われる。
     </p>
 <pre><code>users
-    |> .Age &gt;= 20 and .Gender == Gender.Male;
+    |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
 // 上記は概念的には次と等価：
 //
 // users
-//     | filter(if (.Age &gt;= 20 and .Gender == Gender.Male));
+//     | filter(if : .Age &gt;= 20 and .Gender == Gender.Male);
 </code></pre>
     <ul>
-      <li><code>source |> 条件式</code> は、各要素に対して条件式を評価し、<code>true</code> となる要素だけを通すフィルタに展開される。</li>
+      <li><code>source |&gt; 条件式</code> は、各要素に対して条件式を評価し、<code>true</code> となる要素だけを通すフィルタに展開される。</li>
       <li>条件式内の <code>.</code> は、現在処理中の要素を指す（with ブロックと同様の解決ルール）。</li>
       <li><code>|&gt;</code> はあくまでパイプライン文の中でのみ使用される演算子であり、通常の式の一部としては使用しない。</li>
     </ul>
