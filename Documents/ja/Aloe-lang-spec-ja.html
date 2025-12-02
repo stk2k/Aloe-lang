@@ -787,7 +787,7 @@ class ConsoleLogger implements ILogger {
       <li><code>is</code> 演算子でインタフェース実装有無を判定。</li>
     </ul>
 
-    <h3>7.5 trait</h3>
+    <h3>7.5 トレイト（trait）</h3>
 <pre><code>trait Trait_A {
     method hello(): void {
         print("Hello from Trait_A");
@@ -795,24 +795,24 @@ class ConsoleLogger implements ILogger {
 }
 </code></pre>
 
-    <h4>Applying traits with with</h4>
+    <h4>with によるトレイト適用</h4>
 <pre><code>var obj = new SomeClass() with Trait_A;
 obj.hello(); // method from Trait_A (if no conflicts)
 </code></pre>
 
-    <h4>Non-destructive add/remove（+ / -）</h4>
+    <h4>非破壊な追加・削除（+ / -）</h4>
 <pre><code>var obj2 = obj + Trait_A;      // obj unchanged; obj2 has Trait_A
 var obj3 = obj2 - Trait_A;     // obj3 is obj2 without Trait_A
 </code></pre>
 
-    <h4>Alias with as</h4>
+    <h4>as によるエイリアス指定</h4>
 <pre><code>var obj2 = obj + Trait_A as a;
 obj2.a.hello(); // OK
 
 // obj2.hello(); // NG: alias only; no direct member flattening
 </code></pre>
 
-    <h4>Trait conflicts</h4>
+    <h4>トレイト同士の衝突</h4>
     <ul>
       <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
       <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
@@ -1177,3 +1177,4 @@ main(args: string[]) {
 </div>
 </body>
 </html>
+
