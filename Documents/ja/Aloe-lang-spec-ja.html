@@ -251,6 +251,7 @@ false
 field
 finally
 for
+function
 if
 import
 implements
@@ -599,7 +600,7 @@ class MathUtil {
     }
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     with (AngleUtil) {
         var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
         print(.Pi);                // AngleUtil.Pi
@@ -609,6 +610,8 @@ main(args: string[]) {
         var m = max(10, 20);       // MathUtil.max(10, 20)
         print(m);
     }
+
+    return 0;
 }
 </code></pre>
 
@@ -619,13 +622,14 @@ main(args: string[]) {
     Blue
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     with (Color) {
         var c1: Color = Red;   // Color.Red
         var c2: Color = Blue;  // Color.Blue
         print(c1);
         print(c2);
     }
+    return 0;
 }
 </code></pre>
     <p>
@@ -921,35 +925,31 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <hr>
 
     <h2 id="ch12">12. main Block（エントリポイント）</h2>
-<pre><code>main(args: string[]) {
+<pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
     fb.run();
-    _ = 0; // process exit code (int)
+    return 0;
 }
 </code></pre>
     <ul>
       <li>プログラムのエントリポイント。</li>
       <li><code>args</code> はコマンドライン引数。</li>
-      <li>main ブロックでは、一時変数 <code>_</code> は常に <code>int</code> 型であり、その値がプロセスの終了コードとなる。</li>
+      <li><code>main</code> ブロックは関数として定義され、戻り値の型は常に <code>int</code>。</li>
+      <li><code>main</code> の戻り値がプロセスの終了コードとなる。</li>
     </ul>
 
     <hr>
 
     <h2 id="ch13">13. Temp Variable <code>_</code>（一時変数）</h2>
-<pre><code>main(args: string[]) {
+<pre><code>method foo(): void {
     var x = 10;
-    _ = x + 5;   // _ is int (exit code)
-}
-
-method foo(): void {
-    var x = 10;
-    _ = x + 5;   // type of _ is inferred in this block
+    _ = x + 5;   // このブロック内で _ の型は int になる
 }
 </code></pre>
     <ul>
       <li><code>_</code> は任意のブロックで宣言なしに使用できる特別な一時変数。</li>
-      <li>main では常に int。</li>
-      <li>その他のブロックでは、そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
+      <li>あるブロック内では、そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
+      <li>異なるブロック間での <code>_</code> の型は互いに独立している。</li>
       <li>with ブロック内では、追加で「現在の with 対象」を指す意味を持つ（4.2 参照）。</li>
     </ul>
 
@@ -1145,7 +1145,7 @@ finally {
     field name: string;
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.create();
     let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
 
@@ -1159,7 +1159,7 @@ main(args: string[]) {
         print("User: " + u.name);
     }
 
-    _ = 0;
+    return 0;
 }
 </code></pre>
     <p class="note">
@@ -1170,11 +1170,10 @@ main(args: string[]) {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張と main 関数仕様の更新を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
 </div>
 </body>
 </html>
-
