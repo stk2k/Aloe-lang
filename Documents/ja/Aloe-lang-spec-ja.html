@@ -1284,67 +1284,124 @@ function main(args: string[]): int {
 
     <h3>18.8 match によるパイプ分岐（Result&lt;T&gt; の分岐）</h3>
     <p>
-      <code>Result&lt;T&gt;</code> 型の値に対して <code>match</code> 構文を用いることで、
-      成功（<code>Ok</code>）と失敗（<code>Error</code>）で
-      <strong>異なるパイプに振り分ける</strong>ことができる。
-      これは ROP の「二本のレール」をコードとして表現するための基本的な手段である。
+      Aloe の <code>match</code> は、パイプラインの中で
+      <strong>入力パイプを条件ごとに別のパイプへ分岐させる</strong>ための構文である。
+      特に <code>Result&lt;T&gt;</code> 型のストリームを
+      「成功レール」と「エラーレール」に分ける用途を想定している。
     </p>
 
     <h4>18.8.1 基本構文</h4>
-<pre><code>match (resultExpr) {
-    Ok(value) =&gt; {
-        // value: T
-        // 成功時の処理
+<pre><code>sourcePipe
+    | match {
+        case 条件式1:
+            // 条件式1にマッチした要素だけが、このブロック内のパイプへ流れる
+            | filter(stageA)
+            | pipeA;
+            break;
+
+        case 条件式2:
+            | pipeB;
+            break;
+
+        default:
+            // どの case にもマッチしなかった要素
+            | errorPipe;
+            break;
     }
-    Error(err) =&gt; {
-        // err: Error
-        // 失敗時の処理
-    }
-}
 </code></pre>
     <ul>
-      <li><code>resultExpr</code> の静的型は <code>Result&lt;T&gt;</code> でなければならない。</li>
-      <li><code>Ok(x)</code> / <code>Error(e)</code> は <code>Result&lt;T&gt;</code> 専用のパターンである。</li>
-      <li><code>Ok</code> と <code>Error</code> の両方を必ずカバーしなければならず、
-        いずれかが欠けている場合はコンパイルエラーとなる。</li>
-      <li><code>match</code> はステートメントとしても式としても使用できるが、
-        パイプ分岐では主にステートメントとして使用する。</li>
+      <li><code>sourcePipe</code> は <code>pipe&lt;T&gt;</code> または <code>pipe&lt;Result&lt;T&gt;&gt;</code>。</li>
+      <li><code>| match { ... }</code> はパイプライン文の一部としてのみ使用できる。</li>
+      <li>各 <code>case</code> ブロック内では、先頭に <code>|</code> を付けた
+        通常のパイプラインステージを記述できる。</li>
+      <li><code>break;</code> はその <code>case</code> の定義を終了するマーカーであり、
+        1 つの <code>case</code> につき 1 回だけ記述する。</li>
+      <li><code>default</code> ブロックは任意だが、指定した場合は最後に書かなければならない。</li>
     </ul>
 
-    <h4>18.8.2 pipe&lt;Result&lt;T&gt;&gt; からの振り分け</h4>
+    <h4>18.8.2 条件式と現在要素</h4>
+    <p>
+      各 <code>case</code> の「条件式」は、
+      <strong>現在処理中の要素に対するブール式</strong>、または
+      <code>Result&lt;T&gt;</code> 専用のパターン式のいずれかである。
+    </p>
+    <ul>
+      <li>通常のブール条件：
+        <ul>
+          <li>現在処理中の要素は暗黙の変数 <code>_</code> として参照できる。</li>
+          <li>例：<code>case _.isValid():</code>、<code>case _.status == 200:</code> など。</li>
+        </ul>
+      </li>
+      <li><code>Result&lt;T&gt;</code> 専用パターン：
+        <ul>
+          <li><code>case Ok(x):</code>  
+              - 要素の型が <code>Result&lt;T&gt;</code> のとき、成功の場合にマッチし、<code>x</code> に値（型 <code>T</code>）を束縛する。</li>
+          <li><code>case Error(e):</code>  
+              - 失敗の場合にマッチし、<code>e</code> にエラー情報を束縛する。</li>
+        </ul>
+      </li>
+    </ul>
+    <p>
+      1 つの要素は、上から順に評価して最初にマッチした <code>case</code> にだけ流れる。
+      どの <code>case</code> にも一致しない場合、<code>default</code> があれば
+      そのブロックに流れ、<code>default</code> がなければ要素は破棄される。
+    </p>
+
+    <h4>18.8.3 Result&lt;T&gt; ストリームからの分岐例</h4>
 <pre><code>// users:     pipe&lt;Result&lt;User&gt;&gt;
 // userPipe:  pipe&lt;User&gt;
 // errorPipe: pipe&lt;Error&gt;
 
-foreach (r in users) {
-    match (r) {
-        Ok(user) =&gt; {
-            user |&gt; userPipe;
-        }
-        Error(err) =&gt; {
-            err |&gt; errorPipe;
-        }
-    }
-}
+users
+    | match {
+        case Ok(user):
+            // 成功した User だけがこちら側に流れる
+            | userPipe;
+            break;
+
+        case Error(err):
+            // エラー情報だけがこちら側に流れる
+            | errorPipe;
+            break;
+    };
 </code></pre>
     <ul>
-      <li><code>user |&gt; userPipe;</code> はユーザを <code>userPipe</code> に 1 件書き込む。</li>
-      <li><code>err |&gt; errorPipe;</code> はエラー情報をエラー用パイプに書き込む。</li>
-      <li>このように、1 つのパイプから読み出した <code>Result&lt;T&gt;</code> を
-        <code>match</code> で分岐させることで、
-        正常系と異常系のパイプラインを明確に分離できる。</li>
+      <li><code>Ok(user)</code> / <code>Error(err)</code> パターンにより、
+        <code>Result&lt;User&gt;</code> を成功系と失敗系に明確に分離できる。</li>
+      <li>各 <code>case</code> の中では、<code>user |&gt; userPipe;</code> のように
+        パイプ with 演算子を用いる代わりに、簡略形として
+        <code>| userPipe;</code> とだけ書いてもよい設計とすることができる
+        （詳細な簡略ルールは実装仕様）。</li>
     </ul>
 
-    <h4>18.8.3 型と戻り値</h4>
+    <h4>18.8.4 ブール条件による一般的な分岐</h4>
+<pre><code>// requests:    pipe&lt;Request&gt;
+// validPipe:   pipe&lt;Request&gt;
+// invalidPipe: pipe&lt;Request&gt;
+
+requests
+    | match {
+        case _.isValid():
+            | validPipe;
+            break;
+
+        default:
+            | invalidPipe;
+            break;
+    };
+</code></pre>
     <ul>
-      <li><code>match</code> を式として用いる場合、
-        すべての分岐の戻り値型が一致していなければならない。</li>
-      <li>パイプ分岐用途でステートメントとして用いる場合、
-        各分岐の戻り値は <code>void</code> でもよく、
-        <code>match</code> 全体も <code>void</code> とみなされる。</li>
-      <li>本仕様では、一般的なパターンマッチングではなく、
-        <code>Result&lt;T&gt;</code> 専用の最小限の <code>match</code> 構文のみ定義する。</li>
+      <li>ここでは <code>Request</code> 型が <code>isValid(): bool</code> メソッドを持つ前提。</li>
+      <li>有効なリクエストは <code>validPipe</code> へ、不正なものは <code>invalidPipe</code> へ流れる。</li>
     </ul>
+
+    <p class="note">
+      <code>match</code> はパイプライン文専用の構文であり、
+      一般的な式コンテキストでのパターンマッチ（例えば値を返す <code>match</code> 式）は
+      本仕様では定義しない。  
+      より汎用的なパターンマッチ構文が必要になった場合は、
+      将来のバージョンで検討する。
+    </p>
 
     <p class="note">
       <code>utf8</code> や <code>json&lt;T&gt;</code> などの標準フィルタの詳細は、
@@ -1361,4 +1418,3 @@ foreach (r in users) {
 </div>
 </body>
 </html>
-
