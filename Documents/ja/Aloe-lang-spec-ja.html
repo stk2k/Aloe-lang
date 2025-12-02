@@ -303,7 +303,7 @@ yield
       <li>null リテラル：<code>null</code></li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
-      <li>セットリテラル：<code>{1, 2, 3}</code></li>
+      <li>セットリテラル：<code>{1, 2, 3]</code> ※要修正</li>
       <li>マップリテラル：<code>["key1": 10, "key2": 20]</code></li>
       <li>enum リテラル：<code>EnumType.Value1</code></li>
       <li>struct リテラル：<code>Point { x: 0, y: 1 }</code></li>
@@ -1108,6 +1108,35 @@ finally {
       サーバ / CLI / Web アプリなどのストリーミング処理を構成する。
     </p>
 
+    <h3>18.0 ROP（Railway Oriented Programming）の考え方</h3>
+    <p>
+      ROP（Railway Oriented Programming）は、処理の流れを
+      「二本の線路（成功レーンと失敗レーン）」として捉える設計スタイルである。
+      各ステージは「入力を受け取り、成功なら次のステージへ、失敗ならエラーを別レーンに流す」
+      という形で構成される。
+    </p>
+    <p>
+      Aloe の <code>pipe</code> / <code>filter</code> は、まさにこのステージの連鎖を表現する仕組みであり、
+      各フィルタを「同じ入力なら常に同じ出力を返す」関数として設計することで、
+      ROP 的な読みやすさとテストのしやすさを得られる。
+      エラーは <code>Result</code> 型やエラーパイプなどに明示的に流すことを推奨する。
+      （コア仕様では具体的な <code>Result</code> 型などは定義せず、設計方針のみを示す。）
+    </p>
+    <figure>
+<pre><code>入力
+  │
+  ▼
+[ Filter A ]
+  │ 正常
+  ▼
+[ Filter B ] ───▶ 正常系の出力
+  │ 異常
+  ▼
+エラー情報（ログ / エラーパイプ / Result 型 など）
+</code></pre>
+      <figcaption>図: ROP 的な「二本の線路（成功レーン / 失敗レーン）」イメージ</figcaption>
+    </figure>
+
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
     <ul>
       <li><code>pipe&lt;T&gt;</code> は T 型要素のストリーム。</li>
@@ -1269,7 +1298,7 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張と ROP 的な設計指針を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
