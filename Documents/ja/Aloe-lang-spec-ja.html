@@ -1131,24 +1131,71 @@ finally {
     in:  pipe&lt;string&gt;;
     out: pipe&lt;string&gt;;
 
+    // フィルタ内部状態（各フィルタインスタンスごとに保持される）
+    field Separator: string = "\n";
+
+    // このフィルタが受け取るオプションクラス（bitfield enum 等）
+    options: LineSplitOptions;
+
+    // インスタンス生成時に 1 度だけ呼ばれるコンストラクタ
+    constructor(opts: LineSplitOptions) {
+        // options から内部状態を初期化してもよい
+        // 例: オプションに応じて区切り文字を変えるなど
+    }
+
     bound(input, output) {
         foreach (chunk in input) {
-            let lines = chunk.split("\n");
-            foreach (line in lines) {
-                output.write(line);
+            let parts = chunk.split(Separator);
+            foreach (part in parts) {
+                output.write(part);
             }
         }
         output.close();
     }
 }
 </code></pre>
+    <p>
+      filter 定義は、次の要素から構成される：
+    </p>
+    <ul>
+      <li><code>in: pipe&lt;TIn&gt;;</code> … 入力パイプの型（必須）。</li>
+      <li><code>out: pipe&lt;TOut&gt;;</code> … 出力パイプの型（必須）。</li>
+      <li><code>field</code> … class / struct と同様に、フィルタ内部で保持される状態を表すフィールドを宣言できる。
+        <ul>
+          <li>各パイプライン接続ごとにフィルタインスタンスが生成され、そのインスタンスがフィールドを持つ。</li>
+        </ul>
+      </li>
+      <li><code>options: SomeOptions;</code> … このフィルタが受け取るオプション型（通常は bitfield enum）を宣言する。
+        <ul>
+          <li>18.2.2 で説明する <code>filter(json&lt;T&gt;: JsonOptions.Foo | ...)</code> の <code>JsonOptions</code> に対応する。</li>
+          <li>省略した場合、そのフィルタはオプションを受け取らない。</li>
+        </ul>
+      </li>
+      <li><code>constructor(...)</code> … フィルタインスタンス生成時に 1 度だけ呼ばれるコンストラクタ。
+        <ul>
+          <li>ここでオプション値（bitfield など）や追加の設定値を受け取り、フィールドを初期化できる。</li>
+          <li><code>constructor</code> の有無は任意であり、省略してもよい。</li>
+        </ul>
+      </li>
+      <li><code>bound(input, output)</code> … 実際の変換処理を記述する本体。
+        <ul>
+          <li><code>input</code> と <code>output</code> の型は、それぞれ <code>in</code> / <code>out</code> に対応する。</li>
+          <li>EOF を検知したら <code>output.close()</code> を呼び、下流へ EOF を伝播させる。</li>
+        </ul>
+      </li>
+    </ul>
 
     <h4>18.2.2 フィルタオプション</h4>
 <pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
 </code></pre>
     <ul>
       <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
-      <li>各フィルタは自前のオプション型（bitfield enum 等）を持つ。</li>
+      <li>各フィルタは、自身の filter 定義内で
+        <code>options: JsonOptions;</code> のようにオプションクラス（通常は bitfield enum）を宣言する。
+      </li>
+      <li>パイプライン文で指定される各識別子（<code>JsonOptions.PrettyPrint</code> など）は、そのオプション型の列挙子でなければならない。</li>
+      <li>実装側では、これらのオプション値を 1 つの bitfield などに畳み込み、
+        フィルタの <code>constructor</code> へ渡して内部状態の初期化に利用できる。</li>
     </ul>
 
     <h3>18.3 パイプライン文と <code>|</code></h3>
