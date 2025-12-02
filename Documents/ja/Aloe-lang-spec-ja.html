@@ -1201,92 +1201,21 @@ finally {
       <li><code>stderr : pipe&lt;byte&gt;</code>（任意）</li>
     </ul>
 
-    <h4>18.1.2 パイプ定義文（pipe 定義）</h4>
+    <h4>18.1.2 パイプ変数の宣言と生成</h4>
     <p>
-      filter 定義と同様に、パイプそのものの挙動をまとめて定義するための
-      <strong>パイプ定義文</strong> が用意されている。
+      Aloe には、特別な「パイプ定義文（<code>pipe Name { ... }</code>）」は存在しない。
+      パイプはすべて、通常のジェネリック型 <code>pipe&lt;T&gt;</code> として宣言・生成する。
     </p>
-<pre><code>pipe LineReader {
-    in:  pipe&lt;byte&gt;;    // 入力パイプ型
-    out: pipe&lt;string&gt;;  // 出力パイプ型
-
-    // フィールド定義（各パイプインスタンスが保持する内部状態）
-    field Buffer: string = "";
-
-    // パイプ本体。全処理が成功したかどうかを Result&lt;void&gt; で返す。
-    bound(input, output): Result&lt;void&gt; {
-        try {
-            foreach (chunk in input) {
-                Buffer = Buffer + chunk;
-                let lines = Buffer.split("\n");
-                // 最後の要素は次のチャンクと結合するために残しておく
-                let lastIndex = lines.length - 1;
-                var i = 0;
-                while (i &lt; lastIndex) {
-                    output.write(lines[i]);
-                    i = i + 1;
-                }
-                Buffer = lines[lastIndex];
-            }
-            // 残りがあれば最後の行として出力
-            if (Buffer != "") {
-                output.write(Buffer);
-            }
-            output.close();
-            return Result&lt;void&gt;.Ok();
-        }
-        catch (e: Exception) {
-            // 必要に応じてログなど
-            return Result&lt;void&gt;.Error(e);
-        }
-    }
-}
-</code></pre>
-    <p>
-      パイプ定義文は次の要素で構成される：
-    </p>
-    <ul>
-      <li><code>pipe Name { ... }</code> … <code>Name</code> はこのパイプ定義の識別子。</li>
-      <li><code>in: pipe&lt;TIn&gt;;</code> … このパイプが読む入力パイプの要素型。</li>
-      <li><code>out: pipe&lt;TOut&gt;;</code> … このパイプが書き出す出力パイプの要素型。</li>
-      <li><code>field</code> … class / struct と同様に、パイプ内部で保持される状態を表すフィールド。
-        <ul>
-          <li>各パイプインスタンスごとに独立したフィールドを持つ。</li>
-          <li>
-            ROP 的にはフィルタと同様、パイプも<strong>冪等性</strong>を維持することが望ましいため、
-            フィールドによる副作用的な状態は最小限にすべきである。
-            ただし、入出力バッファ・統計情報・ログバッファなど、実装上必要な用途は許可される。
-          </li>
-        </ul>
-      </li>
-      <li><code>bound(input, output): Result&lt;void&gt;</code> … 実際の処理本体。
-        <ul>
-          <li><code>input</code> / <code>output</code> の型は、それぞれ <code>in</code> / <code>out</code> に対応する。</li>
-          <li>入力から EOF を受け取り、必要な処理を行いながら <code>output.write(...)</code> で要素を書き出す。</li>
-          <li>処理が完了したら <code>output.close()</code> を呼び、最後に <code>Result&lt;void&gt;.Ok()</code> を返す。</li>
-          <li>何らかのエラーが発生した場合は、<code>Result&lt;void&gt;.Error(e)</code> を返す。
-            例外を直接スローする実装よりも、パイプライン全体のエラーハンドリングがしやすい。</li>
-        </ul>
-      </li>
-    </ul>
-    <p>
-      filter 定義との違いは、パイプ定義がより「能動的なステージ」を表しうる点である。
-      例えば、入力を <code>stdin</code> ではなくソケットから取得したり、
-      出力先を <code>stdout</code> ではなくログファイルに向けるなど、
-      「外界との I/O を集中的に担うステージ」を pipe 定義として表現できる。
-    </p>
-
-    <h4>18.1.3 パイプインスタンスの生成</h4>
-    <p>
-      パイプインスタンス（実際に値を流すチャネル）は、通常の型と同様に
-      変数やフィールドとして宣言し、ファクトリメソッドで生成する：
-    </p>
-<pre><code>// ローカルパイプの定義（関数内）
-function main(args: string[]): int {
+<pre><code>function main(args: string[]): int {
+    // ローカルのパイプ変数を宣言し、生成
+    let bytes: pipe&lt;byte&gt;   = pipe&lt;byte&gt;.create();
     let lines: pipe&lt;string&gt; = pipe&lt;string&gt;.create();
 
     stdin
         | filter(utf8)
+        | bytes;
+
+    bytes
         | filter(lineSplit)
         | lines;
 
@@ -1297,6 +1226,18 @@ function main(args: string[]): int {
     return 0;
 }
 </code></pre>
+    <ul>
+      <li><code>let p: pipe&lt;T&gt; = pipe&lt;T&gt;.create();</code> のようにして、新しいパイプインスタンス（チャネル）を生成する。</li>
+      <li>宣言された <code>pipe&lt;T&gt;</code> 変数は、パイプライン文や関数呼び出しの中で自由に接続・受け渡しができる。</li>
+      <li>「どのように変換するか（ロジック）」は、フィルタ定義（18.2 節）や通常のメソッドで表現し、
+        <code>pipe&lt;T&gt;</code> 自体はあくまで「値を運ぶストリーム」である。</li>
+    </ul>
+
+    <h4>18.1.3 パイプインスタンスの共有とスコープ</h4>
+    <p>
+      パイプインスタンス（実際に値を流すチャネル）は、関数ローカルだけでなく、
+      モジュールレベルやクラスフィールドとしても宣言できる。
+    </p>
 <pre><code>// モジュールレベルでの共有パイプ定義
 namespace My.App {
     // リクエストを流すための共有パイプ
@@ -1307,9 +1248,10 @@ namespace My.App {
 }
 </code></pre>
     <ul>
-      <li><code>pipe&lt;T&gt;.create()</code> は、T 型要素を運ぶ新しいパイプインスタンスを生成する。</li>
-      <li>どのパイプ定義（あるいはフィルタ定義）からそのインスタンスを利用するかは、
-        パイプライン文や明示的な接続コードで決まる。</li>
+      <li><code>Requests</code> や <code>Responses</code> のような共有パイプは、
+        複数のタスク・関数・フィルタから同時に使用されることを想定してよい。</li>
+      <li>どのフィルタや関数ロジックからそのインスタンスを利用するかは、
+        パイプライン文（18.3 節）や明示的な接続コードで決まる。</li>
       <li>パイプは first-class な値であり、関数の引数や戻り値、
         クラス / struct のフィールドとして自由に受け渡しできる。</li>
       <li>より高度なバッファリング戦略や back-pressure の扱いは、
@@ -1317,9 +1259,9 @@ namespace My.App {
     </ul>
     <p>
       まとめると、
-      <strong>pipe 定義文（<code>pipe Name { ... }</code>）は「ステージのロジック」</strong> を、
-      <strong><code>pipe&lt;T&gt;.create()</code> や変数宣言は「実際のチャネルインスタンス」</strong> を
-      それぞれ表現しており、両者を組み合わせてパイプライン全体を構築する。
+      <strong>フィルタ定義や通常のメソッドが「ステージのロジック」</strong> を表現し、
+      <strong><code>pipe&lt;T&gt;</code> 変数と <code>pipe&lt;T&gt;.create()</code> が「実際のチャネルインスタンス」</strong> を
+      それぞれ表現している。両者を組み合わせて、パイプライン全体を構築する。
     </p>
 
     <h3>18.2 filter(...) の基本</h3>
@@ -1498,7 +1440,8 @@ function main(args: string[]): int {
     <p class="note">
       以上が、元の英語仕様に基づき、
       <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型 /
-      pipe 定義文 / filter.bound の戻り値 / フィルタオプションの省略記法</strong> を加えた
+      pipe&lt;T&gt; ベースのパイプ宣言 / filter.bound の Result&lt;void&gt; 戻り値 /
+      フィルタオプションの省略記法</strong> を加えた
       Aloe 言語仕様（日本語・HTML 版）です。
     </p>
 
