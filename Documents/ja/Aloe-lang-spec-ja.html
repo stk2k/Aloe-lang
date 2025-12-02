@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="5">
-  <meta name="edit-date" content="2025-12-02T12:10:00+09:00">
+  <meta name="edit-version" content="6">
+  <meta name="edit-date" content="2025-12-03T07:30:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -125,7 +125,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft • Japanese translation + with 拡張</div>
+    <div class="subtitle">Draft • Japanese translation + with / using 拡張</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -157,6 +157,7 @@
       <ul>
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
         <li><a href="#with-type">4.2.1 型名対象 with 拡張</a></li>
+        <li><a href="#using-blocks">4.3 using ブロック</a></li>
       </ul>
     </nav>
   </aside>
@@ -170,7 +171,8 @@
       をベースにした日本語ドラフトです。<br>
       その上で <strong>4.2 with-blocks</strong> に
       <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
-      の拡張を追加しています。<br>
+      の拡張と、<strong>4.3 using-blocks</strong> に
+      <strong>with とは別に Dispose を用いたリソース管理を行う using ブロック</strong> を追加しています。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
 
@@ -297,6 +299,7 @@ throws
 trait
 true
 try
+using
 var
 virtual
 void
@@ -545,6 +548,12 @@ print(x);
     <ul>
       <li>どのオブジェクトのメンバーに解決されるかの順序は実装依存。</li>
       <li>ただし曖昧な場合（複数オブジェクトが同じメンバーを持つ）はコンパイルエラー。</li>
+      <li>
+        <strong>with はリソース管理を行わない。</strong> オブジェクトの破棄や外部リソースの解放は
+        <code>delete</code> や <code>using</code> など別の仕組みで行う。
+        with の役割は「ブロック内で対象オブジェクトが生存していること（寿命）が
+        型システム的に保証されるように記述を簡潔にする」ことに限られる。
+      </li>
     </ul>
     <p>
       <code>with</code> はあくまで構文糖衣であり、意味的にはすべて
@@ -660,6 +669,85 @@ function main(args: string[]): int {
     <p>
       この場合も解決順は実装依存だが、曖昧であればコンパイルエラーとする。
     </p>
+
+    <h3 id="using-blocks">4.3 using-blocks（リソース管理）</h3>
+    <p>
+      Aloe には、外部リソース（ファイルハンドル、ソケット、DB コネクションなど）の確実な解放のために
+      <code>using</code> ブロックが用意されている。
+      <strong>with が「寿命（ライフタイム）の保証だけ」を担当するのに対し、using は「ブロック離脱時に必ず Dispose を呼ぶ」ことで
+      リソース管理を担当する。</strong>
+    </p>
+<pre><code>using (file) {
+    file.WriteLine("hello");
+    // ブロックを正常終了しても、例外で抜けても、最後に file.Dispose() が 1 回だけ呼ばれる
+}
+</code></pre>
+    <ul>
+      <li><code>using (expr) { ... }</code> の構文と評価規則：
+        <ul>
+          <li><code>expr</code> はブロック先頭で 1 回だけ評価され、内部の一時変数（例えば <code>__using0</code>）に格納される。</li>
+          <li>ブロック終了時（正常終了・<code>return</code>・<code>break</code>・<code>continue</code>・例外など）には、
+              その一時変数に対して <code>Dispose()</code> メソッドが 1 回だけ暗黙的に呼ばれる。</li>
+          <li>対象オブジェクトの型が <code>Dispose(): void</code> という公開メソッドを持たない場合、
+              <code>using</code> 文はコンパイルエラーとする。</li>
+        </ul>
+      </li>
+      <li>
+        <strong>using ブロックそのものはオブジェクト参照を null にしない。</strong><br>
+        実装レベルでは <code>Dispose()</code> を呼ぶだけであり、
+        参照変数の代入（<code>delete</code> 相当の <code>= null</code>）は行わない。
+        参照の切断が必要であれば、開発者が別途 <code>delete</code> を用いて行う。
+      </li>
+      <li>
+        with と同様に、複数の対象を 1 つの using 文で並べて書くことができる：
+      </li>
+    </ul>
+<pre><code>using (file), (connection) {
+    file.WriteLine("hello");
+    connection.Execute("INSERT ...");
+}
+</code></pre>
+    <ul>
+      <li>
+        上記は、概念的には次のようなコードと等価とみなせる（擬似コード）：
+<pre><code>let __res0 = file;
+let __res1 = connection;
+try {
+    __res0.WriteLine("hello");
+    __res1.Execute("INSERT ...");
+}
+finally {
+    __res1.Dispose();
+    __res0.Dispose();
+}
+</code></pre>
+      </li>
+      <li>複数指定時の Dispose 呼び出し順序は <strong>最後に評価したものから先に</strong> 呼ぶことを推奨とし、
+          実装もそのように振る舞うべきとする（典型的なネスト using の展開と同じ）。</li>
+      <li>using の <code>(...)</code> 内で <code>with</code> と同様の型ベース構文は定義しない。
+          using の対象は常に「値としてのオブジェクト」であり、型そのものではない。</li>
+      <li>with と using を組み合わせる場合、通常は次の 2 ステップで書くことを推奨する：
+        <ul>
+          <li>using でリソースの解放を保証する。</li>
+          <li>ブロック内で必要に応じて with を使い、メンバーアクセスを簡潔にする。</li>
+        </ul>
+      </li>
+    </ul>
+<pre><code>using (file) {
+    with (file) {
+        .WriteLine("hello");
+        .WriteLine("world");
+    }
+}
+</code></pre>
+    <p>
+      まとめると、Aloe におけるブロック構文は次のように役割分担されている：
+    </p>
+    <ul>
+      <li><strong>通常のブロック</strong>：スコープ（変数の有効範囲）の導入のみ。</li>
+      <li><strong>with ブロック</strong>：寿命の保証とメンバーアクセスの簡略化（構文糖衣）。リソース解放は行わない。</li>
+      <li><strong>using ブロック</strong>：<code>Dispose()</code> によるリソース解放の保証。参照切断は行わない。</li>
+    </ul>
 
     <hr>
 
