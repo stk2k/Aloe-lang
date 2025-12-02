@@ -316,7 +316,7 @@ x = x + 1;
 print(x);
 </code></pre>
     <ul>
-      <li>すべての文はセミコロン <code>;</code> で終わる。</li>
+      <li>すべての文はセミコロン <code>;</code>で終わる。</li>
       <li>改行による自動セミコロン挿入は行わない。</li>
     </ul>
 
@@ -1163,6 +1163,12 @@ finally {
       <li><code>field</code> … class / struct と同様に、フィルタ内部で保持される状態を表すフィールドを宣言できる。
         <ul>
           <li>各パイプライン接続ごとにフィルタインスタンスが生成され、そのインスタンスがフィールドを持つ。</li>
+          <li>
+            なお、Railway Oriented Programming（ROP）的な設計思想では、
+            フィルタは<strong>冪等性</strong>（同じ入力に対して常に同じ出力を返すこと）を維持することが重要であるため、
+            副作用を持つ <code>field</code> による内部状態は最小限にとどめることが推奨される
+            （集計・ログ出力・キャッシュなど、実装上やむを得ない用途を除く）。
+          </li>
         </ul>
       </li>
       <li><code>options: SomeOptions;</code> … このフィルタが受け取るオプション型（通常は bitfield enum）を宣言する。
