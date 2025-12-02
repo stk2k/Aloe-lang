@@ -1201,6 +1201,61 @@ finally {
       <li><code>stderr : pipe&lt;byte&gt;</code>（任意）</li>
     </ul>
 
+    <h4>18.1.2 パイプ定義（pipe インスタンスの生成）</h4>
+    <p>
+      Aloe において「パイプ定義文」という専用構文は存在しない。
+      代わりに、<code>pipe&lt;T&gt;</code> は通常の型と同様に扱われ、
+      <code>var</code> / <code>let</code> による変数宣言やフィールド宣言を通じて
+      名前付きパイプインスタンスを定義する。
+    </p>
+<pre><code>// ローカルパイプの定義（関数内）
+function main(args: string[]): int {
+    let lines: pipe&lt;string&gt; = pipe&lt;string&gt;.create();
+
+    stdin
+        | filter(utf8)
+        | filter(lineSplit)
+        | lines;
+
+    foreach (line in lines) {
+        print("Line: " + line);
+    }
+
+    return 0;
+}
+</code></pre>
+<pre><code>// モジュールレベルでの共有パイプ定義
+namespace My.App {
+    // リクエストを流すための共有パイプ
+    let Requests: pipe&lt;Request&gt; = pipe&lt;Request&gt;.create();
+
+    // 応答を流すための共有パイプ
+    let Responses: pipe&lt;Response&gt; = pipe&lt;Response&gt;.create();
+}
+</code></pre>
+    <ul>
+      <li>新しいパイプインスタンスは通常、
+        <code>pipe&lt;T&gt;.create()</code> のようなファクトリメソッドで生成する。
+        <ul>
+          <li>このメソッドの仕様（バッファサイズやブロッキングポリシーなど）は VM / ランタイム側で定義される。</li>
+        </ul>
+      </li>
+      <li><code>let p: pipe&lt;T&gt; = pipe&lt;T&gt;.create();</code> のような宣言を、
+        本仕様では便宜的に「パイプ定義（pipe 定義文）」と呼ぶ。
+        <ul>
+          <li>フィールドやローカル変数として宣言した場合、それぞれのスコープごとに独立したパイプが生成される。</li>
+          <li>モジュールレベルで宣言した場合、そのモジュール内で共有される名前付きパイプになる。</li>
+        </ul>
+      </li>
+      <li>パイプは first-class な値であり、関数の引数や戻り値、クラス / struct のフィールドとして自由に受け渡しできる。</li>
+      <li>専用の <code>pipe ... { ... }</code> 構文は存在せず、
+        パイプの性質（バッファリング戦略、back-pressure などの詳細）は
+        ランタイムや標準ライブラリの設計に委ねられる。</li>
+      <li>パイプを ROP 的に利用する場合、<code>pipe&lt;Result&lt;T&gt;&gt;</code> のように
+        パイプ要素自体を <code>Result&lt;T&gt;</code> にしておくことで、
+        正常系とエラー系を明示的に表現することもできる。</li>
+    </ul>
+
     <h3>18.2 filter(...) の基本</h3>
     <p><code>filter(F)</code> はパイプライン中の中間変換ステージ。</p>
 
@@ -1376,7 +1431,8 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型 / filter.bound の戻り値 / フィルタオプションの省略記法を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張と ROP / Result&lt;T&gt; 型 / pipe 定義（インスタンス生成パターン） /
+      filter.bound の戻り値 / フィルタオプションの省略記法を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
