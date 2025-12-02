@@ -92,6 +92,11 @@
       font-family: "JetBrains Mono", "Cascadia Code", Consolas,
                    "Ricty Diminished", monospace;
       font-size: 0.9rem;
+      /* |> などが合字で三角形にならないようにする */
+      font-variant-ligatures: none;
+      -webkit-font-feature-settings: "liga" 0, "calt" 0;
+      -moz-font-feature-settings: "liga" 0, "calt" 0;
+      font-feature-settings: "liga" 0, "calt" 0;
     }
     pre {
       background: #1118270d;
@@ -402,27 +407,6 @@ print(x);
       <li>class インスタンスを別変数に代入すると参照がコピーされる（オブジェクト本体は共有）。</li>
     </ul>
 
-    <h3>2.4 Result&lt;T&gt; 型（成功 / 失敗の表現）</h3>
-    <p>
-      <code>Result&lt;T&gt;</code> は「成功（Ok）」か「失敗（Error）」のどちらかを表すための汎用的な型で、
-      Railway Oriented Programming（18章）の前提となる。
-    </p>
-    <ul>
-      <li>成功パス：
-        <ul>
-          <li><code>Result&lt;T&gt;.Ok(value: T)</code> … 正常に処理された結果。</li>
-        </ul>
-      </li>
-      <li>失敗パス：
-        <ul>
-          <li><code>Result&lt;T&gt;.Error(message: string)</code> … エラーメッセージを伴う失敗。</li>
-        </ul>
-      </li>
-      <li><code>Result&lt;void&gt;</code> は値を返さない処理の成功 / 失敗を表す。</li>
-      <li>フィルタや一部の関数の戻り値は <code>Result&lt;T&gt;</code> を用いることで、
-          「成功なら次のステップへ」「失敗ならエラー経路へ」といった分岐を明示的に記述できる。</li>
-    </ul>
-
     <hr>
 
     <h2 id="ch3">3. Numbers &amp; Conversions（数値と暗黙変換）</h2>
@@ -649,6 +633,7 @@ function main(args: string[]): int {
         print(c1);
         print(c2);
     }
+
     return 0;
 }
 </code></pre>
@@ -811,7 +796,7 @@ class ConsoleLogger implements ILogger {
       <li><code>is</code> 演算子でインタフェース実装有無を判定。</li>
     </ul>
 
-    <h3>7.5 トレイト（trait）</h3>
+    <h3>7.5 trait</h3>
 <pre><code>trait Trait_A {
     method hello(): void {
         print("Hello from Trait_A");
@@ -819,26 +804,26 @@ class ConsoleLogger implements ILogger {
 }
 </code></pre>
 
-    <h4>with によるトレイト適用</h4>
+    <h4>with による trait の適用</h4>
 <pre><code>var obj = new SomeClass() with Trait_A;
-obj.hello(); // Trait_A から提供されるメソッド（競合がない場合）
+obj.hello(); // Trait_A で定義されたメソッド（衝突がなければ呼び出される）
 </code></pre>
 
-    <h4>非破壊な追加・削除（+ / -）</h4>
-<pre><code>var obj2 = obj + Trait_A;      // obj は変更されず、obj2 に Trait_A が適用される
-var obj3 = obj2 - Trait_A;     // obj3 は obj2 から Trait_A を取り除いたもの
+    <h4>非破壊な追加 / 削除（+ / -）</h4>
+<pre><code>var obj2 = obj + Trait_A;      // obj は変更されず、obj2 に Trait_A が追加される
+var obj3 = obj2 - Trait_A;     // obj2 から Trait_A を取り除いたものが obj3 になる
 </code></pre>
 
-    <h4>as によるエイリアス</h4>
+    <h4>as によるエイリアス指定</h4>
 <pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.hello(); // OK
+obj2.a.hello(); // OK: a 経由で Trait_A のメソッドにアクセスできる
 
-// obj2.hello(); // NG: エイリアス経由のみアクセス可能（フラットにはならない）
+// obj2.hello(); // NG: エイリアスのみで、メンバはフラットにはならない
 </code></pre>
 
-    <h4>トレイトの競合</h4>
+    <h4>trait の衝突（コンフリクト）</h4>
     <ul>
-      <li>複数の trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
+      <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
       <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
       <li>クラス本体と trait メンバとの衝突の扱いは将来バージョンで定義予定。</li>
     </ul>
@@ -948,32 +933,27 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 <pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
     fb.run();
-    return 0; // process exit code
+    return 0;  // process exit code
 }
 </code></pre>
     <ul>
       <li>プログラムのエントリポイント。</li>
+      <li><code>main</code> は必ず <code>function</code> として宣言し、戻り値の型は <code>int</code> でなければならない。</li>
       <li><code>args</code> はコマンドライン引数。</li>
-      <li><code>main</code> は常に <code>int</code> を返す関数として定義し、その戻り値がプロセスの終了コードとなる。</li>
+      <li>プロセスの終了コードは <code>main</code> の戻り値として指定する。</li>
     </ul>
 
     <hr>
 
     <h2 id="ch13">13. Temp Variable <code>_</code>（一時変数）</h2>
-<pre><code>function main(args: string[]): int {
+<pre><code>method foo(): void {
     var x = 10;
-    _ = x + 5;   // このブロックにおける _ の型は int
-    return _;
-}
-
-method foo(): void {
-    var x = 10;
-    _ = x + 5;   // このブロックにおける _ の型も int
+    _ = x + 5;   // このブロック内での _ の型は int になる
 }
 </code></pre>
     <ul>
       <li><code>_</code> は任意のブロックで宣言なしに使用できる特別な一時変数。</li>
-      <li>そのブロックで最初に代入された式の型が、そのブロック内における <code>_</code> の型になる（main ブロックも同様）。</li>
+      <li>そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
       <li>with ブロック内では、追加で「現在の with 対象」を指す意味を持つ（4.2 参照）。</li>
     </ul>
 
@@ -1006,11 +986,10 @@ print(b); // 10
       <li>等価：<code>==</code>, <code>!=</code></li>
       <li>ビット AND：<code>&amp;</code></li>
       <li>ビット XOR：<code>^</code></li>
-      <li>ビット OR：<code>|</code>（式コンテキストでのビット演算）</li>
+      <li>ビット OR：<code>|</code>（pipeline 文では別語義）</li>
       <li>論理 AND：<code>&amp;&amp;</code></li>
       <li>論理 OR：<code>||</code></li>
       <li>代入：<code>=</code></li>
-      <li>パイプライン演算子：<code>|</code>, <code>|&gt;</code>（パイプライン文専用。左から右に評価される）</li>
     </ol>
     <p>複合代入（<code>+=</code> 等）はまだ仕様化されていない。</p>
 
@@ -1019,7 +998,6 @@ print(b); // 10
       <li>単項演算子：右結合。</li>
       <li>代入：右結合。</li>
       <li>その他の 2 項演算子：左結合。</li>
-      <li>パイプライン文における <code>|</code> / <code>|&gt;</code> は、文法的に左から右へ順に接続される。</li>
     </ul>
 
     <hr>
@@ -1088,31 +1066,6 @@ finally {
       サーバ / CLI / Web アプリなどのストリーミング処理を構成する。
     </p>
 
-    <h3>18.0 Railway Oriented Programming（概要）</h3>
-    <p>
-      Aloe のパイプラインは、いわゆる Railway Oriented Programming（ROP）の考え方に影響を受けている。
-      すなわち「成功の線路」と「失敗の線路」があり、各ステップが <code>Result&lt;T&gt;</code> を返すことで、
-      どちらの線路に進むかを明示的に表現する。
-    </p>
-<pre><code>[Input]
-   |
-   v
-[Step A] -- Error ----------------------+
-   |                                   |
-  Ok                                   v
-   v                              [Error handler]
-[Step B] -- Error ----------------------+
-   |
-  Ok
-   v
-[Output]
-</code></pre>
-    <ul>
-      <li>各ステップ（フィルタや処理）は <code>Result&lt;T&gt;</code> を返し、成功なら次のステップへ、失敗ならエラー側の処理へ流れる。</li>
-      <li>18.8 の <code>match</code> による分岐と組み合わせて、成功 / 失敗を明確にハンドリングできる。</li>
-      <li>フィルタ本体（<code>bound</code>）も <code>Result&lt;void&gt;</code> を返すことで、処理全体の成功 / 失敗を表現する。</li>
-    </ul>
-
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
     <ul>
       <li><code>pipe&lt;T&gt;</code> は T 型要素のストリーム。</li>
@@ -1136,17 +1089,7 @@ finally {
     in:  pipe&lt;string&gt;;
     out: pipe&lt;string&gt;;
 
-    // フィルタ内部で利用するフィールドも宣言できる
-    field _buffer: string = "";
-
-    // このフィルタに紐づくオプションクラス（18.2.2 参照）
-    options LineSplitOptions;
-
-    construct() {
-        _buffer = "";
-    }
-
-    bound(input: pipe&lt;string&gt;, output: pipe&lt;string&gt;): Result&lt;void&gt; {
+    bound(input, output) {
         foreach (chunk in input) {
             let lines = chunk.split("\n");
             foreach (line in lines) {
@@ -1154,94 +1097,28 @@ finally {
             }
         }
         output.close();
-        return Result&lt;void&gt;.Ok();
     }
 }
 </code></pre>
-    <ul>
-      <li><code>in</code> / <code>out</code> で入出力パイプ型を指定する。</li>
-      <li><code>field</code> によりフィルタ内部の状態を保持できる。</li>
-      <li><code>construct(...)</code> でフィルタのコンストラクタを定義できる。</li>
-      <li><code>bound(input, output): Result&lt;void&gt;</code> は、
-        入力パイプからデータを読み取り、出力パイプへ書き込む本体処理であり、
-        処理の成否を <code>Result&lt;void&gt;</code> で返す。</li>
-      <li>
-        ROP（Railway Oriented Programming）的には、フィルタは
-        「同じ入力に対して同じ出力を返す」ことが望ましく、
-        冪等性や再実行性の観点から<strong>フィールドによる内部状態は最小限に抑える</strong>ことが推奨される。
-        永続化すべき状態や設定値は、なるべく入力データやオプションとして渡す。
-      </li>
-    </ul>
 
     <h4>18.2.2 フィルタオプション</h4>
-<pre><code>bitfield enum JsonOptions {
-    None        : b(0),
-    PrettyPrint : b(1),
-    IncludeNulls: b(2),
-}
-
-filter json&lt;T&gt; {
-    in:  pipe&lt;byte&gt;;
-    out: pipe&lt;T&gt;;
-
-    options JsonOptions;
-
-    bound(input: pipe&lt;byte&gt;, output: pipe&lt;T&gt;): Result&lt;void&gt; {
-        // ...
-        return Result&lt;void&gt;.Ok();
-    }
-}
-</code></pre>
-<pre><code>// クラス名付きでオプションを指定する書き方
-filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls);
-
-// options で JsonOptions が関連付けられているので、クラス名は省略可能
-filter(json&lt;User&gt;: PrettyPrint | IncludeNulls);
+<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
 </code></pre>
     <ul>
-      <li>フィルタ定義内で <code>options JsonOptions;</code> のように指定すると、
-          そのフィルタは <code>JsonOptions</code> 型のオプションを受け取る。</li>
-      <li>パイプライン文での指定時、<code>JsonOptions.</code> を付けたフル指定と、
-          クラス名を省略した短縮形のどちらも使用できる。</li>
-      <li>各フィルタは自前のオプション型（通常は <code>bitfield enum</code>）を持つことができる。</li>
+      <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
+      <li>各フィルタは自前のオプション型（bitfield enum 等）を持つ。</li>
     </ul>
 
-    <h3>18.3 パイプライン文と <code>|</code> / パイプ with 演算子 <code>|&gt;</code></h3>
+    <h3>18.3 パイプライン文と <code>|</code></h3>
 <pre><code>stdin
     | filter(utf8)
     | filter(json&lt;DateTime&gt;)
     | dates;
 </code></pre>
     <ul>
-      <li><code>A | B | C;</code> というパイプライン文は、
-        <ul>
-          <li><code>A</code> の出力パイプが <code>B</code> の入力パイプに接続され、</li>
-          <li><code>B</code> の出力パイプが <code>C</code> の入力パイプに接続される。</li>
-        </ul>
-      </li>
-      <li>文として評価され、式として値は返さない（副作用としてパイプ同士を接続するだけ）。</li>
-      <li>型チェックにより、各ステージの <code>in</code> / <code>out</code> 型の整合性が検証される。</li>
-    </ul>
-
-    <h4>パイプ with 演算子 <code>|&gt;</code></h4>
-    <p>
-      パイプ with 演算子 <code>|&gt;</code> は、
-      <strong><code>|</code> と <code>filter(if ...)</code> を組み合わせたショートカット</strong>として定義される。
-    </p>
-<pre><code>users |&gt; .Age &gt; 20 and .Gender = Gender.Male;
-</code></pre>
-    <p>
-      上記は、概念的には次のようなパイプラインと等価である：
-    </p>
-<pre><code>users
-    | filter(if .Age &gt; 20 and .Gender = Gender.Male);
-</code></pre>
-    <ul>
-      <li><code>X |&gt; 条件式</code> は「入力 <code>X</code> の各要素に対して <code>条件式</code> を評価し、
-        <code>true</code> となった要素だけを後続に流すフィルタ」を挿入したものとみなされる。</li>
-      <li>条件式の中では、その要素を表す暗黙のコンテキスト（例：<code>.Age</code>, <code>.Gender</code>）が利用できる。</li>
-      <li><code>|&gt;</code> 自体は <code>|</code> の糖衣構文であり、意味的には
-        <code>| filter(if 条件式)</code> に展開される。</li>
+      <li><code>A | B | C;</code> で A の出力が B へ、B の出力が C へ接続される。</li>
+      <li>型チェックにより各ステージの入出力型整合性を確認。</li>
+      <li>パイプライン文そのものは値を返さない（副作用として接続を張るだけ）。</li>
     </ul>
 
     <h3>18.4 foreach と pipe</h3>
@@ -1254,68 +1131,26 @@ filter(json&lt;User&gt;: PrettyPrint | IncludeNulls);
       <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
     </ul>
 
-    <h3>18.5 コレクションパイプと map テンプレート</h3>
-    <p>
-      コレクション（例：<code>User()</code> のようなリスト）に対して、
-      各要素から別の型のコレクションを生成するための構文として <code>map</code> テンプレートを用意する。
-    </p>
-<pre><code>users as u | map Customer {
-    Name    = u.Name,
-    Address = u.Address
-};
-</code></pre>
-    <ul>
-      <li><code>users</code> は <code>User()</code> などのコレクション（またはコレクションパイプ）を想定している。</li>
-      <li><code>as u</code> で各要素を表すローカル名 <code>u</code> を導入する。</li>
-      <li><code>map Customer { ... }</code> は、<code>Customer</code> 型のインスタンスを生成するためのテンプレート。
-        ブロック内ではフィールド名と式を列挙する。</li>
-      <li>結果は <code>Customer()</code> 型の新しいコレクションとして扱われる。</li>
-    </ul>
-
-    <h3>18.6 close と EOF 伝播</h3>
+    <h3>18.5 close と EOF 伝播</h3>
     <ul>
       <li><code>p.close()</code> 後の <code>write()</code> は無効（エラーになり得る）。</li>
       <li>フィルタは入力 EOF を検知したら出力側も <code>close()</code> すべき。</li>
     </ul>
 
-    <h3>18.7 match によるパイプ分岐（Result&lt;T&gt; の分岐）</h3>
-    <p>
-      <code>match</code> を用いて、パイプラインの途中で条件に応じて分岐させることができる。
-      特に <code>Result&lt;T&gt;</code> を受け取るフィルタの後で、成功 / 失敗ごとに別のパイプへ流す用途を想定する。
-    </p>
-<pre><code>stdin
-    | filter(parseUser)          // Result&lt;User&gt; を返すフィルタ
-    | match {
-        case .IsOk:
-            break | filter(saveUser);   // 成功パス：さらに保存フィルタへ
-        case .IsError:
-            break | filter(logError);   // 失敗パス：エラーログ出力へ
-        default:
-            break;                      // どれにもマッチしなければ何もしない
-    };
-</code></pre>
-    <ul>
-      <li><code>| match { ... }</code> は、直前のステージの出力を受け取って条件分岐を行う。</li>
-      <li><code>case 条件式:</code> の形式で複数のケースを記述する。</li>
-      <li><code>break;</code> の代わりに <code>break | filter(...)</code> のように書くことで、
-          そのケース専用の後続パイプラインを指定できる。</li>
-      <li><code>default:</code> 節は任意であり、どの <code>case</code> にも一致しない場合の処理を記述する。</li>
-      <li>条件式の中では <code>Result&lt;T&gt;</code> の状態（<code>.IsOk</code>, <code>.IsError</code> など）や値を参照できる想定。</li>
-    </ul>
-
-    <h3>18.8 pipe を使った並行モデル</h3>
+    <h3>18.6 pipe を使った並行モデル</h3>
     <ul>
       <li>タスク同士の主な通信手段は <code>pipe&lt;T&gt;</code>。</li>
       <li>shared-nothing モデルを前提とし、共有可変データ構造は持たない設計を推奨。</li>
     </ul>
 
-    <h3>18.9 例：簡単な REST 風パイプライン</h3>
+    <h3>18.7 例：簡単な REST 風パイプライン</h3>
 <pre><code>class User {
     field id: int;
     field name: string;
 }
 
 function main(args: string[]): int {
+    let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.create();
     let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
 
     stdin
@@ -1339,7 +1174,7 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張および ROP / Result / パイプライン拡張を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
