@@ -249,6 +249,7 @@ false
 field
 finally
 for
+function
 if
 import
 implements
@@ -593,7 +594,7 @@ class MathUtil {
     }
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     with (AngleUtil) {
         var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
         print(.Pi);                // AngleUtil.Pi
@@ -603,6 +604,8 @@ main(args: string[]) {
         var m = max(10, 20);       // MathUtil.max(10, 20)
         print(m);
     }
+
+    return 0;
 }
 </code></pre>
 
@@ -613,13 +616,14 @@ main(args: string[]) {
     Blue
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     with (Color) {
         var c1: Color = Red;   // Color.Red
         var c2: Color = Blue;  // Color.Blue
         print(c1);
         print(c2);
     }
+    return 0;
 }
 </code></pre>
     <p>
@@ -915,24 +919,25 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <hr>
 
     <h2 id="ch12">12. main Block (Entry Point)</h2>
-<pre><code>main(args: string[]) {
+<pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
     fb.run();
-    _ = 0; // process exit code (int)
+    return 0; // process exit code
 }
 </code></pre>
     <ul>
       <li>The entry point of the program.</li>
       <li><code>args</code> is the command-line arguments.</li>
-      <li>In the main block, the temporary variable <code>_</code> is always of type <code>int</code>, and its value becomes the process exit code.</li>
+      <li>The return value of <code>main</code> (an <code>int</code>) becomes the process exit code.</li>
     </ul>
 
     <hr>
 
     <h2 id="ch13">13. Temp Variable <code>_</code></h2>
-<pre><code>main(args: string[]) {
+<pre><code>function main(args: string[]): int {
     var x = 10;
-    _ = x + 5;   // _ is int (exit code)
+    _ = x + 5;   // type of _ is inferred in this block
+    return 0;
 }
 
 method foo(): void {
@@ -942,9 +947,9 @@ method foo(): void {
 </code></pre>
     <ul>
       <li><code>_</code> is a special temporary variable that can be used in any block without declaration.</li>
-      <li>In <code>main</code>, it is always an <code>int</code>.</li>
-      <li>In other blocks, its type is determined by the expression on the first assignment within that block.</li>
-      <li>Inside a with block, it also additionally refers to the current with target (see 4.2).</li>
+      <li>In any block (including <code>main</code>), the type of <code>_</code> is determined by the expression on the first assignment within that block.</li>
+      <li>It has no special semantics for process exit codes; that is handled only by the return value of <code>main</code>.</li>
+      <li>Inside a with block, <code>_</code> additionally refers to the current with target (see 4.2).</li>
     </ul>
 
     <hr>
@@ -976,18 +981,24 @@ print(b); // 10
       <li>Equality: <code>==</code>, <code>!=</code></li>
       <li>Bitwise AND: <code>&amp;</code></li>
       <li>Bitwise XOR: <code>^</code></li>
-      <li>Bitwise OR: <code>|</code> (different meaning in pipeline statements)</li>
+      <li>Bitwise OR: <code>|</code> (expression-level bitwise OR)</li>
       <li>Logical AND: <code>&amp;&amp;</code></li>
       <li>Logical OR: <code>||</code></li>
+      <li>Pipeline operators in pipeline statements: <code>|</code> (pipeline), <code>|&gt;</code> (pipe-with)</li>
       <li>Assignment: <code>=</code></li>
     </ol>
-    <p>Compound assignments (<code>+=</code>, etc.) are not yet specified.</p>
+    <p>
+      In normal expressions, <code>|</code> is the bitwise OR operator.
+      In pipeline statements, the same token is parsed as the pipeline operator, together with <code>|&gt;</code>;
+      those operators connect the output of one stage to the input of the next, evaluated left-to-right.
+      Compound assignments (<code>+=</code>, etc.) are not yet specified.
+    </p>
 
     <h3>15.2 Associativity</h3>
     <ul>
       <li>Unary operators: right-associative.</li>
       <li>Assignment: right-associative.</li>
-      <li>Other binary operators: left-associative.</li>
+      <li>Other binary operators (including pipeline operators in pipeline statements): left-associative.</li>
     </ul>
 
     <hr>
@@ -1138,7 +1149,7 @@ finally {
     field name: string;
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.create();
     let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
 
@@ -1152,7 +1163,7 @@ main(args: string[]) {
         print("User: " + u.name);
     }
 
-    _ = 0;
+    return 0;
 }
 </code></pre>
     <p class="note">
@@ -1163,7 +1174,8 @@ main(args: string[]) {
     <hr>
     <p class="note">
       The above is the Aloe language specification (English HTML version),
-      based on the original English spec and extended with the type-based with feature.
+      based on the original English spec and extended with the type-based with feature,
+      aligned with the current Japanese draft (main as a function, exit code via return).
     </p>
 
   </main>
