@@ -251,7 +251,6 @@ false
 field
 finally
 for
-function
 if
 import
 implements
@@ -804,19 +803,19 @@ class ConsoleLogger implements ILogger {
 obj.hello(); // method from Trait_A (if no conflicts)
 </code></pre>
 
-    <h4>非破壊な追加・削除（+ / -）</h4>
+    <h4>非破壊な追加 / 削除（+ / -）</h4>
 <pre><code>var obj2 = obj + Trait_A;      // obj unchanged; obj2 has Trait_A
 var obj3 = obj2 - Trait_A;     // obj3 is obj2 without Trait_A
 </code></pre>
 
-    <h4>as によるエイリアス指定</h4>
+    <h4>as によるエイリアス</h4>
 <pre><code>var obj2 = obj + Trait_A as a;
 obj2.a.hello(); // OK
 
 // obj2.hello(); // NG: alias only; no direct member flattening
 </code></pre>
 
-    <h4>トレイト同士の衝突</h4>
+    <h4>トレイトの衝突（Trait conflicts）</h4>
     <ul>
       <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
       <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
@@ -928,14 +927,13 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 <pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
     fb.run();
-    return 0;
+    return 0; // process exit code (int)
 }
 </code></pre>
     <ul>
-      <li>プログラムのエントリポイント。</li>
+      <li>プログラムのエントリポイントとなる <strong>関数</strong>。</li>
       <li><code>args</code> はコマンドライン引数。</li>
-      <li><code>main</code> ブロックは関数として定義され、戻り値の型は常に <code>int</code>。</li>
-      <li><code>main</code> の戻り値がプロセスの終了コードとなる。</li>
+      <li><code>main</code> 関数は <code>int</code> 型の値を <code>return</code> で返し、その値がプロセスの終了コードとなる。</li>
     </ul>
 
     <hr>
@@ -943,13 +941,17 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <h2 id="ch13">13. Temp Variable <code>_</code>（一時変数）</h2>
 <pre><code>method foo(): void {
     var x = 10;
-    _ = x + 5;   // このブロック内で _ の型は int になる
+    _ = x + 5;   // type of _ is inferred in this block (here: int)
+}
+
+method bar(): void {
+    _ = "temp";  // here, _ is string in this block
 }
 </code></pre>
     <ul>
       <li><code>_</code> は任意のブロックで宣言なしに使用できる特別な一時変数。</li>
-      <li>あるブロック内では、そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
-      <li>異なるブロック間での <code>_</code> の型は互いに独立している。</li>
+      <li>各ブロックごとに、そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
+      <li>同じブロック内で、<code>_</code> に異なる型の値を代入することはコンパイルエラー。</li>
       <li>with ブロック内では、追加で「現在の with 対象」を指す意味を持つ（4.2 参照）。</li>
     </ul>
 
@@ -973,20 +975,64 @@ print(b); // 10
 
     <h3>15.1 優先順位（高い順）</h3>
     <ol>
-      <li>メンバー / 呼び出し：<code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
-      <li>単項：<code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
-      <li>乗除：<code>*</code>, <code>/</code>, <code>%</code></li>
-      <li>加減：<code>+</code>, <code>-</code></li>
-      <li>シフト：<code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
-      <li>関係：<code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
-      <li>等価：<code>==</code>, <code>!=</code></li>
-      <li>ビット AND：<code>&amp;</code></li>
-      <li>ビット XOR：<code>^</code></li>
-      <li>ビット OR：<code>|</code>（pipeline 文では別語義）</li>
-      <li>論理 AND：<code>&amp;&amp;</code></li>
-      <li>論理 OR：<code>||</code></li>
-      <li>代入：<code>=</code></li>
+      <li>メンバー / 呼び出し：
+        <code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code>
+      </li>
+      <li>単項：
+        <code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code>
+      </li>
+      <li>乗除：
+        <code>*</code>, <code>/</code>, <code>%</code>
+      </li>
+      <li>加減：
+        <code>+</code>, <code>-</code>
+      </li>
+      <li>シフト：
+        <code>&lt;&lt;</code>, <code>&gt;&gt;</code>
+      </li>
+      <li>関係：
+        <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code>
+      </li>
+      <li>等価：
+        <code>==</code>, <code>!=</code>
+      </li>
+      <li>ビット AND：
+        <code>&amp;</code>
+      </li>
+      <li>ビット XOR：
+        <code>^</code>
+      </li>
+      <li>ビット OR（式コンテキスト）：
+        <code>|</code>
+      </li>
+      <li>論理 AND：
+        <code>&amp;&amp;</code>
+      </li>
+      <li>論理 OR：
+        <code>||</code>
+      </li>
+      <li>パイプ with 演算子：
+        <code>|&gt;</code>
+      </li>
+      <li>代入：
+        <code>=</code>
+      </li>
+      <li>パイプライン接続（文コンテキスト）：
+        <code>|</code>
+      </li>
     </ol>
+    <p>
+      パイプ with 演算子 <code>|&gt;</code> は左辺の式を先に評価し、その結果を
+      右辺のパイプ / フィルタに流し込む演算子である。
+      優先順位は代入より高く、その他の 2 項演算子より低いため、
+      <code>1 + 2 |&gt; f</code> は <code>(1 + 2) |&gt; f</code> と解釈される。
+    </p>
+    <p>
+      パイプライン接続演算子 <code>|</code> は
+      <code>stdin | filter(utf8) | filter(json&lt;T&gt;)</code> のような
+      パイプライン文でのみ使用される構文であり、
+      式の中でビット OR と混在することはない。
+    </p>
     <p>複合代入（<code>+=</code> 等）はまだ仕様化されていない。</p>
 
     <h3>15.2 結合規則</h3>
@@ -1170,10 +1216,11 @@ function main(args: string[]): int {
     <hr>
     <p class="note">
       以上が、元の英語仕様に基づき、
-      <strong>with ブロックの型対応拡張と main 関数仕様の更新を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
+      <strong>with ブロックの型対応拡張を加えた Aloe 言語仕様（日本語・HTML 版）</strong> です。
     </p>
 
   </main>
 </div>
 </body>
 </html>
+
