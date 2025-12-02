@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Aloe Language Specification (Draft, English)</title>
-  <meta name="edit-version" content="3">
-  <meta name="edit-date" content="2025-12-02T10:55:00">
+  <meta charset="UTF-8" />
+  <title>Aloe Language Specification (Draft, English version)</title>
+  <meta name="edit-version" content="2" />
+  <meta name="edit-date" content="2025-12-02T10:50:00+09:00" />
   <style>
     :root {
       color-scheme: light dark;
@@ -113,6 +113,11 @@
       font-size: 0.9rem;
       color: #4b5563;
     }
+    /* Ensure |> is not rendered as a triangle by forcing a monospaced, blocky font for operators */
+    .operator {
+      font-family: "JetBrains Mono", "Cascadia Code", Consolas,
+                   "Ricty Diminished", monospace;
+    }
   </style>
 </head>
 <body>
@@ -121,7 +126,7 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft • English translation + with extension</div>
+    <div class="subtitle">Draft • English translation + with extension + Pipes/ROP</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -138,13 +143,13 @@
         <li><a href="#ch9"><span class="chapter-index">9.</span>is Operator</a></li>
         <li><a href="#ch10"><span class="chapter-index">10.</span>Collections</a></li>
         <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
-        <li><a href="#ch12"><span class="chapter-index">12.</span>main Block</a></li>
+        <li><a href="#ch12"><span class="chapter-index">12.</span>main Block (Entry Point)</a></li>
         <li><a href="#ch13"><span class="chapter-index">13.</span>Temp Variable <code>_</code></a></li>
         <li><a href="#ch14"><span class="chapter-index">14.</span>swap Keyword</a></li>
         <li><a href="#ch15"><span class="chapter-index">15.</span>Operators</a></li>
         <li><a href="#ch16"><span class="chapter-index">16.</span>Exceptions</a></li>
         <li><a href="#ch17"><span class="chapter-index">17.</span>Modules / namespace / import</a></li>
-        <li><a href="#ch18"><span class="chapter-index">18.</span>Pipes &amp; Filters</a></li>
+        <li><a href="#ch18"><span class="chapter-index">18.</span>Pipes &amp; Filters / ROP</a></li>
       </ul>
     </nav>
 
@@ -152,55 +157,62 @@
     <nav>
       <ul>
         <li><a href="#with-blocks">4.2 with Blocks</a></li>
-        <li><a href="#with-type">4.2.1 Type-based with</a></li>
+        <li><a href="#with-type">4.2.1 Type-based with Extension</a></li>
+        <li><a href="#result-type">18.x Result Type &amp; ROP</a></li>
       </ul>
     </nav>
   </aside>
 
   <!-- Main content -->
   <main class="content">
-    <h1 id="top">Aloe Language Specification (Draft, English)</h1>
+    <h1 id="top">Aloe Language Specification (Draft, English version)</h1>
     <p class="note">
-      This document is an English draft based on the original specification at<br>
+      This document is the English draft corresponding to the Japanese draft of Aloe,
+      originally based on the English specification at
       <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>.<br>
-      On top of that, it adds an extension to <strong>4.2 with-blocks</strong>:
-      <strong>type-based with for class / struct / enum (short-access to static members / enum cases)</strong>.<br>
-      Apart from this, the specification is translated to English as faithfully as possible.
+      On top of that original, this version adds the following extensions:
+      <strong>the with-block extension for class / struct / enum as type-based with
+      (short-cut access to static members and enum constants)</strong>,
+      and the <strong>chapter 18 extensions for pipe / filter / Result / ROP
+      (Railway Oriented Programming)</strong>.<br>
+      Apart from those explicitly described extensions, the language behavior is kept
+      as close to the original English specification as possible.
     </p>
 
     <hr>
 
     <h2 id="ch0">0. Overview</h2>
     <p>
-      Aloe is a statically typed scripting language aiming for simple and intuitive syntax.<br>
+      Aloe is a statically typed scripting language aimed at simple, intuitive syntax.<br>
       It runs on a stack-based virtual machine (AloeVM) and has the following main goals:
     </p>
     <ul>
-      <li>Be easy to read and write for education and small applications</li>
-      <li>Run on both the C# runtime and WebAssembly (WASM) environments</li>
-      <li>Control I/O and concurrency in a statically typed way via <code>pipe</code> and <code>filter</code></li>
+      <li>Easy to read and write for educational and small- to mid-sized applications.</li>
+      <li>Runs on both C#-based runtimes and WebAssembly (WASM) environments.</li>
+      <li>Provides statically typed control of I/O and concurrency via <code>pipe</code> and <code>filter</code>.</li>
     </ul>
-    <p>Features:</p>
+    <p>Key characteristics:</p>
     <ul>
       <li>Static typing
         <ul>
-          <li>Type inference via <code>var</code></li>
-          <li>Explicit type annotation via <code>let</code></li>
+          <li><code>var</code> for type inference.</li>
+          <li><code>let</code> for explicit type annotation.</li>
         </ul>
       </li>
-      <li>Value types / Reference types
+      <li>Value types vs reference types
         <ul>
-          <li><code>struct</code> … value type</li>
-          <li><code>class</code> … reference type</li>
+          <li><code>struct</code> … value type.</li>
+          <li><code>class</code> … reference type.</li>
         </ul>
       </li>
-      <li>GC-based memory management (actual algorithm is VM-dependent)</li>
-      <li>No direct <code>= null</code> in source code
+      <li>Garbage-collected memory management (concrete algorithm is VM-dependent).</li>
+      <li>Source code does not write <code>= null</code> directly.
         <ul>
-          <li>Reference types can be null internally, but are manipulated via the sugar <code>delete</code>.</li>
+          <li>Reference types can be null internally, but they are handled via the <code>delete</code> sugar.</li>
         </ul>
       </li>
-      <li>Data-flow style design with <code>pipe</code> / <code>filter</code></li>
+      <li><code>pipe</code> / <code>filter</code> for dataflow-style design.</li>
+      <li>Result type and ROP (Railway Oriented Programming) to model success/failure explicitly.</li>
     </ul>
 
     <hr>
@@ -214,23 +226,24 @@
    comment */
 </code></pre>
     <ul>
-      <li><code>//</code> to end-of-line is a line comment.</li>
+      <li><code>//</code> to end of line is a line comment.</li>
       <li><code>/*</code> … <code>*/</code> is a multi-line comment.</li>
-      <li>Nested <code>/* */</code> is undefined (assumed unsupported).</li>
+      <li>Nested <code>/* */</code> is not supported (treated as undefined behavior).</li>
     </ul>
 
     <h3>1.2 Identifiers</h3>
     <ul>
-      <li>Allowed characters: letters (A–Z, a–z), digits (0–9), underscore <code>_</code></li>
+      <li>Allowed characters: letters (A–Z, a–z), digits (0–9), underscore <code>_</code>.</li>
       <li>The first character must be a letter or <code>_</code>.</li>
       <li>Case-sensitive.</li>
-      <li>Identifiers cannot have the same spelling as keywords.</li>
-      <li>Identifiers starting with <code>_</code> are “private by convention” (not referred to from outside).</li>
-      <li>Unicode characters can be used (excluding whitespace and separators).</li>
+      <li>Cannot use keywords as identifiers.</li>
+      <li>Identifiers starting with <code>_</code> are considered “private” by convention (not enforced by the compiler).</li>
+      <li>Unicode letters may be used, excluding whitespace and separators.</li>
     </ul>
 
     <h3>1.3 Keywords</h3>
 <pre><code>abstract
+and
 as
 async
 bitfield
@@ -240,7 +253,9 @@ catch
 class
 const
 construct
+constructor
 continue
+default
 delete
 do
 else
@@ -248,8 +263,10 @@ enum
 extends
 false
 field
-finally
+filter
+final
 for
+function
 if
 import
 implements
@@ -258,14 +275,20 @@ interface
 is
 let
 main
+map
+match
 method
 namespace
 new
 null
+options
+or
+pipe
 private
 protected
 public
 readonly
+Result
 return
 sealed
 static
@@ -286,27 +309,31 @@ with
 yield
 </code></pre>
     <ul>
-      <li><code>package</code> is not used; <code>namespace</code> is used instead.</li>
-      <li><code>final</code> is removed; <code>sealed</code> is used to prohibit extension.</li>
+      <li>Aloe uses <code>namespace</code> instead of <code>package</code>.</li>
+      <li><code>final</code> is reserved but its semantics are not yet defined in this draft (reserved for future use).</li>
       <li><code>instanceof</code> is removed; <code>is</code> is used for type checks.</li>
+      <li><code>and</code> / <code>or</code> are aliases for <code>&amp;&amp;</code> / <code>||</code>.</li>
+      <li><code>function</code>, <code>filter</code>, <code>match</code>, <code>default</code>,
+          <code>options</code>, <code>constructor</code>, <code>Result</code>,
+          <code>pipe</code>, <code>map</code> are reserved words used by this specification.</li>
     </ul>
 
     <h3>1.4 Literals</h3>
     <ul>
-      <li>Integer: <code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code>, ...</li>
-      <li>Floating point: <code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
-      <li>Decimal: <code>10.12345678901234567890:d</code>, etc.</li>
-      <li>Boolean: <code>true</code>, <code>false</code></li>
-      <li>String: <code>"Hello, World!"</code></li>
-      <li>Char: <code>'A'</code>, <code>'z'</code>, …</li>
-      <li>null literal: <code>null</code></li>
-      <li>Array literal: <code>[1, 2, 3]</code></li>
-      <li>List literal: <code>(1, 2, 3)</code></li>
-      <li>Set literal: <code>{1, 2, 3}</code></li>
-      <li>Map literal: <code>["key1": 10, "key2": 20]</code></li>
-      <li>enum literal: <code>EnumType.Value1</code></li>
-      <li>struct literal: <code>Point { x: 0, y: 1 }</code></li>
-      <li>Object creation: <code>new ClassName()</code></li>
+      <li>Integer literals: <code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code>, etc.</li>
+      <li>Floating-point literals: <code>10.5</code>, <code>0.0</code>, <code>-3.14</code>.</li>
+      <li>Decimal literals: <code>10.12345678901234567890:d</code>, etc.</li>
+      <li>Booleans: <code>true</code>, <code>false</code>.</li>
+      <li>Strings: <code>"Hello, World!"</code>.</li>
+      <li>Chars: <code>'A'</code>, <code>'z'</code>, etc.</li>
+      <li>Null literal: <code>null</code>.</li>
+      <li>Array literals: <code>[1, 2, 3]</code>.</li>
+      <li>List literals: <code>(1, 2, 3)</code>.</li>
+      <li>Set literals: <code>{1, 2, 3}</code>.</li>
+      <li>Map literals: <code>["key1": 10, "key2": 20]</code>.</li>
+      <li>Enum literals: <code>EnumType.Value1</code>.</li>
+      <li>Struct literals: <code>Point { x: 0, y: 1 }</code>.</li>
+      <li>Object construction: <code>new ClassName()</code>.</li>
     </ul>
 
     <h3>1.5 Statement terminator</h3>
@@ -315,15 +342,15 @@ x = x + 1;
 print(x);
 </code></pre>
     <ul>
-      <li>All statements end with a semicolon <code>;</code>.</li>
-      <li>No automatic semicolon insertion by newline.</li>
+      <li>Every statement must end with a semicolon <code>;</code>.</li>
+      <li>No automatic semicolon insertion based on line breaks.</li>
     </ul>
 
     <h3>1.6 Whitespace</h3>
     <ul>
-      <li>Spaces, tabs, and newlines act as token separators.</li>
-      <li>Consecutive whitespace is treated as a single separator.</li>
-      <li>Indentation is not significant (unlike Python).</li>
+      <li>Space, tab, and newline are treated as token separators.</li>
+      <li>Multiple consecutive whitespace characters are treated as one separator.</li>
+      <li>Indentation has no syntactic meaning (unlike Python).</li>
     </ul>
 
     <h3>1.7 Case sensitivity</h3>
@@ -338,21 +365,22 @@ print(x);
 
     <h3>2.1 Primitive types</h3>
     <p>
-      Aloe has the following 7 primitive types:
+      Aloe’s “primitive types” are the following seven:
     </p>
     <ul>
-      <li><code>bool</code> / <code>boolean</code> – boolean value.</li>
-      <li><code>int</code> / <code>integer</code> – signed integer.</li>
-      <li><code>float</code> – floating point number.</li>
-      <li><code>decimal</code> – high-precision decimal.</li>
-      <li><code>string</code> – string (internally Unicode).</li>
-      <li><code>null</code> – special type/value representing “no value”.</li>
-      <li><code>void</code> – “no return value” (only for method return types).</li>
+      <li><code>bool</code> / <code>boolean</code> – Boolean value.</li>
+      <li><code>int</code> / <code>integer</code> – Signed integer.</li>
+      <li><code>float</code> – Floating-point number.</li>
+      <li><code>decimal</code> – High-precision decimal number.</li>
+      <li><code>string</code> – String (internally Unicode).</li>
+      <li><code>null</code> – Special type/value indicating “no value”.</li>
+      <li><code>void</code> – No return value (for method return types only).</li>
     </ul>
     <p>
       There is no <code>any</code> type; dynamic typing is not supported.<br>
-      <code>char</code> and <code>byte</code> are supported by the language, but are excluded from the
-      “primitive type” category and treated separately as numeric value types in Chapter 3.
+      <code>char</code> and <code>byte</code> are supported by the language as value types,
+      but not classified as “primitive” here; they are described separately in the
+      Numbers &amp; Conversions chapter (3).
     </p>
 
     <h3>2.2 Composite / user-defined types</h3>
@@ -365,9 +393,9 @@ print(x);
       <li><code>class</code></li>
       <li><code>enum</code>, <code>bitfield enum</code></li>
       <li>Asynchronous task: <code>task</code></li>
-      <li>Pipe: <code>pipe&lt;T&gt;</code> (see Chapter 18)</li>
+      <li>Pipe: <code>pipe&lt;T&gt;</code> (see chapter 18)</li>
     </ul>
-    <p>There is no <code>any</code> type; dynamic typing is not supported.</p>
+    <p>There is no <code>any</code> type and no dynamic typing.</p>
 
     <h3>2.3 Value types / reference types</h3>
     <ul>
@@ -389,16 +417,16 @@ print(x);
 
     <h4>Struct restrictions and copying</h4>
     <ul>
-      <li>Fields of a struct can only be primitive types or other structs.</li>
-      <li>Structs cannot have reference-type fields such as <code>class</code>.</li>
-      <li>Assignments of structs always copy the value.</li>
-      <li>No explicit limit on maximum size is imposed by the spec.</li>
+      <li>Struct fields may contain only primitive types and other structs.</li>
+      <li>Struct fields must not be reference types such as class.</li>
+      <li>Assigning a struct always copies its entire value.</li>
+      <li>No language-level limit on maximum size; implementation limits are allowed.</li>
     </ul>
 
     <h4>Class vs struct</h4>
     <ul>
-      <li>A class can have structs as fields.</li>
-      <li>Assigning a class instance to another variable copies the reference (the object is shared).</li>
+      <li>A class can have struct fields.</li>
+      <li>Assigning a class instance to another variable copies the reference, not the object.</li>
     </ul>
 
     <hr>
@@ -419,17 +447,17 @@ print(x);
 
     <h3>3.2 decimal</h3>
     <ul>
-      <li><code>decimal</code> is a high-precision decimal type.</li>
-      <li>Expressions mixing <code>decimal</code> with <code>int</code>/<code>float</code> may be promoted to <code>decimal</code> as needed.</li>
-      <li>Overflow / underflow / precision errors are represented as <code>OverflowException</code>.</li>
+      <li><code>decimal</code> represents high-precision base-10 numbers.</li>
+      <li>Expressions mixing <code>decimal</code> with <code>int</code> / <code>float</code> may be promoted to <code>decimal</code> as needed.</li>
+      <li>Overflow/underflow/precision errors are treated as <code>OverflowException</code> where appropriate.</li>
     </ul>
 
     <h3>3.3 enum and int</h3>
     <ul>
       <li>Aloe has no cast syntax.</li>
-      <li>No implicit or explicit conversions between enum and int.</li>
-      <li>Expressions mixing enums and numeric types are compile errors (except bitwise ops on bitfield enums).</li>
-      <li>Internally, enum / bitfield enum are stored as int32.</li>
+      <li>Implicit/explicit conversions between enum and int are disallowed.</li>
+      <li>Expressions mixing enum and numeric types are compile errors (except for bitfield enum bitwise operations).</li>
+      <li>Internally, enum and bitfield enum are stored as int32.</li>
     </ul>
 
     <h3>3.4 byte and char</h3>
@@ -437,23 +465,23 @@ print(x);
       <li><code>byte</code>:
         <ul>
           <li>Range is 0–255.</li>
-          <li>Arithmetic between bytes is allowed, but out-of-range values may cause errors.</li>
+          <li>Arithmetic on bytes is allowed, but operations that overflow the 0–255 range may cause errors.</li>
           <li>Expressions mixing byte and int are promoted to int.</li>
         </ul>
       </li>
       <li><code>char</code>:
         <ul>
-          <li>No arithmetic on char.</li>
-          <li>Comparison operators (<code>==</code>, <code>&lt;</code>, <code>&gt;</code>, etc.) are only for char-to-char.</li>
-          <li>No implicit conversions with numeric types.</li>
+          <li>No arithmetic is allowed on char.</li>
+          <li>Comparisons (<code>==</code>, <code>&lt;</code>, <code>&gt;</code>, etc.) are only defined between chars.</li>
+          <li>No implicit conversion between char and numeric types.</li>
         </ul>
       </li>
     </ul>
 
     <h3>3.5 NaN / Infinity</h3>
     <ul>
-      <li>Numeric overflow/underflow is handled via exceptions, not NaN/Infinity.</li>
-      <li><code>ZeroDivisionException</code> is thrown on division by zero (including 0 / 0.0).</li>
+      <li>Numeric overflow/underflow is treated as exceptions, not NaN/Infinity.</li>
+      <li><code>ZeroDivisionException</code> is thrown for division by zero (including 0 / 0.0).</li>
     </ul>
 
     <hr>
@@ -461,13 +489,13 @@ print(x);
     <h2 id="ch4">4. Blocks &amp; Scope</h2>
 
     <p>
-      A block is delimited by <code>{</code> and <code>}</code>, and each block introduces a new scope.
+      A block is delimited by <code>{</code> and <code>}</code>, and introduces a new scope.
     </p>
     <ul>
       <li><code>main</code> block</li>
-      <li>Class definition blocks</li>
-      <li>Method definition blocks</li>
-      <li>Arbitrary <code>{ ... }</code> blocks</li>
+      <li>Class definition block</li>
+      <li>Method definition block</li>
+      <li>Any <code>{ ... }</code> statement block</li>
     </ul>
 
     <h3>4.1 Static (lexical) scope and shadowing</h3>
@@ -482,14 +510,14 @@ print(x);
 </code></pre>
     <ul>
       <li>Aloe uses static (lexical) scoping.</li>
-      <li>Declaring an inner variable with the same name shadows the outer one.</li>
-      <li>If a field name and a local variable name conflict, the local variable wins.
-        The field is accessed via <code>this.</code>.</li>
+      <li>Declaring a variable with the same name in an inner block shadows the outer variable.</li>
+      <li>If a field and a local variable share the same name, the local variable wins;
+        the field must be accessed via <code>this.</code>.</li>
     </ul>
 
     <h3 id="with-blocks">4.2 with-blocks (shorthand for member access)</h3>
     <p>
-      Aloe has a <code>with</code> block to write repeated member access on one object concisely.
+      Aloe provides <code>with</code> blocks for concise repeated access to members of the same object.
     </p>
 <pre><code>with (user) {
     .name = "Alice";
@@ -498,41 +526,43 @@ print(x);
 }
 </code></pre>
     <ul>
-      <li>Inside <code>with (expr) { ... }</code>:
+      <li>In <code>with (expr) { ... }</code>:
         <ul>
           <li><code>.Member</code> is shorthand for <code>(expr).Member</code>.</li>
-          <li><code>expr</code> is evaluated once at the beginning of the block and stored in an internal temp variable.</li>
-          <li>The special temp variable <code>_</code> refers to “the current with-target object”.
+          <li><code>expr</code> is evaluated exactly once at the beginning of the block, stored in an internal temp.</li>
+          <li>The special temp variable <code>_</code> refers to the “with target object”.
             <ul>
-              <li>You can pass it, e.g., <code>log(_);</code>.</li>
+              <li>For example, <code>log(_);</code> can be used to pass the target object.</li>
             </ul>
           </li>
         </ul>
       </li>
       <li>Nested <code>with</code> blocks:
         <ul>
-          <li>The inner <code>with</code> shadows the resolution of <code>.</code> and <code>_</code>.</li>
-          <li>You can still access outer objects via their normal variable names.</li>
+          <li>An inner <code>with</code> shadows both the outer <code>.</code> resolution and the outer <code>_</code>.</li>
+          <li>The outer object is still accessible via its normal variable name.</li>
         </ul>
       </li>
-      <li>Like C#’s <code>using</code>-style, multiple <code>with</code> targets can be written together:</li>
+      <li>Like C#’s multiple-using syntax, you can list multiple targets in one with:
     </ul>
 <pre><code>with (user), (profile) {
     .name = "Alice";  // resolved against both user and profile
 }
 </code></pre>
     <ul>
-      <li>The order of resolution for which object <code>.Member</code> refers to is implementation-dependent.</li>
-      <li>If resolution is ambiguous (the same member exists on multiple objects), it is a compile error.</li>
+      <li>The resolution order for which object <code>.name</code> binds to is implementation-dependent.</li>
+      <li>However, if resolution is ambiguous (multiple targets have the same member), it must be a compile error.</li>
     </ul>
     <p>
-      <code>with</code> is purely syntactic sugar: all occurrences can be desugared into explicit
-      <code>obj.member</code> access, and type-checking / code generation can be performed on the desugared form.
+      <code>with</code> is purely syntactic sugar:
+      semantically, all <code>.Member</code> accesses can be rewritten into explicit <code>obj.member</code> calls,
+      and then type checking / codegen is performed.
     </p>
 
-    <h4 id="with-type">4.2.1 Type-based with (static / enum shortcuts for class / struct / enum)</h4>
+    <h4 id="with-type">4.2.1 Type-based with (static/enum shortcut for class / struct / enum)</h4>
     <p>
-      In addition to the usual <code>with (expr)</code>, you can use <code>with</code> with a <strong>type name</strong>.
+      In addition to <code>with (expr)</code> on an expression, Aloe supports type-based
+      <code>with</code> using a type name as the target.
     </p>
 <pre><code>with (TypeName) {
     .SomeStaticMethod();
@@ -545,38 +575,39 @@ print(x);
       <li>a <code>struct</code> type</li>
       <li>an <code>enum</code> / <code>bitfield enum</code></li>
     </ul>
-    <p>In this case, <code>with</code> is interpreted as a “type context with”:</p>
+    <p>In this case, <code>with</code> is interpreted as a “type-context with”:</p>
     <ul>
-      <li>The expression inside <code>()</code> is not evaluated as a runtime value.
+      <li>The expression inside <code>()</code> is <em>not</em> evaluated as a runtime value.
         <ul>
-          <li>The compiler resolves <code>TypeName</code> as a type; no instance is created.</li>
+          <li>The compiler resolves <code>TypeName</code> as a type; no instance is constructed.</li>
         </ul>
       </li>
       <li>Inside the block:
         <ul>
           <li><code>.Member</code> is shorthand for <code>TypeName.Member</code>.
             <ul>
-              <li>Valid <code>Member</code> targets are:
+              <li>Eligible members are:
                 <ul>
                   <li>static fields</li>
                   <li>static methods</li>
-                  <li>enum / bitfield enum cases</li>
+                  <li>enum / bitfield enum constants</li>
                 </ul>
               </li>
             </ul>
           </li>
-          <li>The temp variable <code>_</code> acts as a pseudo-object representing the static context of <code>TypeName</code>.
+          <li>The temp variable <code>_</code> behaves as a pseudo-object representing
+              the static context of <code>TypeName</code>.
             <ul>
               <li><code>_.Member</code> is also equivalent to <code>TypeName.Member</code>.</li>
             </ul>
           </li>
-          <li>Accessing instance members in a type-based with is a compile error.</li>
+          <li>Accessing instance members in a type-based with block is a compile error.</li>
         </ul>
       </li>
     </ul>
     <p>
-      Even in a type-based with, local variables or outer scope variables with the same name take precedence.
-      To explicitly refer to enum cases or static members, use <code>TypeName.Member</code> or <code>.Member</code> / <code>_.Member</code>.
+      In a type-based <code>with</code>, local variables and outer-scope variables still override member resolution if they share the same name.
+      To explicitly access enum constants or static members, use <code>TypeName.Member</code> or <code>.Member</code> / <code>_.Member</code>.
     </p>
 
     <h5>Example: static access on class / struct</h5>
@@ -595,7 +626,7 @@ class MathUtil {
     }
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     with (AngleUtil) {
         var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
         print(.Pi);                // AngleUtil.Pi
@@ -605,35 +636,38 @@ main(args: string[]) {
         var m = max(10, 20);       // MathUtil.max(10, 20)
         print(m);
     }
+
+    return 0;
 }
 </code></pre>
 
-    <h5>Example: enum case access</h5>
+    <h5>Example: enum constants</h5>
 <pre><code>enum Color {
     Red,
     Green,
     Blue
 }
 
-main(args: string[]) {
+function main(args: string[]): int {
     with (Color) {
-        var c1: Color = Red;   // Color.Red
-        var c2: Color = Blue;  // Color.Blue
+        let c1: Color = Red;   // Color.Red
+        let c2: Color = Blue;  // Color.Blue
         print(c1);
         print(c2);
     }
+    return 0;
 }
 </code></pre>
     <p>
-      Type-based <code>with</code> can also be mixed with multiple with-targets:
+      Type-based <code>with</code> can also be combined with multiple targets:
     </p>
 <pre><code>with (user), (Color) {
     .name = "Alice"; // user.name
-    var c: Color = Red; // Color.Red
+    let c: Color = Red; // Color.Red
 }
 </code></pre>
     <p>
-      Resolution order is implementation-dependent, but ambiguity must result in a compile error.
+      Again, resolution order is implementation-dependent, but ambiguity must be treated as a compile error.
     </p>
 
     <hr>
@@ -653,10 +687,10 @@ var mp  = ["key": 10];
 var fb  = new FizzBuzz();
 </code></pre>
     <ul>
-      <li>The variable’s type is inferred from the right-hand side.</li>
+      <li>The type of the variable is inferred from the right-hand side expression.</li>
       <li><code>var x = 1;</code> is always <code>int</code>.</li>
-      <li><code>var x = 1.0;</code> is treated as <code>float</code>.</li>
-      <li><code>var x = null;</code> is a compile error (type cannot be inferred).</li>
+      <li><code>var x = 1.0;</code> is <code>float</code>.</li>
+      <li><code>var x = null;</code> is a compile error, since the type cannot be inferred.</li>
     </ul>
 
     <h3>5.2 let (explicit type)</h3>
@@ -680,13 +714,13 @@ const AppName: string = "Aloe VM";
 </code></pre>
     <ul>
       <li><code>const</code> variables cannot be reassigned.</li>
-      <li>Const declarations require an explicit type annotation.</li>
+      <li>Type annotation is mandatory for <code>const</code>.</li>
     </ul>
 
     <hr>
 
     <h2 id="ch6">6. Fields</h2>
-    <p>Fields of class / struct are declared with the <code>field</code> keyword.</p>
+    <p>Fields of class/struct are declared with the <code>field</code> keyword.</p>
 <pre><code>class Sample {
     field count: int = 0;
     field name: string = "default";
@@ -698,14 +732,14 @@ const AppName: string = "Aloe VM";
     }
     method change(): void {
         this.count = this.count + 1; // OK
-        // this.id = 2; // NG: readonly field cannot be changed outside constructor
+        // this.id = 2; // NG: cannot assign readonly field outside constructor
     }
 }
 </code></pre>
     <ul>
-      <li><code>field</code> … ordinary field.</li>
-      <li><code>readonly field</code> … assignable only in the constructor; read-only afterwards.</li>
-      <li>Same semantics for struct and class.</li>
+      <li><code>field</code> … normal field.</li>
+      <li><code>readonly field</code> … assignable only inside the constructor, read-only afterwards.</li>
+      <li>Same meaning for both struct and class.</li>
     </ul>
 
     <hr>
@@ -730,8 +764,8 @@ const AppName: string = "Aloe VM";
 }
 </code></pre>
     <ul>
-      <li><code>class</code> is a reference type.</li>
-      <li><code>sealed class</code> cannot be extended with <code>extends</code>.</li>
+      <li>class is a reference type.</li>
+      <li><code>sealed class</code> cannot be extended via <code>extends</code>.</li>
       <li>Only single inheritance is supported.</li>
     </ul>
 
@@ -747,10 +781,10 @@ const AppName: string = "Aloe VM";
 }
 </code></pre>
     <ul>
-      <li><code>struct</code> is a value type.</li>
-      <li>Fields must be primitive types or other structs (no reference-type fields).</li>
-      <li>Struct copying is always by value.</li>
-      <li>Struct inheritance is not supported (<code>sealed struct</code> is a “no extension” marker only).</li>
+      <li>struct is a value type.</li>
+      <li>Fields are limited to primitive types and other structs (no reference type fields).</li>
+      <li>Copying a struct always copies its value.</li>
+      <li>Struct inheritance is not supported (<code>sealed struct</code> is a marker forbidding extension).</li>
     </ul>
 
     <h3>7.3 Inheritance and sealed</h3>
@@ -779,8 +813,8 @@ class ConsoleLogger implements ILogger {
 }
 </code></pre>
     <ul>
-      <li>Interfaces are implemented using the <code>implements</code> keyword.</li>
-      <li>Use the <code>is</code> operator to check whether an object implements an interface.</li>
+      <li><code>implements</code> keyword is used to implement interfaces.</li>
+      <li><code>is</code> operator can check whether an object implements an interface.</li>
     </ul>
 
     <h3>7.5 trait</h3>
@@ -791,14 +825,14 @@ class ConsoleLogger implements ILogger {
 }
 </code></pre>
 
-    <h4>Applying traits with with</h4>
+    <h4>Applying trait with with</h4>
 <pre><code>var obj = new SomeClass() with Trait_A;
-obj.hello(); // method from Trait_A (if no conflicts)
+obj.hello(); // method imported from Trait_A (if there is no conflict)
 </code></pre>
 
     <h4>Non-destructive add/remove (+ / -)</h4>
-<pre><code>var obj2 = obj + Trait_A;      // obj unchanged; obj2 has Trait_A
-var obj3 = obj2 - Trait_A;     // obj3 is obj2 without Trait_A
+<pre><code>var obj2 = obj + Trait_A;      // obj is unchanged; returns a new object with Trait_A applied
+var obj3 = obj2 - Trait_A;     // returns a new object with Trait_A removed from obj2
 </code></pre>
 
     <h4>Alias with as</h4>
@@ -810,9 +844,9 @@ obj2.a.hello(); // OK
 
     <h4>Trait conflicts</h4>
     <ul>
-      <li>If multiple traits define the same field/method name, it is a compile error.</li>
-      <li>Applications with alias such as <code>as a</code> are excluded from conflict detection.</li>
-      <li>The behavior when trait members conflict with class members is to be defined in a future version.</li>
+      <li>If multiple traits define the same field/method, it is a compile error.</li>
+      <li>Traits applied with alias (e.g. <code>as a</code>) are excluded from conflict detection.</li>
+      <li>The behavior of conflicts between traits and class members will be defined in a future version.</li>
     </ul>
 
     <hr>
@@ -825,14 +859,14 @@ delete obj;  // equivalent to: obj = null (at VM level)
       <li><code>delete obj;</code> is equivalent to <code>obj = null</code> at the VM level.</li>
       <li>You cannot write <code>obj = null;</code> directly in source code.</li>
       <li>Reference types can be null internally, but the type system does not track nullability.</li>
-      <li>Accessing a null reference may throw <code>NullReferenceException</code>.</li>
+      <li>Accessing a null reference may cause <code>NullReferenceException</code>.</li>
     </ul>
 
     <hr>
 
     <h2 id="ch9">9. is Operator</h2>
 <pre><code>if (obj is FizzBuzz) {
-    // true if runtime type is FizzBuzz or a subclass
+    // true if runtime type is FizzBuzz or its subclass
 }
 
 if (obj is ILogger) {
@@ -840,13 +874,13 @@ if (obj is ILogger) {
 }
 
 if (obj is Trait_A) {
-    // true if obj has Trait_A applied (with / +)
+    // true if obj has Trait_A applied (via with / +)
 }
 </code></pre>
     <ul>
-      <li><code>is</code> performs a runtime type check.</li>
-      <li>Inheritance is considered (an instance of Derived is also a Base).</li>
-      <li><code>is</code> can also be used for interfaces and traits.</li>
+      <li><code>is</code> performs runtime type checks.</li>
+      <li>Respects inheritance relationships (a Derived instance is also a Base).</li>
+      <li>Can be used for interfaces and traits as well.</li>
     </ul>
 
     <hr>
@@ -873,6 +907,10 @@ var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
 var mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
 var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
 </code></pre>
+    <ul>
+      <li><code>map&lt;T&gt;</code> is syntactic sugar (alias) for <code>map&lt;string/T&gt;</code>.</li>
+      <li>When you need to specify the key type explicitly, use <code>map&lt;K/V&gt;</code>.</li>
+    </ul>
 
     <hr>
 
@@ -886,9 +924,9 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 }
 </code></pre>
     <ul>
-      <li>The underlying representation is always int32.</li>
-      <li>Changing the underlying type, e.g. <code>enum&lt;byte&gt;</code> or <code>enum&lt;string&gt;</code>, is not allowed.</li>
-      <li>Enums can be used in type-based with, allowing short access to enum cases via <code>with (Color) { Red; }</code>.</li>
+      <li>Internally stored as int32.</li>
+      <li>Changing the underlying type (e.g. <code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code>) is not allowed.</li>
+      <li>Enums can be used as type-based with targets, allowing shorthand access to constants: <code>with (Color) { Red; }</code>.</li>
     </ul>
 
     <h3>11.2 bitfield enum</h3>
@@ -908,45 +946,48 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 </code></pre>
     <ul>
       <li><code>b(n)</code> represents bit n (<code>1 &lt;&lt; n</code>).</li>
-      <li><code>Name : b(n)</code> assigns bit n to that case.</li>
-      <li><code>bitfield enum</code> can use up to 32 bits (n = 0–31).</li>
-      <li>It is allowed for multiple cases to share the same bit; the compiler may warn but not error.</li>
-      <li>The underlying type is always int32; <code>bitfield enum&lt;byte&gt;</code>, etc., are compile errors.</li>
+      <li><code>Name : b(n)</code> assigns bit n to the corresponding enum value.</li>
+      <li>At most 32 bits can be used in a <code>bitfield enum</code> (n is 0–31).</li>
+      <li>Sharing the same bit among multiple enum members is allowed (may cause a compiler warning but not an error).</li>
+      <li>The underlying type is always int32; <code>bitfield enum&lt;byte&gt;</code> is a compile error.</li>
     </ul>
 
     <hr>
 
-    <h2 id="ch12">12. main Block (entry point)</h2>
-<pre><code>main(args: string[]) {
+    <h2 id="ch12">12. main Block (Entry Point)</h2>
+<pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
     fb.run();
-    _ = 0; // process exit code (int)
+    return 0;
 }
 </code></pre>
     <ul>
       <li>The entry point of the program.</li>
-      <li><code>args</code> holds the command-line arguments.</li>
-      <li>In the main block, the temp variable <code>_</code> is always of type <code>int</code>, and its value is used as the process exit code.</li>
+      <li><code>args</code> represents command-line arguments.</li>
+      <li>The main block must be declared with the <code>function</code> keyword, and its return type is always <code>int</code>.</li>
+      <li>The return value is specified explicitly by <code>return</code>.<br>
+          (The old behavior “the value of <code>_</code> in main becomes the exit code” is removed.)</li>
     </ul>
 
     <hr>
 
     <h2 id="ch13">13. Temp Variable <code>_</code></h2>
-<pre><code>main(args: string[]) {
+<pre><code>function main(args: string[]): int {
     var x = 10;
-    _ = x + 5;   // _ is int (exit code)
+    _ = x + 5;   // the type of _ in this block is inferred from the first assignment (unrelated to the return value)
+    return 0;
 }
 
 method foo(): void {
     var x = 10;
-    _ = x + 5;   // type of _ is inferred in this block
+    _ = x + 5;   // the type of _ is inferred in this block
 }
 </code></pre>
     <ul>
-      <li><code>_</code> is a special temp variable that can be used in any block without an explicit declaration.</li>
-      <li>In <code>main</code>, <code>_</code> is always <code>int</code>.</li>
-      <li>In other blocks, the type of <code>_</code> is determined by the first assignment in that block.</li>
-      <li>Inside a <code>with</code> block, <code>_</code> additionally refers to the current with-target (see 4.2).</li>
+      <li><code>_</code> is a special temp variable that can be used in any block without declaration.</li>
+      <li>Including main, the type of <code>_</code> is “the type of the expression assigned to it first in that block”.</li>
+      <li>The return value of main is determined by <code>return</code>, independent of <code>_</code>.</li>
+      <li>Inside a with-block, <code>_</code> additionally refers to the current with target object (see 4.2).</li>
     </ul>
 
     <hr>
@@ -959,7 +1000,7 @@ print(a); // 20
 print(b); // 10
 </code></pre>
     <ul>
-      <li><code>swap (x, y);</code> swaps the values (or references) of <code>x</code> and <code>y</code>.</li>
+      <li><code>swap (x, y);</code> swaps the values (or references) of x and y.</li>
       <li>Whether swap is valid is checked at compile time.</li>
     </ul>
 
@@ -967,7 +1008,7 @@ print(b); // 10
 
     <h2 id="ch15">15. Operators</h2>
 
-    <h3>15.1 Precedence (from high to low)</h3>
+    <h3>15.1 Precedence (from highest)</h3>
     <ol>
       <li>Member / call: <code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
       <li>Unary: <code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
@@ -978,18 +1019,23 @@ print(b); // 10
       <li>Equality: <code>==</code>, <code>!=</code></li>
       <li>Bitwise AND: <code>&amp;</code></li>
       <li>Bitwise XOR: <code>^</code></li>
-      <li>Bitwise OR: <code>|</code> (has a different meaning in pipeline statements)</li>
-      <li>Logical AND: <code>&amp;&amp;</code></li>
-      <li>Logical OR: <code>||</code></li>
+      <li>Bitwise OR: <code>|</code> (different meaning in pipeline expressions)</li>
+      <li>Logical AND: <code>&amp;&amp;</code> / <code>and</code></li>
+      <li>Logical OR: <code>||</code> / <code>or</code></li>
+      <li>Pipeline: <code>|</code> (pipe connection), <span class="operator"><code>|&gt;</code></span> (pipe-with operator)</li>
       <li>Assignment: <code>=</code></li>
     </ol>
-    <p>Compound assignments such as <code>+=</code> are not yet specified.</p>
+    <p>
+      For details of pipeline operators <code>|</code> and
+      <span class="operator"><code>|&gt;</code></span>, see chapter 18.<br>
+      Compound assignments (such as <code>+=</code>) are not yet specified.
+    </p>
 
     <h3>15.2 Associativity</h3>
     <ul>
       <li>Unary operators: right-associative.</li>
       <li>Assignment: right-associative.</li>
-      <li>All other binary operators: left-associative.</li>
+      <li>Other binary operators: left-associative.</li>
     </ul>
 
     <hr>
@@ -1027,8 +1073,8 @@ finally {
 </code></pre>
     <ul>
       <li><code>OverflowException</code> is used for both overflow and underflow.</li>
-      <li><code>ZeroDivisionException</code> is thrown on division by zero (including 0 / 0.0).</li>
-      <li>Parsing/format errors are represented by <code>FormatException</code>.</li>
+      <li><code>ZeroDivisionException</code> is thrown for division by zero, including 0 / 0.0.</li>
+      <li>Parsing/format errors are handled as <code>FormatException</code>.</li>
       <li>Other fatal VM-level errors are implementation-dependent.</li>
     </ul>
 
@@ -1044,26 +1090,70 @@ finally {
 }
 </code></pre>
     <ul>
-      <li><code>namespace</code> defines a logical namespace.</li>
-      <li><code>import</code> introduces references to other namespaces / symbols.</li>
-      <li>Details such as file layout and cyclic imports are defined by a separate module specification.</li>
+      <li><code>namespace</code> declares a logical namespace.</li>
+      <li><code>import</code> introduces references to other namespaces/symbols.</li>
+      <li>Details about file layout, cyclic imports, etc., are defined in the module specification.</li>
     </ul>
 
     <hr>
 
-    <h2 id="ch18">18. Pipes &amp; Filters</h2>
+    <h2 id="ch18">18. Pipes &amp; Filters (Pipes and Filters / ROP)</h2>
 
     <p>
-      Aloe uses <code>pipe&lt;T&gt;</code> and <code>filter(...)</code> to build streaming processing
-      for servers, CLI tools, web applications, etc.
+      Aloe uses <code>pipe&lt;T&gt;</code> and <code>filter(...)</code> to build streaming pipelines
+      for servers, CLI tools, web apps, etc.
+      Together with the Result type and ROP (Railway Oriented Programming), success and failure
+      are modeled as two tracks.
     </p>
+
+    <h3 id="result-type">18.0 Result&lt;T&gt; and Railway Oriented Programming (overview)</h3>
+
+    <h4>18.0.1 Conceptual definition of Result&lt;T&gt;</h4>
+    <ul>
+      <li><code>Result&lt;T&gt;</code> is a wrapper type representing “success or failure”.</li>
+      <li>Success:
+        <ul>
+          <li>Holds a value like <code>Ok(value: T)</code>.</li>
+        </ul>
+      </li>
+      <li>Failure:
+        <ul>
+          <li>Holds error information like <code>Error(error: Exception)</code>.</li>
+        </ul>
+      </li>
+      <li>Which case it is can be handled by pattern matching (future extension) or branching with <code>match</code>.</li>
+    </ul>
+
+    <h4>18.0.2 Railway Oriented Programming (ROP) image</h4>
+    <p>
+      ROP represents the processing flow with two tracks: a “success track” and a “failure track”.
+      Each filter takes a <code>Result&lt;T&gt;</code>, passes it to the next stage on success, or
+      switches to the failure track on error.
+    </p>
+<pre><code>Input
+  |
+  v
+[ Filter1 ] ----(Error)---> [ Error Track ]
+  |
+  v
+[ Filter2 ] ----(Error)---> [ Error Track ]
+  |
+  v
+Output
+</code></pre>
+    <ul>
+      <li>From left to right, filters are applied along the success track.</li>
+      <li>If an error occurs, the flow branches off to the error track at that point.</li>
+      <li>Using the Result type, these two tracks can be distinguished at the type level.</li>
+    </ul>
 
     <h3>18.1 Basics of pipe&lt;T&gt;</h3>
     <ul>
-      <li><code>pipe&lt;T&gt;</code> is a stream of elements of type <code>T</code>.</li>
-      <li><code>pipe&lt;byte&gt;</code> … byte stream such as stdin or sockets.</li>
-      <li><code>pipe&lt;string&gt;</code> … string stream.</li>
-      <li>Pipes are based on value copying, not shared memory.</li>
+      <li><code>pipe&lt;T&gt;</code> is a stream of elements of type T.</li>
+      <li><code>pipe&lt;byte&gt;</code>: byte stream (stdin, sockets, etc.).</li>
+      <li><code>pipe&lt;string&gt;</code>: string stream.</li>
+      <li>Pipes assume value-copy semantics rather than shared memory.</li>
+      <li>User-defined pipe types are written as <code>pipe&lt;T&gt;</code>; there is no separate “pipe definition” statement.</li>
     </ul>
 
     <h4>18.1.1 Built-in pipes</h4>
@@ -1081,27 +1171,94 @@ finally {
     in:  pipe&lt;string&gt;;
     out: pipe&lt;string&gt;;
 
-    bound(input, output) {
+    // Option type (optional)
+    options: LineSplitOptions;
+
+    // Fields are allowed, but for ROP-style purity it is recommended to avoid stateful filters
+    field delimiter: string;
+
+    // Constructor (optional)
+    constructor(delim: string) {
+        this.delimiter = delim;
+    }
+
+    // ROP style: returns Result&lt;T&gt;
+    bound(input: pipe&lt;string&gt;, output: pipe&lt;string&gt;): Result&lt;void&gt; {
         foreach (chunk in input) {
-            let lines = chunk.split("\n");
+            let lines = chunk.split(this.delimiter);
             foreach (line in lines) {
                 output.write(line);
             }
         }
         output.close();
+        return Ok();
     }
 }
 </code></pre>
-
-    <h4>18.2.2 Filter options</h4>
-<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
-</code></pre>
     <ul>
-      <li>Options are specified after <code>:</code> and combined with <code>|</code>.</li>
-      <li>Each filter has its own option type (e.g. bitfield enum).</li>
+      <li><code>in</code> / <code>out</code> specify input and output pipe types.</li>
+      <li><code>options</code> specifies the option type for this filter.
+        <ul>
+          <li>Written as <code>options: SomeFilterOptions;</code>.</li>
+        </ul>
+      </li>
+      <li><code>field</code> can be used to store internal state, but from a ROP perspective
+          it is recommended that filters be side-effect free and depend only on their input and options.
+          Therefore, filter fields should be used sparingly.</li>
+      <li><code>constructor(...)</code> defines a filter-specific constructor.</li>
+      <li><code>bound</code> returns <code>Result&lt;T&gt;</code> in ROP style:
+        <ul>
+          <li>On normal completion, it returns <code>Ok()</code> or <code>Ok(value)</code>.</li>
+          <li>On error, it returns <code>Error(e)</code>. (Exact details are defined in the runtime spec.)</li>
+        </ul>
+      </li>
     </ul>
 
-    <h3>18.3 Pipeline statements and <code>|</code></h3>
+    <h4>18.2.2 Filter options</h4>
+<pre><code>bitfield enum JsonOptions {
+    None      : b(0),
+    Pretty    : b(1),
+    IncludeNulls : b(2),
+}
+
+// Filter side specifying options
+filter json&lt;T&gt; {
+    in:  pipe&lt;string&gt;;
+    out: pipe&lt;T&gt;;
+
+    options: JsonOptions;
+
+    bound(input: pipe&lt;string&gt;, output: pipe&lt;T&gt;): Result&lt;void&gt; {
+        // ...
+        return Ok();
+    }
+}
+</code></pre>
+<pre><code>// Pipeline side
+
+stdin
+    | filter(utf8)
+    | filter(json&lt;User&gt;: JsonOptions.Pretty | JsonOptions.IncludeNulls)
+    | users;
+</code></pre>
+    <ul>
+      <li>Options are specified after <code>:</code>, combined with <code>|</code>.
+        <ul>
+          <li><code>filter(json&lt;User&gt;: JsonOptions.Pretty | JsonOptions.IncludeNulls)</code></li>
+        </ul>
+      </li>
+      <li>When the filter definition has <code>options: JsonOptions;</code>,
+          the type name may be omitted in the pipeline, using just the enum members:
+<pre><code>stdin
+    | filter(utf8)
+    | filter(json&lt;User&gt;: Pretty | IncludeNulls)
+    | users;
+</code></pre>
+      </li>
+      <li>If a value that does not belong to the declared options type is used after <code>:</code>, it is a compile error.</li>
+    </ul>
+
+    <h3>18.3 Pipeline statement and <code>|</code> / pipe-with operator <span class="operator"><code>|&gt;</code></span></h3>
 <pre><code>stdin
     | filter(utf8)
     | filter(json&lt;DateTime&gt;)
@@ -1109,8 +1266,28 @@ finally {
 </code></pre>
     <ul>
       <li>In <code>A | B | C;</code>, the output of A is connected to B, and the output of B to C.</li>
-      <li>Type-checking ensures consistency of input/output types across stages.</li>
-      <li>The pipeline statement itself does not return a value (it only establishes connections as side effects).</li>
+      <li>Type checking ensures that in/out types of each stage line up.</li>
+      <li>The pipeline statement does not itself produce a value; it only establishes connections as a side effect.</li>
+    </ul>
+
+    <h4>18.3.1 Pipe-with operator <span class="operator"><code>|&gt;</code></span></h4>
+    <p>
+      The pipe-with operator <span class="operator"><code>|&gt;</code></span> is defined as a
+      shorthand for applying a conditional <code>filter(if)</code> to the same input stream (or collection).
+    </p>
+<pre><code>// Original form
+users
+    | filter(if: .Age &gt;= 20 and .Gender == Gender.Male)
+    | adults;
+
+// Shorthand
+users |> .Age &gt;= 20 and .Gender == Gender.Male
+    | adults;
+</code></pre>
+    <ul>
+      <li><code>X |&gt; condition</code> is sugar for <code>X | filter(if: condition)</code>.</li>
+      <li>Inside the condition, you can use <code>.</code> to refer to members of the current element, similar to with.</li>
+      <li><code>and</code> / <code>or</code> are available as aliases for <code>&amp;&amp;</code> / <code>||</code> in these expressions.</li>
     </ul>
 
     <h3>18.4 foreach and pipe</h3>
@@ -1119,30 +1296,106 @@ finally {
 }
 </code></pre>
     <ul>
-      <li><code>foreach (x in p)</code> internally calls <code>p.next()</code> until EOF.</li>
+      <li><code>foreach (x in p)</code> is internally implemented as repeated <code>p.next()</code> calls until EOF.</li>
       <li>When the writer calls <code>close()</code>, the reader detects EOF and exits the loop.</li>
     </ul>
 
-    <h3>18.5 close and EOF propagation</h3>
+    <h3>18.5 Built-in map function (for pipes)</h3>
+    <p>
+      Aloe provides a built-in <code>map</code> function that transforms elements of a pipe.
+    </p>
+<pre><code>// Applies function f to each element x and returns a new pipe
+function map&lt;TIn, TOut&gt;(source: pipe&lt;TIn&gt;, f: (TIn) -&gt; TOut): pipe&lt;TOut&gt;;
+
+numbers
+    | map (x =&gt; x * 2)
+    | doubled;
+</code></pre>
     <ul>
-      <li>After <code>p.close()</code>, calls to <code>write()</code> are invalid (may cause errors).</li>
-      <li>Filters should call <code>close()</code> on their output when EOF is detected on the input.</li>
+      <li><code>map</code> takes a <code>pipe&lt;TIn&gt;</code> and returns a <code>pipe&lt;TOut&gt;</code>
+          by applying a function to each element.</li>
+      <li>Internally it can be implemented similarly to <code>filter</code>, but is named separately
+          to emphasize that it is a per-element transformation.</li>
     </ul>
 
-    <h3>18.6 Concurrency model with pipes</h3>
+    <h3>18.6 Collection-oriented map (template-based transformation)</h3>
+    <p>
+      For collections (lists, etc.), Aloe also supports template-based <code>map</code>.
+    </p>
+<pre><code>users as u
+    | map Customer {
+        Name    = u.Name,
+        Address = u.Address
+      }
+    | customers;
+</code></pre>
     <ul>
-      <li>The main communication between tasks is <code>pipe&lt;T&gt;</code>.</li>
-      <li>A shared-nothing model is assumed; shared mutable data structures are discouraged.</li>
+      <li><code>users as u | map Customer { ... }</code> means:
+        for each element of <code>users</code>, apply the template block and create
+        a new collection of type <code>Customer</code>.</li>
+      <li>Within the template, <code>u</code> refers to the original element.</li>
+      <li>The resulting collection type (e.g. <code>Customer()</code>, <code>Customer[]</code>) is determined
+          by context and the overload rules of <code>map</code> (details are a future extension).</li>
     </ul>
 
-    <h3>18.7 Example: simple REST-like pipeline</h3>
+    <h3>18.7 close and EOF propagation</h3>
+    <ul>
+      <li>Calling <code>write()</code> on a closed pipe may be invalid (and can be treated as an error).</li>
+      <li>When a filter detects EOF on its input, it should close its output pipe as well.</li>
+    </ul>
+
+    <h3>18.8 Concurrency model using pipes</h3>
+    <ul>
+      <li>The primary communication between tasks is via <code>pipe&lt;T&gt;</code>.</li>
+      <li>A shared-nothing model is encouraged; shared mutable data structures are discouraged.</li>
+    </ul>
+
+    <h3>18.9 Branching with match (branching Result&lt;T&gt;)</h3>
+    <p>
+      In pipelines that process <code>Result&lt;T&gt;</code>, <code>match</code> can be used
+      to branch based on success/failure and other conditions.
+    </p>
+<pre><code>results
+    | match {
+        case is Ok:
+            // pipeline for successful results
+            | filter(handleSuccess)
+            | successSink;
+        case is Error:
+            // pipeline for failed results
+            | filter(handleError)
+            | errorSink;
+        default:
+            // executed when no case matches (reserved for future use)
+            break;
+      };
+</code></pre>
+    <ul>
+      <li><code>| match { ... }</code> branches the pipeline output according to conditions.</li>
+      <li>The general form is:
+<pre><code>| match {
+    case condition1:
+        // pipeline for this case
+        | filter(A)
+        | filter(B);
+    case condition2:
+        | filter(C);
+    default:
+        break;
+}
+</code></pre>
+      </li>
+      <li>After each <code>case</code> label, you can write a pipeline describing what happens when the condition matches.</li>
+      <li>The <code>default</code> clause is optional and is executed when no other case matches.</li>
+    </ul>
+
+    <h3>18.10 Example: simple REST-like pipeline</h3>
 <pre><code>class User {
     field id: int;
     field name: string;
 }
 
-main(args: string[]) {
-    let req: pipe&lt;byte&gt; = pipe&lt;byte&gt;.create();
+function main(args: string[]): int {
     let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
 
     stdin
@@ -1155,25 +1408,41 @@ main(args: string[]) {
         print("User: " + u.name);
     }
 
-    _ = 0;
+    return 0;
 }
 </code></pre>
     <p class="note">
-      Details of standard filters such as <code>utf8</code> and <code>json&lt;T&gt;</code> are specified in a separate
-      “standard filter library” document, not in the core language spec.
+      Filters such as <code>utf8</code> and <code>json&lt;T&gt;</code> are part of a separate
+      “standard filter library” specification, not the core language spec.
     </p>
 
     <hr>
     <p class="note">
-      The above is the Aloe language specification (HTML, English version) based on the original English spec,
-      plus the type-based with extension.<br>
-      <strong>Editing policy (summary):</strong><br>
-      ・<code>edit-version</code> is shared between the Japanese and English versions and indicates the common spec version.<br>
-      ・The Japanese and English versions must represent exactly the same specification content.<br>
-      ・Unrelated parts should basically not be modified.<br>
-      ・Even changes that do not alter meaning (identifier names, casing, comments, etc.) are prohibited in principle.<br>
-      ・If such changes seem necessary, editing must be paused and discussed with the author first.<br>
-      ・This HTML is treated as the “canonical” version (“正”), and all future edits must follow the above policy.<br>
+      The above is the Aloe language specification (English/HTML version),
+      based on the canonical Japanese draft and the original English specification,
+      with the following extensions explicitly included:
+      <strong>with-block type-based extension, pipe/filter/Result/ROP, map, and, or, etc.</strong><br><br>
+
+      <strong>Edit metadata and policy:</strong><br>
+      &middot; <code>meta[name="edit-version"]</code> represents the logical version of the specification.
+        Japanese and English versions share the same value, and it is incremented only when
+        there is a semantic change in the language spec.<br>
+      &middot; <code>meta[name="edit-date"]</code> is the timestamp of this HTML output
+        (YYYY-MM-DDThh:mm:ss+TZ). The Japanese and English versions each record
+        their own output time.<br>
+      &middot; When generating the English version, <code>edit-version</code> must match
+        the Japanese version, and the content must be logically equivalent.<br>
+      &middot; Unrelated parts of the document must not be changed.
+        Even if a change does not alter the meaning (for example, rephrasing a comment or renaming
+        an identifier with the same semantics), it must not be done without an explicit request
+        from the user.<br>
+      &middot; Existing sample code and comments (for example, field names such as <code>value</code>
+        in example classes, or comments in trait examples) must not be modified “just because it looks nicer”;
+        do not alter them unless explicitly requested.<br>
+      &middot; Any major change that affects the structure or wording of the specification must
+        be proposed to the user first, and performed only according to their instructions.<br>
+      &middot; This version is treated as the canonical “correct” version from which future edits are made.
+        Any subsequent changes must be managed consciously as diffs from this version.
     </p>
 
   </main>
