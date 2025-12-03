@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
   <meta name="edit-version" content="6">
-  <meta name="edit-date" content="2025-12-03T07:30:00+09:00">
+  <meta name="edit-date" content="2025-12-03T08:00:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -125,7 +125,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft • Japanese translation + with / using 拡張</div>
+    <div class="subtitle">Draft • Japanese translation + with 拡張</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -171,8 +171,7 @@
       をベースにした日本語ドラフトです。<br>
       その上で <strong>4.2 with-blocks</strong> に
       <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
-      の拡張と、<strong>4.3 using-blocks</strong> に
-      <strong>with とは別に Dispose を用いたリソース管理を行う using ブロック</strong> を追加しています。<br>
+      の拡張を追加しています。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
 
@@ -516,9 +515,9 @@ print(x);
       <code>with</code> ブロックがある。
     </p>
 <pre><code>with (user) {
-    .name = "Alice";
-    .age = .age + 1;
-    print(.name);
+    .Name = "Alice";
+    .Age = .Age + 1;
+    print(.Name);
 }
 </code></pre>
     <ul>
@@ -542,23 +541,22 @@ print(x);
       <li>C# の <code>using</code> スタイルのように、同じブロックに複数の <code>with</code> を並べられる：</li>
     </ul>
 <pre><code>with (user), (profile) {
-    .name = "Alice";  // resolved against both user and profile
+    .Name = "Alice";  // resolved against both user and profile
 }
 </code></pre>
     <ul>
       <li>どのオブジェクトのメンバーに解決されるかの順序は実装依存。</li>
       <li>ただし曖昧な場合（複数オブジェクトが同じメンバーを持つ）はコンパイルエラー。</li>
-      <li>
-        <strong>with はリソース管理を行わない。</strong> オブジェクトの破棄や外部リソースの解放は
-        <code>delete</code> や <code>using</code> など別の仕組みで行う。
-        with の役割は「ブロック内で対象オブジェクトが生存していること（寿命）が
-        型システム的に保証されるように記述を簡潔にする」ことに限られる。
-      </li>
     </ul>
     <p>
       <code>with</code> はあくまで構文糖衣であり、意味的にはすべて
-      明示的な <code>obj.member</code> 呼び出しに書き換えた上で
+      明示的な <code>obj.Member</code> 呼び出しに書き換えた上で
       型チェック・コード生成を行うことができる。
+    </p>
+    <p>
+      なお <code>with</code> は、オブジェクトの寿命（そのブロックの間は削除されないこと）と
+      メンバーアクセスの省略のみを保証し、リソースの解放や <code>Dispose</code> 呼び出しなどの
+      リソース管理は行わない（リソース管理は 4.3 の <code>using</code> が担当する）。
     </p>
 
     <h4 id="with-type">4.2.1 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
@@ -615,26 +613,26 @@ print(x);
 <pre><code>struct AngleUtil {
     static field Pi: float = 3.14159;
 
-    static method degToRad(deg: float): float {
+    static method DegToRad(deg: float): float {
         return deg * Pi / 180.0;
     }
 }
 
 class MathUtil {
-    static method max(a: int, b: int): int {
-        if (a > b) return a;
+    static method Max(a: int, b: int): int {
+        if (a &gt; b) return a;
         return b;
     }
 }
 
 function main(args: string[]): int {
     with (AngleUtil) {
-        var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
+        var rad = DegToRad(90.0);  // AngleUtil.DegToRad(90.0)
         print(.Pi);                // AngleUtil.Pi
     }
 
     with (MathUtil) {
-        var m = max(10, 20);       // MathUtil.max(10, 20)
+        var m = Max(10, 20);       // MathUtil.Max(10, 20)
         print(m);
     }
     return 0;
@@ -662,7 +660,7 @@ function main(args: string[]): int {
       型ベース <code>with</code> も複数ターゲット構文に混在させられる：
     </p>
 <pre><code>with (user), (Color) {
-    .name = "Alice"; // user.name
+    .Name = "Alice"; // user.Name
     var c: Color = Red; // Color.Red
 }
 </code></pre>
@@ -672,81 +670,37 @@ function main(args: string[]): int {
 
     <h3 id="using-blocks">4.3 using-blocks（リソース管理）</h3>
     <p>
-      Aloe には、外部リソース（ファイルハンドル、ソケット、DB コネクションなど）の確実な解放のために
-      <code>using</code> ブロックが用意されている。
-      <strong>with が「寿命（ライフタイム）の保証だけ」を担当するのに対し、using は「ブロック離脱時に必ず Dispose を呼ぶ」ことで
-      リソース管理を担当する。</strong>
+      Aloe には、リソースの解放を自動化するための <code>using</code> ブロックがある。
+      これは C# の <code>using</code> 文と同様に、ブロックを抜けるタイミングで
+      対象オブジェクトの <code>Dispose</code> メソッドを自動的に呼び出す。
     </p>
 <pre><code>using (file) {
-    file.WriteLine("hello");
-    // ブロックを正常終了しても、例外で抜けても、最後に file.Dispose() が 1 回だけ呼ばれる
-}
+    .WriteLine("Hello, Aloe!");
+} // ここで file.Dispose() が暗黙的に呼ばれる
 </code></pre>
     <ul>
-      <li><code>using (expr) { ... }</code> の構文と評価規則：
+      <li><code>using (expr) { ... }</code> ブロック内では：
         <ul>
-          <li><code>expr</code> はブロック先頭で 1 回だけ評価され、内部の一時変数（例えば <code>__using0</code>）に格納される。</li>
-          <li>ブロック終了時（正常終了・<code>return</code>・<code>break</code>・<code>continue</code>・例外など）には、
-              その一時変数に対して <code>Dispose()</code> メソッドが 1 回だけ暗黙的に呼ばれる。</li>
-          <li>対象オブジェクトの型が <code>Dispose(): void</code> という公開メソッドを持たない場合、
-              <code>using</code> 文はコンパイルエラーとする。</li>
+          <li><code>expr</code> はブロック開始時に 1 度だけ評価され、隠れたローカル変数に保存される。</li>
+          <li>ブロックを通常終了した場合も、例外により脱出した場合も、必ず <code>Dispose()</code> が呼ばれる。</li>
+          <li><code>Dispose</code> は引数なし・戻り値 <code>void</code> のメソッドであり、
+              using の対象となるオブジェクトはこのメソッドを公開していなければならない。</li>
         </ul>
       </li>
-      <li>
-        <strong>using ブロックそのものはオブジェクト参照を null にしない。</strong><br>
-        実装レベルでは <code>Dispose()</code> を呼ぶだけであり、
-        参照変数の代入（<code>delete</code> 相当の <code>= null</code>）は行わない。
-        参照の切断が必要であれば、開発者が別途 <code>delete</code> を用いて行う。
-      </li>
-      <li>
-        with と同様に、複数の対象を 1 つの using 文で並べて書くことができる：
-      </li>
+      <li><code>using</code> ブロックは C# と同様に複数のリソースを列挙できる：</li>
     </ul>
-<pre><code>using (file), (connection) {
-    file.WriteLine("hello");
-    connection.Execute("INSERT ...");
-}
+<pre><code>using (file1), (file2) {
+    file1.WriteLine("A");
+    file2.WriteLine("B");
+} // file2.Dispose() → file1.Dispose() の順で呼ばれる（順序は実装依存だが「すべて呼ばれる」ことは保証）
 </code></pre>
     <ul>
-      <li>
-        上記は、概念的には次のようなコードと等価とみなせる（擬似コード）：
-<pre><code>let __res0 = file;
-let __res1 = connection;
-try {
-    __res0.WriteLine("hello");
-    __res1.Execute("INSERT ...");
-}
-finally {
-    __res1.Dispose();
-    __res0.Dispose();
-}
-</code></pre>
-      </li>
-      <li>複数指定時の Dispose 呼び出し順序は <strong>最後に評価したものから先に</strong> 呼ぶことを推奨とし、
-          実装もそのように振る舞うべきとする（典型的なネスト using の展開と同じ）。</li>
-      <li>using の <code>(...)</code> 内で <code>with</code> と同様の型ベース構文は定義しない。
-          using の対象は常に「値としてのオブジェクト」であり、型そのものではない。</li>
-      <li>with と using を組み合わせる場合、通常は次の 2 ステップで書くことを推奨する：
-        <ul>
-          <li>using でリソースの解放を保証する。</li>
-          <li>ブロック内で必要に応じて with を使い、メンバーアクセスを簡潔にする。</li>
-        </ul>
-      </li>
-    </ul>
-<pre><code>using (file) {
-    with (file) {
-        .WriteLine("hello");
-        .WriteLine("world");
-    }
-}
-</code></pre>
-    <p>
-      まとめると、Aloe におけるブロック構文は次のように役割分担されている：
-    </p>
-    <ul>
-      <li><strong>通常のブロック</strong>：スコープ（変数の有効範囲）の導入のみ。</li>
-      <li><strong>with ブロック</strong>：寿命の保証とメンバーアクセスの簡略化（構文糖衣）。リソース解放は行わない。</li>
-      <li><strong>using ブロック</strong>：<code>Dispose()</code> によるリソース解放の保証。参照切断は行わない。</li>
+      <li>複数 using の <code>Dispose</code> 呼び出し順序は実装依存だが、
+          すべての対象で <code>Dispose</code> が 1 回ずつ呼ばれることは保証される。</li>
+      <li><code>using</code> ブロック内で対象オブジェクトを <code>delete</code> した場合の挙動は未定義であり、
+          将来バージョンで明示的に禁止または定義される予定である。</li>
+      <li><code>with</code> がメンバーアクセスの省略と寿命保証のみを扱うのに対し、
+          <code>using</code> はあくまでリソース解放（<code>Dispose</code> 呼び出し）の責務を持つ。</li>
     </ul>
 
     <hr>
@@ -801,17 +755,17 @@ const AppName: string = "Aloe VM";
     <h2 id="ch6">6. Fields（フィールド宣言）</h2>
     <p>class / struct のフィールドは <code>field</code> キーワードで宣言する。</p>
 <pre><code>class Sample {
-    field count: int = 0;
-    field name: string = "default";
+    field Count: int = 0;
+    field Name: string = "default";
 
-    readonly field id: int;
+    readonly field Id: int;
 
     construct(id: int) {
-        this.id = id; // OK: inside the constructor
+        this.Id = id; // OK: inside the constructor
     }
-    method change(): void {
-        this.count = this.count + 1; // OK
-        // this.id = 2; // NG: readonly field cannot be changed outside constructor
+    method Change(): void {
+        this.Count = this.Count + 1; // OK
+        // this.Id = 2; // NG: readonly field cannot be changed outside constructor
     }
 }
 </code></pre>
@@ -827,13 +781,13 @@ const AppName: string = "Aloe VM";
 
     <h3>7.1 class</h3>
 <pre><code>class FizzBuzz {
-    field _count: int = 0;
-    field name: string = "FizzBuzz";
+    field _Count: int = 0;
+    field Name: string = "FizzBuzz";
 
     construct() {
     }
 
-    method run(): void {
+    method Run(): void {
         var i = 1;
         while (i &lt;= 100) {
             // ...
@@ -850,12 +804,12 @@ const AppName: string = "Aloe VM";
 
     <h3>7.2 struct</h3>
 <pre><code>struct Point {
-    field x: int;
-    field y: int;
+    field X: int;
+    field Y: int;
 
     construct(x: int, y: int) {
-        this.x = x;
-        this.y = y;
+        this.X = x;
+        this.Y = y;
     }
 }
 </code></pre>
@@ -868,11 +822,11 @@ const AppName: string = "Aloe VM";
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
-    method foo(): void { }
+    method Foo(): void { }
 }
 
 class Derived extends Base {
-    method bar(): void { }
+    method Bar(): void { }
 }
 
 sealed class FinalDerived extends Base {
@@ -882,11 +836,11 @@ sealed class FinalDerived extends Base {
 
     <h3>7.4 interface</h3>
 <pre><code>interface ILogger {
-    method log(msg: string): void;
+    method Log(msg: string): void;
 }
 
 class ConsoleLogger implements ILogger {
-    method log(msg: string): void {
+    method Log(msg: string): void {
         print(msg);
     }
 }
@@ -898,7 +852,7 @@ class ConsoleLogger implements ILogger {
 
     <h3>7.5 trait</h3>
 <pre><code>trait Trait_A {
-    method hello(): void {
+    method Hello(): void {
         print("Hello from Trait_A");
     }
 }
@@ -906,7 +860,7 @@ class ConsoleLogger implements ILogger {
 
     <h4>with による trait の適用</h4>
 <pre><code>var obj = new SomeClass() with Trait_A;
-obj.hello(); // Trait_A から取り込まれたメソッド（競合がなければ）
+obj.Hello(); // Trait_A から取り込まれたメソッド（競合がなければ）
 </code></pre>
 
     <h4>非破壊的な追加 / 削除（+ / -）</h4>
@@ -916,9 +870,9 @@ var obj3 = obj2 - Trait_A;     // obj3 は obj2 から Trait_A を除いたも�
 
     <h4>as によるエイリアス</h4>
 <pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.hello(); // OK
+obj2.a.Hello(); // OK
 
-// obj2.hello(); // NG: エイリアスのみ; メンバーはフラット化されない
+// obj2.Hello(); // NG: エイリアスのみ; メンバーはフラット化されない
 </code></pre>
 
     <h4>Trait conflicts（競合）</h4>
@@ -1043,7 +997,7 @@ var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
 
     <h3>10.3 Sets (T{})</h3>
 <pre><code>var st: int{} = {1, 2, 3};
-var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
+var structSt: Point{} = {Point { X:0, Y:0 }, Point { X:1, Y:1 }};
 </code></pre>
 
     <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
@@ -1097,7 +1051,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <h2 id="ch12">12. main Block（エントリポイント）</h2>
 <pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
-    fb.run();
+    fb.Run();
     return 0; // プロセスの終了コード
 }
 </code></pre>
@@ -1118,7 +1072,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     return 0;
 }
 
-method foo(): void {
+method Foo(): void {
     var x = 10;
     _ = x + 5;   // このブロックにおける最初の代入の型が _ の型になる
 }
@@ -1327,6 +1281,23 @@ class Result&lt;T&gt; {
       同じ入力に対して同じ出力を返す「準冪等性」を目指す設計とする。
     </p>
 
+    <h4>18.2.3 パイプライン内の例外処理</h4>
+    <p>
+      パイプライン実行中に、フィルタやパイプ内部で例外が発生した場合、
+      パイプラインフレームワークはその例外を自動的に捕捉し、
+      対応するステージの結果を <code>Result&lt;T&gt;</code> の
+      <strong>Error</strong> 状態として扱う。
+    </p>
+    <ul>
+      <li>例外はフレームワーク内部の <code>catch</code> により捕捉される。</li>
+      <li>そのステージの戻り値は、論理的には <code>Result&lt;T&gt;.Error(message)</code> として扱われる。</li>
+      <li><code>message</code>（<code>ErrorMessage</code> プロパティ）は、捕捉した例外オブジェクトから取得した文字列
+          （典型的には例外メッセージ文字列）とする。</li>
+      <li>この Error 状態は、以降のパイプラインで <code>match</code> や <code>is</code> による分岐の対象となる。</li>
+      <li>パイプラインフレームワークが捕捉しない「致命的な」例外
+          （VM 側の内部エラーなど）の扱いは VM 実装依存とする。</li>
+    </ul>
+
     <h3>18.3 filter(...) の基本と定義</h3>
     <p><code>filter(F)</code> はパイプライン中の中間変換ステージ。</p>
 
@@ -1339,7 +1310,7 @@ class Result&lt;T&gt; {
     options: LineSplitOptions;
 
     // フィールド定義（任意だが、副作用の観点からは最小限を推奨）
-    field _buffer: string = "";
+    field _Buffer: string = "";
 
     // コンストラクタ（任意）
     constructor(opts: LineSplitOptions) {
@@ -1349,12 +1320,12 @@ class Result&lt;T&gt; {
     // 入力パイプから出力パイプへ処理を流す本体
     bound(input, output): Result&lt;void&gt; {
         foreach (chunk in input) {
-            let lines = chunk.split("\n");
+            let lines = chunk.Split("\n");
             foreach (line in lines) {
-                output.write(line);
+                output.Write(line);
             }
         }
-        output.close();
+        output.Close();
         return Result&lt;void&gt;.Ok(); // 処理が成功したことを示す
     }
 }
@@ -1426,8 +1397,8 @@ users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
 }
 </code></pre>
     <ul>
-      <li><code>foreach (x in p)</code> は内部的に <code>p.next()</code> を EOF まで呼ぶ。</li>
-      <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
+      <li><code>foreach (x in p)</code> は内部的に <code>p.Next()</code> を EOF まで呼ぶ。</li>
+      <li>書き込み側が <code>Close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
     </ul>
 
     <h3>18.6 map による要素変換</h3>
@@ -1436,14 +1407,14 @@ users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
       別の型のストリームを得ることができる。
     </p>
 <pre><code>// 関数を用いた map
-function toName(u: User): string {
+function ToName(u: User): string {
     return u.Name;
 }
 
-names = users | map(toName);
+var names = users | map(ToName);
 
 // ラムダ風の記法（構文はドラフト）
-names = users | map (u) =&gt; u.Name;
+var names2 = users | map (u) =&gt; u.Name;
 </code></pre>
     <ul>
       <li><code>map</code> は組み込みの高階操作として定義される。</li>
@@ -1469,8 +1440,8 @@ names = users | map (u) =&gt; u.Name;
 
     <h3>18.8 close と EOF 伝播</h3>
     <ul>
-      <li><code>p.close()</code> 後の <code>write()</code> は無効（エラーになり得る）。</li>
-      <li>フィルタは入力 EOF を検知したら出力側も <code>close()</code> すべき。</li>
+      <li><code>p.Close()</code> 後の <code>Write()</code> は無効（エラーになり得る）。</li>
+      <li>フィルタは入力 EOF を検知したら出力側も <code>Close()</code> すべき。</li>
     </ul>
 
     <h3>18.9 pipe を使った並行モデル</h3>
@@ -1519,21 +1490,21 @@ names = users | map (u) =&gt; u.Name;
 
     <h3>18.11 例：簡単な REST 風パイプライン</h3>
 <pre><code>class User {
-    field id: int;
-    field name: string;
+    field Id: int;
+    field Name: string;
 }
 
 function main(args: string[]): int {
-    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
+    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.Create();
 
     stdin
         | filter(utf8)
         | filter(json&lt;User&gt;)
         | users;
 
-    let u: User? = users.next();
+    let u: User? = users.Next();
     if (u is User) {
-        print("User: " + u.name);
+        print("User: " + u.Name);
     }
 
     return 0;
