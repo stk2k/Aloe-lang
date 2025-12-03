@@ -1,8 +1,9 @@
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
+  <meta name="edit-version" content="2" />
+  <meta name="edit-date" content="2025-12-03T11:45:54+09:00" />
   <title>AloeVM 仕様書（ドラフト）</title>
   <style>
     * { box-sizing: border-box; }
@@ -902,8 +903,8 @@ A | filter(F) | B;
       </ul>
 
       <div class="note">
-        命令セットの「数値（opcode）」「バイナリフォーマットとしての具体的ビット配置」は<br>
-        まだ確定しておらず、今後「命令セット表」として定義する予定。
+        本仕様書では、命令カテゴリと ID 構成のポリシーのみを定義する。<br>
+        個々の命令ごとのオペコード値やビット配置は、別資料「AloeVM 命令セットリファレンス」で詳細に定義する。
       </div>
 
       <h3>7.2 命令 ID の構成（カテゴリ + 連番）</h3>
@@ -1004,153 +1005,13 @@ A | filter(F) | B;
         </table>
       </div>
 
-      <div class="note">
-        具体的なオペコード表では、各カテゴリごとに「カテゴリ内連番（下位 1 バイト）」を 0x01 から順に割り当てる。<br>
-        デバッグログやダンプでは、<code>0x0A03 (PIPE_DISCONNECT)</code> のように 16 進数表現とニーモニックの両方を表示することを推奨する。
-      </div>
-
-      <h3>7.3 暫定オペコード表（抜粋）</h3>
+      <h3>7.3 命令セット詳細の参照先</h3>
       <p>
-        実装を始める際のたたき台として、いくつか代表的な命令に暫定的な命令 ID を割り当てておく。<br>
-        ここに示す値はプロトタイプ用であり、最終版では変更される可能性がある。
+        個々のオペコード ID・オペランド形式・バイナリ表現の詳細な一覧は、
+        本仕様書ではなく別資料「<strong>AloeVM 命令セットリファレンス</strong>」で定義する。<br>
+        実装者は、本章のポリシーとカテゴリ設計を前提としたうえで、命令セットの具体的な定義については
+        命令セットリファレンスを参照すること。
       </p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Opcode ID（16進）</th>
-              <th>カテゴリ</th>
-              <th>連番（下位バイト）</th>
-              <th>ニーモニック</th>
-              <th>概要</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>0x0101</td>
-              <td>スタック操作</td>
-              <td>0x01</td>
-              <td>PUSH_I32</td>
-              <td>即値 int32 をスタックに積む。</td>
-            </tr>
-            <tr>
-              <td>0x0102</td>
-              <td>スタック操作</td>
-              <td>0x02</td>
-              <td>POP</td>
-              <td>スタックトップを 1 つ捨てる。</td>
-            </tr>
-            <tr>
-              <td>0x0103</td>
-              <td>スタック操作</td>
-              <td>0x03</td>
-              <td>DUP</td>
-              <td>スタックトップを 1 つ複製する。</td>
-            </tr>
-
-            <tr>
-              <td>0x0201</td>
-              <td>算術</td>
-              <td>0x01</td>
-              <td>ADD_I32</td>
-              <td>int32 を 2 つ取り出して加算し、結果を積む。</td>
-            </tr>
-            <tr>
-              <td>0x0202</td>
-              <td>算術</td>
-              <td>0x02</td>
-              <td>SUB_I32</td>
-              <td>int32 を 2 つ取り出して減算し、結果を積む。</td>
-            </tr>
-
-            <tr>
-              <td>0x0401</td>
-              <td>比較</td>
-              <td>0x01</td>
-              <td>CMPEQ_I32</td>
-              <td>int32 の等値比較を行い、bool を積む。</td>
-            </tr>
-
-            <tr>
-              <td>0x0501</td>
-              <td>制御フロー</td>
-              <td>0x01</td>
-              <td>JMP</td>
-              <td>絶対または相対オフセットへ無条件ジャンプ。</td>
-            </tr>
-            <tr>
-              <td>0x0502</td>
-              <td>制御フロー</td>
-              <td>0x02</td>
-              <td>JMP_IF_TRUE</td>
-              <td>スタックトップが true の場合にのみジャンプ。</td>
-            </tr>
-
-            <tr>
-              <td>0x0601</td>
-              <td>呼び出し</td>
-              <td>0x01</td>
-              <td>CALL</td>
-              <td>関数テーブル上の ID を指定して呼び出し、新しいフレームを作成。</td>
-            </tr>
-            <tr>
-              <td>0x0602</td>
-              <td>呼び出し</td>
-              <td>0x02</td>
-              <td>RET</td>
-              <td>現在のフレームを破棄し、呼び出し元へ復帰。</td>
-            </tr>
-
-            <tr>
-              <td>0x0701</td>
-              <td>メモリアクセス</td>
-              <td>0x01</td>
-              <td>LDLOC</td>
-              <td>ローカル変数スロットから値を読み出して積む。</td>
-            </tr>
-            <tr>
-              <td>0x0702</td>
-              <td>メモリアクセス</td>
-              <td>0x02</td>
-              <td>STLOC</td>
-              <td>スタックトップをローカル変数スロットに書き込む。</td>
-            </tr>
-
-            <tr>
-              <td>0x0A01</td>
-              <td>pipe / 接続</td>
-              <td>0x01</td>
-              <td>PIPE_NEW</td>
-              <td>新しい pipe インスタンスを生成し、ハンドルを積む。</td>
-            </tr>
-            <tr>
-              <td>0x0A02</td>
-              <td>pipe / 接続</td>
-              <td>0x02</td>
-              <td>PIPE_CONNECT</td>
-              <td>pipe と filter / producer / consumer 間の接続を構築する。</td>
-            </tr>
-            <tr>
-              <td>0x0A03</td>
-              <td>pipe / 接続</td>
-              <td>0x03</td>
-              <td>PIPE_DISCONNECT</td>
-              <td>指定されたエンドポイントを pipe から切断する。</td>
-            </tr>
-            <tr>
-              <td>0x0A04</td>
-              <td>pipe / 接続</td>
-              <td>0x04</td>
-              <td>PIPE_CLOSE</td>
-              <td>pipe をクローズし、関連リソースの解放をトリガする。</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="note">
-        ここで挙げた命令 ID はあくまで「暫定のたたき台」であり、実装の過程で不足命令の追加や番号の再配置を行ってよい。<br>
-        ただし「カテゴリ ID + 連番」という 2 バイト構成ルール自体は変えない前提とする。
-      </div>
 
       <h3>7.4 WASM への 1:1 マッピング方針</h3>
       <ul>
@@ -1201,8 +1062,36 @@ A | filter(F) | B;
       </div>
     </section>
 
+    <hr />
+
+    <!-- Appendix: 生成AI向け編集ポリシー -->
+    <section id="editor-notes">
+      <h2>Appendix: 生成AI 向け編集ポリシー（仕様書本文ではない）</h2>
+      <p>
+        この付録は、AloeVM 仕様書を生成 AI（例: ChatGPT）で編集する際のルールを示すものであり、
+        仕様書本文の一部では<strong>ない</strong>。本文の技術的内容よりも優先されることはない。
+      </p>
+      <ul>
+        <li>本文の技術内容・仕様の意味を変更しないこと。
+          誤字脱字の修正や、明らかな表記ゆれの統一は許可されるが、アルゴリズムや仕様の挙動を変えてはならない。</li>
+        <li>章立てや見出しの順序は、ユーザーから明示的な指示がない限り変更しないこと。</li>
+        <li>既存のサンプルコードや擬似コードのロジックは保持し、見た目だけの書き換え（不要な大文字小文字変更など）は行わないこと。</li>
+        <li>「別資料で管理する」と明記された内容（例: 命令セット詳細）は、この仕様書内に勝手に再展開しないこと。
+          詳細が必要な場合は「AloeVM 命令セットリファレンスを参照」といった参照文の追加にとどめる。</li>
+        <li>メタ情報を更新する場合、ヘッダ内の <code>edit-version</code> と <code>edit-date</code> を必ず更新すること。</li>
+        <li>
+          <strong>時刻の扱い:</strong>
+          <ul>
+            <li><code>edit-date</code> には、必ず <strong>Asia/Tokyo の現在時刻</strong> を使用すること。</li>
+            <li>形式は ISO 8601（例: <code>2025-12-03T11:45:54+09:00</code>）とし、年月日・時分秒・タイムゾーンオフセットを含めること。</li>
+            <li>推測や他タイムゾーンの時刻を用いてはならない。生成 AI は、ユーザーから与えられた現在時刻（または専用ツールから取得した Asia/Tokyo の現在時刻）をそのまま書き込むこと。</li>
+          </ul>
+        </li>
+        <li>この付録自体は、必要に応じて追記・修正してよいが、その場合も本文の仕様内容には影響を与えないようにすること。</li>
+      </ul>
+    </section>
+
   </main>
 </div>
 </body>
 </html>
-```
