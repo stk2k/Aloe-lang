@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="8">
-  <meta name="edit-date" content="2025-12-03T07:30:00+09:00">
+  <meta name="edit-version" content="9">
+  <meta name="edit-date" content="2025-12-03T07:50:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -297,7 +297,6 @@ throws
 trait
 true
 try
-using
 var
 virtual
 void
@@ -661,51 +660,6 @@ function main(args: string[]): int {
     <p>
       この場合も解決順は実装依存だが、曖昧であればコンパイルエラーとする。
     </p>
-
-    <h3 id="using-blocks">4.3 using-blocks（リソース管理）</h3>
-    <p>
-      Aloe には、リソースの確実な解放を行うための <code>using</code> ブロックがある。
-      <code>with</code> が「同一オブジェクトへのアクセスの簡略化と寿命（スコープ）の保証」に特化しているのに対し、
-      <code>using</code> は「ブロックを抜けるときに必ずリソース解放処理を呼び出す」ことを目的とする。
-    </p>
-<pre><code>using (file) {
-    file.WriteLine("Hello");
-    // ここで例外が発生しても、ブロック離脱時に Dispose が必ず呼ばれる
-}
-</code></pre>
-    <ul>
-      <li><code>using (expr) { ... }</code> ブロックでは：
-        <ul>
-          <li><code>expr</code> はブロック開始時に 1 度だけ評価され、その結果オブジェクトを内部一時変数に保持する。</li>
-          <li>ブロックを正常終了した場合も、例外で脱出した場合も、最後にそのオブジェクトに対して
-              <code>Dispose()</code> または同等の解放メソッドが暗黙的に 1 回だけ呼ばれる。</li>
-        </ul>
-      </li>
-      <li><code>using</code> の対象となれる型は、
-        <ul>
-          <li>規約として <code>Dispose(): void</code> メソッドを持つ型</li>
-          <li>または将来定義されるリソース管理インタフェース（例：<code>IDisposable</code> 相当）を実装する型</li>
-        </ul>
-        に限定される想定である（具体的な条件は VM / ランタイム仕様で定義される）。
-      </li>
-      <li><code>using</code> ブロックは C# と同様に複数のリソースを並べて記述できる：</li>
-    </ul>
-<pre><code>using (file), (connection) {
-    file.WriteLine("Hello");
-    connection.Send("Ping");
-}
-</code></pre>
-    <ul>
-      <li>この場合、ブロック終了時には
-        <code>connection.Dispose()</code> と <code>file.Dispose()</code> が（いずれも 1 回ずつ）呼ばれる。
-        呼び出し順は実装依存だが、通常は最後に列挙したものから逆順に解放することが推奨される。</li>
-      <li><code>with</code> と <code>using</code> は目的が異なる：
-        <ul>
-          <li><code>with</code> … メンバーアクセス省略と寿命の保証（自動解放は行わない）。</li>
-          <li><code>using</code> … リソースの確実な解放（Dispose 呼び出し）を保証する構文糖衣。</li>
-        </ul>
-      </li>
-    </ul>
 
     <hr>
 
@@ -1284,12 +1238,6 @@ class Result&lt;T&gt; {
       Aloe におけるフィルタは、可能な限り副作用を限定し、
       同じ入力に対して同じ出力を返す「準冪等性」を目指す設計とする。
     </p>
-    <p>
-      なお、パイプライン中のフィルタや <code>map</code> などの処理内で例外が発生した場合、
-      パイプラインフレームワークはその例外を自動的に捕捉し、
-      対応するステージの戻り値を <code>Result&lt;T&gt;</code> の <code>Error(...)</code> に変換する。
-      このとき <code>ErrorMessage</code> には、捕捉した例外から取得したメッセージ（またはその要約）が格納される。
-    </p>
 
     <h3>18.3 filter(...) の基本と定義</h3>
     <p><code>filter(F)</code> はパイプライン中の中間変換ステージ。</p>
@@ -1459,7 +1407,7 @@ names = users | map (u) =&gt; u.Name;
             // エラー系パイプ
             | filter(logError);
         default:
-            // どちらにもマッチしない場合（将来拡張用）:
+            // どちらにもマッチしない場合（将来拡張用）
             break;
     };
 </code></pre>
@@ -1504,143 +1452,16 @@ function main(args: string[]): int {
 }
 </code></pre>
 
-    <hr>
-
-    <h2 id="appendix-ebnf">付録 A: 字句と構文（EBNF ドラフト）</h2>
-    <p class="note">
-      この付録は Aloe の字句・構文のごく一部を EBNF 風に示したドラフトであり、
-      本文の説明よりも優先されるものではない。矛盾があれば本文の記述を正とし、
-      必要に応じてこの付録を更新する。
-    </p>
-<pre><code>// 字句レベル（概略）
-
-Letter           ::= "A".."Z" | "a".."z" | "_" | NonAsciiLetter
-Digit            ::= "0".."9"
-
-Identifier       ::= Letter { Letter | Digit | "_" }
-
-IntegerLiteral   ::= Digit { Digit }
-FloatLiteral     ::= Digit { Digit } "." Digit { Digit }
-DecimalLiteral   ::= Digit { Digit } "." Digit { Digit } ":d"
-StringLiteral    ::= '"' { StringChar } '"'
-CharLiteral      ::= "'" CharChar "'"
-
-Comment          ::= LineComment | BlockComment
-LineComment      ::= "//" { any-char - NewLine } NewLine
-BlockComment     ::= "/*" { any-char - "*/" } "*/"
-
-WhiteSpace       ::= { " " | "\t" | NewLine }
-
-// トップレベル
-
-Program          ::= { TopLevelDecl }
-
-TopLevelDecl     ::= NamespaceDecl
-                   | ClassDecl
-                   | StructDecl
-                   | InterfaceDecl
-                   | TraitDecl
-                   | EnumDecl
-                   | BitfieldEnumDecl
-                   | FunctionDecl
-
-NamespaceDecl    ::= "namespace" QualifiedName "{" { TopLevelDecl } "}"
-QualifiedName    ::= Identifier { "." Identifier }
-
-// 関数・メソッド（概略）
-
-FunctionDecl     ::= "function" Identifier "(" ParamList? ")" ":" Type Block
-MethodDecl       ::= "method" Identifier "(" ParamList? ")" ":" Type Block
-
-ParamList        ::= Param { "," Param }
-Param            ::= Identifier ":" Type
-
-Type             ::= Identifier
-                   | Identifier "[" "]"      // 配列 T[]
-                   | Identifier "(" ")"      // リスト T()
-                   | Identifier "{" "}"      // セット T{}
-                   | "map" "&lt;" Type "/" Type "&gt;"  // マップ
-
-// 文（概略）
-
-Block            ::= "{" { Statement } "}"
-
-Statement        ::= VarDecl ";"
-                   | LetDecl ";"
-                   | ConstDecl ";"
-                   | ExprStatement ";"
-                   | IfStatement
-                   | WhileStatement
-                   | ForStatement
-                   | ReturnStatement ";"
-                   | WithBlock
-                   | UsingBlock
-                   | Block
-
-VarDecl          ::= "var" Identifier "=" Expression
-LetDecl          ::= "let" Identifier ":" Type "=" Expression
-ConstDecl        ::= "const" Identifier ":" Type "=" Expression
-
-ExprStatement    ::= Expression
-
-IfStatement      ::= "if" "(" Expression ")" Block
-                     [ "else" Block ]
-
-WhileStatement   ::= "while" "(" Expression ")" Block
-
-ReturnStatement  ::= "return" [ Expression ]
-
-// with / using ブロック
-
-WithBlock        ::= "with" "(" WithTarget { "," WithTarget } ")" Block
-WithTarget       ::= Expression        // 値対象 or 型名（型ベース with はコンパイラが解釈）
-
-UsingBlock       ::= "using" "(" UsingTarget { "," UsingTarget } ")" Block
-UsingTarget      ::= Expression        // Dispose 対象となる式
-
-// パイプライン文（概略）
-
-PipelineStmt     ::= PipelineSource "|" PipelineStage { "|" PipelineStage } ";"
-PipelineSource   ::= Identifier | "stdin" | "stdout" | "stderr"
-PipelineStage    ::= FilterCall
-                   | Identifier          // pipe&lt;T&gt; 変数への接続
-FilterCall       ::= "filter" "(" FilterSpec ")"
-FilterSpec       ::= Identifier "&lt;" Type "&gt;"
-                     [ ":" FilterOptions ]
-FilterOptions    ::= Identifier { "|" Identifier }
-
-// 条件付きパイプ（|&gt; の糖衣）
-
-PipeIfShortcut   ::= Expression "|&gt;" Expression ";"
-</code></pre>
-
-    <p class="note">
-      ここに示した EBNF 風記法は、実装ごとに拡張・詳細化されることを想定している。
-      特にパイプライン文・match 構文・trait 適用構文などは、今後のドラフトでより厳密な形に整理される。
-    </p>
-
-    <hr>
-
+    <h2 id="editor-notes">Appendix: 生成AI 向け編集ポリシー（仕様書本文ではない）</h2>
     <p class="note">
       <strong>編集ポリシー覚え書き：</strong><br>
       ・この文書は英語版仕様をベースとし、日本語版・英語版の内容（構造・意味）は常に一致させる。<br>
       ・<code>edit-version</code> は日本語版・英語版で共通とし、日本語版の内容を変更したときにのみ +1 する（減らない）。<br>
       ・<code>edit-date</code> は各版を出力した時刻（年月日時分秒）を記録する。<br>
       ・関係ない箇所については基本的に変更は禁止とする。意味的に同じであっても、文言や変数名を勝手に変更しない。<br>
-      ・ユーザーから「ここを直して」「この機能を追加して」と明示された箇所以外は、一切変更してはならない。<br>
-      　（見た目・整形・インデント・改行・空白・フォント・メニュー構造・見出しレベルなども含む）<br>
-      ・「ついでにきれいにする」「表現をそろえる」「スタイルを統一する」といった、ユーザーが依頼していない改善・リファクタはすべて禁止とする。<br>
-      ・サンプルコードや識別子の名前・大文字小文字・命名規則は、ユーザーからの明示的な指示がない限り変更してはならない。<br>
-      ・過去に決めた「全体方針」（例：プロパティ名はパスカルケースなど）があっても、今回の編集依頼で明示されていない限り、新しい版に勝手に適用しない。<br>
-      ・「ここも直した方がよさそう」「誤字っぽい」と感じた場合は、本文は触らず、まず提案のみをテキストで行い、修正はユーザーの確認後に行う。<br>
-      ・直前に出力した全文 HTML を常に「正」とみなし、次の編集はその版に対する最小限の差分（依頼された箇所＋バージョン番号・日付の更新）に限定する。<br>
-      ・各編集作業の前に、「今回の編集対象が何か」を一文でまとめ、その範囲から差分がはみ出していないことを確認する。<br>
-      ・差分が想定外の章・コードブロック・スタイルにまで及んでいる場合、その編集は誤りとみなしてやり直す。<br>
-      ・レイアウトや CSS、サイドバー、見出し構造の変更は、それ専用の別依頼がある場合にのみ行い、仕様テキストの修正と同じタイミングでは触らない。<br>
-      ・前の HTML（直前の「正」）が見えなくなった／再現できなくなった場合は、修正を中断し、必ずユーザーに相談する。<br>
-      ・サンプルコードを修正するときは、「変更対象の行」と「その前後数行」以外のコード・コメント・整形には絶対に触れない。<br>
-      ・サンプルコードの大文字小文字や変数名の変更は、依頼に明記された範囲にのみ限定し、それ以外の箇所には波及させない。<br>
-      ・この編集ポリシーは本文だけでなく、付録や添付資料（別 HTML / Markdown など）を含む、本仕様書一式すべてに適用する。<br>
+      ・「ここも直した方がよさそう」と感じた場合は、編集を中断し、ユーザーに確認してから反映する。<br>
+      ・直前に出力した全文 HTML を常に「正」とみなし、次の編集はその版に対する最小限の差分に限定する。<br>
+      ・前のHTML（直前の「正」）が見えなくなった／再現できなくなった場合は、修正を中断し、必ずユーザーに相談する。<br>
     </p>
 
   </main>
