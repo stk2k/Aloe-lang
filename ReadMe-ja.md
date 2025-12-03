@@ -21,11 +21,13 @@ I/O とデータ変換を第一級機能として設計しています。
 ## ドキュメント
 
 - Aloe 言語仕様書（日本語・HTML）  
-  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-lang-spec-ja.html
+  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-lang-spec.html
 - AloeVM 仕様書（日本語・HTML）  
-  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-vm-spec-ja.html
+  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-vm-spec.html
 - AloeVM オペコード仕様書（日本語・HTML）  
-  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-vm-opcode-ja.html
+  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-vm-opcode.html
+- Aloe 標準フィルタライブラリ (日本語・HTML)  
+  https://stk2k.github.io/Aloe-lang/Documents/ja/Aloe-standard-filters.html
 
 ---
 

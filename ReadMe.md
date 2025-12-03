@@ -21,11 +21,13 @@ Current focus:
 ## Documentation
 
 - Aloe language specification (HTML)  
-  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec.html
 - AloeVM specification (HTML)  
-  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-spec-en.html
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-spec.html
 - AloeVM opcode specification (HTML)  
-  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-opcode-en.html
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-opcode.html
+- Aloe standard filter library (HTML)  
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-standard-filters.html
 
 ---
 
