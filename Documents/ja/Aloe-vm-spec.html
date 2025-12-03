@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="edit-version" content="3" />
-  <meta name="edit-date" content="2025-12-03T13:41:41+09:00" />
+  <meta name="edit-version" content="4" />
+  <meta name="edit-date" content="2025-12-03T14:44:25+09:00" />
   <title>AloeVM 仕様書（ドラフト）</title>
   <style>
     * { box-sizing: border-box; }
@@ -439,6 +439,75 @@
         構造体はインタフェースを実装せず、VM から見ても仮想ディスパッチの対象にならない単純な値型として扱う。<br>
         メソッド呼び出しは「構造体を引数に取る通常の関数」として表現されるため、boxing を前提とした呼び出しパターンは存在しない。
       </div>
+
+      <h4>2.4.1 @StructLayout アノテーションと VM メタデータ</h4>
+      <ul>
+        <li><code>@StructLayout(...)</code> は言語仕様書側で定義される構造体用アノテーションであり、
+          VM からは「構造体のレイアウト種別」を表すメタデータとしてのみ参照される。</li>
+        <li>C# 実装 VM の型メタデータは、少なくとも次のような情報を持つ：
+          <ul>
+            <li><code>LayoutKind</code>: <code>Sequential</code> / <code>Explicit</code> / <code>Auto</code> の いずれか</li>
+            <li><code>SizeInBytes</code>: 構造体全体のサイズ（パディング込み）</li>
+            <li><code>FieldDescriptors[]</code>: フィールドごとの型・オフセット情報の配列</li>
+          </ul>
+        </li>
+        <li>コンパイラは、ソースコード中の <code>@StructLayout(...)</code> を解釈し、
+          上記 <code>LayoutKind</code> を型メタデータにエンコードした状態で AloeBC に書き出す。
+          VM ランタイムは、アノテーション文字列そのものではなく、このエンコード済み情報のみを使う。</li>
+        <li><code>StructLayout(Sequential)</code> / 指定なし の場合:
+          <ul>
+            <li>コンパイラは 2.4 で定義した 8 バイトアライメントのルールに従ってフィールドオフセットを計算し、
+              結果を <code>FieldDescriptors</code> に書き込む。</li>
+            <li>VM ランタイムはロード時にオフセット計算を再実行せず、メタデータに書かれた値をそのまま信頼してよい。</li>
+          </ul>
+        </li>
+        <li><code>StructLayout(Explicit)</code> の場合:
+          <ul>
+            <li>コンパイラは各フィールドの <code>@FieldOffset</code> アノテーションを解釈し、指定されたオフセットをそのまま <code>FieldDescriptors</code> に格納する。</li>
+            <li>オフセットが重なっている／範囲外である等の検証はコンパイル時の責務とし、
+              VM ランタイムは「整合性がとれたメタデータが来る前提」で動作する。</li>
+          </ul>
+        </li>
+        <li><code>StructLayout(Auto)</code> の場合:
+          <ul>
+            <li>コンパイラはフィールドの順序やパディングを最適化してよいが、その結果を <code>FieldDescriptors</code> に固定値として書き出す。</li>
+            <li>「Auto だから実行時に再配置される」のではなく、「コンパイラが自由に決めた結果を VM がそのまま使う」という位置付けである。</li>
+          </ul>
+        </li>
+      </ul>
+
+      <h4>2.4.2 @FieldOffset アノテーションと VM メタデータ</h4>
+      <ul>
+        <li><code>@FieldOffset(n)</code> は、<code>StructLayout(Explicit)</code> な構造体の各フィールドに対して付与されるアノテーションであり、
+          構造体先頭からのオフセット（バイト単位）を明示する。</li>
+        <li>コンパイラは <code>@FieldOffset(n)</code> を解釈し、フィールドメタデータに次の情報を格納する：
+          <ul>
+            <li><code>HasExplicitOffset = true</code></li>
+            <li><code>OffsetBytes = n</code></li>
+          </ul>
+        </li>
+        <li>VM ランタイム側では、アノテーションそのものは一切参照せず、
+          <code>HasExplicitOffset</code> / <code>OffsetBytes</code> を用いてフィールドアクセス命令（例: <code>GETFIELD</code>, <code>SETFIELD</code>）の実アドレス計算を行う。</li>
+        <li>つまり、VM から見た <code>@FieldOffset</code> の「定義」とは、
+          「コンパイル済みメタデータに <code>OffsetBytes</code> を埋め込むための構文糖衣」であり、
+          実行時に評価される属性ではない。</li>
+      </ul>
+
+      <h4>2.4.3 VM 上での構造体アクセスの流れ</h4>
+      <ul>
+        <li>構造体フィールドへの読み書きは、次のステップで行われる：
+          <ol>
+            <li>対象構造体がどこに存在するかを特定する（スタックフレーム内、配列要素、クラス内フィールドなど）。</li>
+            <li>型メタデータから、対象フィールドの <code>OffsetBytes</code> および型サイズを取得する。</li>
+            <li>構造体先頭アドレス + <code>OffsetBytes</code> を実アドレスとして計算し、その位置から値を読み書きする。</li>
+          </ol>
+        </li>
+        <li>このとき、VM は <code>@StructLayout</code> / <code>@FieldOffset</code> を直接解釈せず、
+          すべて「事前に確定したメタデータ」を使うため、JIT やインタプリタから見たコストは通常の構造体アクセスと変わらない。</li>
+        <li>WASM 実装においても同様で、Aloe コンパイラは
+          <code>OffsetBytes</code> をもとに WASM の <code>struct.get</code> / <code>struct.set</code> 等へマッピングすればよい。
+          WASM 側で追加のアノテーション処理を行う必要はない。</li>
+      </ul>
     </section>
 
     <!-- 3. コールスタックとフレーム -->
