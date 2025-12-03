@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="6">
-  <meta name="edit-date" content="2025-12-03T08:00:00+09:00">
+  <meta name="edit-version" content="8">
+  <meta name="edit-date" content="2025-12-03T07:30:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -157,7 +157,6 @@
       <ul>
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
         <li><a href="#with-type">4.2.1 型名対象 with 拡張</a></li>
-        <li><a href="#using-blocks">4.3 using ブロック</a></li>
       </ul>
     </nav>
   </aside>
@@ -515,9 +514,9 @@ print(x);
       <code>with</code> ブロックがある。
     </p>
 <pre><code>with (user) {
-    .Name = "Alice";
-    .Age = .Age + 1;
-    print(.Name);
+    .name = "Alice";
+    .age = .age + 1;
+    print(.name);
 }
 </code></pre>
     <ul>
@@ -541,7 +540,7 @@ print(x);
       <li>C# の <code>using</code> スタイルのように、同じブロックに複数の <code>with</code> を並べられる：</li>
     </ul>
 <pre><code>with (user), (profile) {
-    .Name = "Alice";  // resolved against both user and profile
+    .name = "Alice";  // resolved against both user and profile
 }
 </code></pre>
     <ul>
@@ -550,13 +549,8 @@ print(x);
     </ul>
     <p>
       <code>with</code> はあくまで構文糖衣であり、意味的にはすべて
-      明示的な <code>obj.Member</code> 呼び出しに書き換えた上で
+      明示的な <code>obj.member</code> 呼び出しに書き換えた上で
       型チェック・コード生成を行うことができる。
-    </p>
-    <p>
-      なお <code>with</code> は、オブジェクトの寿命（そのブロックの間は削除されないこと）と
-      メンバーアクセスの省略のみを保証し、リソースの解放や <code>Dispose</code> 呼び出しなどの
-      リソース管理は行わない（リソース管理は 4.3 の <code>using</code> が担当する）。
     </p>
 
     <h4 id="with-type">4.2.1 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
@@ -613,26 +607,26 @@ print(x);
 <pre><code>struct AngleUtil {
     static field Pi: float = 3.14159;
 
-    static method DegToRad(deg: float): float {
+    static method degToRad(deg: float): float {
         return deg * Pi / 180.0;
     }
 }
 
 class MathUtil {
-    static method Max(a: int, b: int): int {
-        if (a &gt; b) return a;
+    static method max(a: int, b: int): int {
+        if (a > b) return a;
         return b;
     }
 }
 
 function main(args: string[]): int {
     with (AngleUtil) {
-        var rad = DegToRad(90.0);  // AngleUtil.DegToRad(90.0)
+        var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
         print(.Pi);                // AngleUtil.Pi
     }
 
     with (MathUtil) {
-        var m = Max(10, 20);       // MathUtil.Max(10, 20)
+        var m = max(10, 20);       // MathUtil.max(10, 20)
         print(m);
     }
     return 0;
@@ -660,7 +654,7 @@ function main(args: string[]): int {
       型ベース <code>with</code> も複数ターゲット構文に混在させられる：
     </p>
 <pre><code>with (user), (Color) {
-    .Name = "Alice"; // user.Name
+    .name = "Alice"; // user.name
     var c: Color = Red; // Color.Red
 }
 </code></pre>
@@ -670,37 +664,47 @@ function main(args: string[]): int {
 
     <h3 id="using-blocks">4.3 using-blocks（リソース管理）</h3>
     <p>
-      Aloe には、リソースの解放を自動化するための <code>using</code> ブロックがある。
-      これは C# の <code>using</code> 文と同様に、ブロックを抜けるタイミングで
-      対象オブジェクトの <code>Dispose</code> メソッドを自動的に呼び出す。
+      Aloe には、リソースの確実な解放を行うための <code>using</code> ブロックがある。
+      <code>with</code> が「同一オブジェクトへのアクセスの簡略化と寿命（スコープ）の保証」に特化しているのに対し、
+      <code>using</code> は「ブロックを抜けるときに必ずリソース解放処理を呼び出す」ことを目的とする。
     </p>
 <pre><code>using (file) {
-    .WriteLine("Hello, Aloe!");
-} // ここで file.Dispose() が暗黙的に呼ばれる
+    file.WriteLine("Hello");
+    // ここで例外が発生しても、ブロック離脱時に Dispose が必ず呼ばれる
+}
 </code></pre>
     <ul>
-      <li><code>using (expr) { ... }</code> ブロック内では：
+      <li><code>using (expr) { ... }</code> ブロックでは：
         <ul>
-          <li><code>expr</code> はブロック開始時に 1 度だけ評価され、隠れたローカル変数に保存される。</li>
-          <li>ブロックを通常終了した場合も、例外により脱出した場合も、必ず <code>Dispose()</code> が呼ばれる。</li>
-          <li><code>Dispose</code> は引数なし・戻り値 <code>void</code> のメソッドであり、
-              using の対象となるオブジェクトはこのメソッドを公開していなければならない。</li>
+          <li><code>expr</code> はブロック開始時に 1 度だけ評価され、その結果オブジェクトを内部一時変数に保持する。</li>
+          <li>ブロックを正常終了した場合も、例外で脱出した場合も、最後にそのオブジェクトに対して
+              <code>Dispose()</code> または同等の解放メソッドが暗黙的に 1 回だけ呼ばれる。</li>
         </ul>
       </li>
-      <li><code>using</code> ブロックは C# と同様に複数のリソースを列挙できる：</li>
+      <li><code>using</code> の対象となれる型は、
+        <ul>
+          <li>規約として <code>Dispose(): void</code> メソッドを持つ型</li>
+          <li>または将来定義されるリソース管理インタフェース（例：<code>IDisposable</code> 相当）を実装する型</li>
+        </ul>
+        に限定される想定である（具体的な条件は VM / ランタイム仕様で定義される）。
+      </li>
+      <li><code>using</code> ブロックは C# と同様に複数のリソースを並べて記述できる：</li>
     </ul>
-<pre><code>using (file1), (file2) {
-    file1.WriteLine("A");
-    file2.WriteLine("B");
-} // file2.Dispose() → file1.Dispose() の順で呼ばれる（順序は実装依存だが「すべて呼ばれる」ことは保証）
+<pre><code>using (file), (connection) {
+    file.WriteLine("Hello");
+    connection.Send("Ping");
+}
 </code></pre>
     <ul>
-      <li>複数 using の <code>Dispose</code> 呼び出し順序は実装依存だが、
-          すべての対象で <code>Dispose</code> が 1 回ずつ呼ばれることは保証される。</li>
-      <li><code>using</code> ブロック内で対象オブジェクトを <code>delete</code> した場合の挙動は未定義であり、
-          将来バージョンで明示的に禁止または定義される予定である。</li>
-      <li><code>with</code> がメンバーアクセスの省略と寿命保証のみを扱うのに対し、
-          <code>using</code> はあくまでリソース解放（<code>Dispose</code> 呼び出し）の責務を持つ。</li>
+      <li>この場合、ブロック終了時には
+        <code>connection.Dispose()</code> と <code>file.Dispose()</code> が（いずれも 1 回ずつ）呼ばれる。
+        呼び出し順は実装依存だが、通常は最後に列挙したものから逆順に解放することが推奨される。</li>
+      <li><code>with</code> と <code>using</code> は目的が異なる：
+        <ul>
+          <li><code>with</code> … メンバーアクセス省略と寿命の保証（自動解放は行わない）。</li>
+          <li><code>using</code> … リソースの確実な解放（Dispose 呼び出し）を保証する構文糖衣。</li>
+        </ul>
+      </li>
     </ul>
 
     <hr>
@@ -755,17 +759,17 @@ const AppName: string = "Aloe VM";
     <h2 id="ch6">6. Fields（フィールド宣言）</h2>
     <p>class / struct のフィールドは <code>field</code> キーワードで宣言する。</p>
 <pre><code>class Sample {
-    field Count: int = 0;
-    field Name: string = "default";
+    field count: int = 0;
+    field name: string = "default";
 
-    readonly field Id: int;
+    readonly field id: int;
 
     construct(id: int) {
-        this.Id = id; // OK: inside the constructor
+        this.id = id; // OK: inside the constructor
     }
-    method Change(): void {
-        this.Count = this.Count + 1; // OK
-        // this.Id = 2; // NG: readonly field cannot be changed outside constructor
+    method change(): void {
+        this.count = this.count + 1; // OK
+        // this.id = 2; // NG: readonly field cannot be changed outside constructor
     }
 }
 </code></pre>
@@ -781,13 +785,13 @@ const AppName: string = "Aloe VM";
 
     <h3>7.1 class</h3>
 <pre><code>class FizzBuzz {
-    field _Count: int = 0;
-    field Name: string = "FizzBuzz";
+    field _count: int = 0;
+    field name: string = "FizzBuzz";
 
     construct() {
     }
 
-    method Run(): void {
+    method run(): void {
         var i = 1;
         while (i &lt;= 100) {
             // ...
@@ -804,12 +808,12 @@ const AppName: string = "Aloe VM";
 
     <h3>7.2 struct</h3>
 <pre><code>struct Point {
-    field X: int;
-    field Y: int;
+    field x: int;
+    field y: int;
 
     construct(x: int, y: int) {
-        this.X = x;
-        this.Y = y;
+        this.x = x;
+        this.y = y;
     }
 }
 </code></pre>
@@ -822,11 +826,11 @@ const AppName: string = "Aloe VM";
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
-    method Foo(): void { }
+    method foo(): void { }
 }
 
 class Derived extends Base {
-    method Bar(): void { }
+    method bar(): void { }
 }
 
 sealed class FinalDerived extends Base {
@@ -836,11 +840,11 @@ sealed class FinalDerived extends Base {
 
     <h3>7.4 interface</h3>
 <pre><code>interface ILogger {
-    method Log(msg: string): void;
+    method log(msg: string): void;
 }
 
 class ConsoleLogger implements ILogger {
-    method Log(msg: string): void {
+    method log(msg: string): void {
         print(msg);
     }
 }
@@ -852,7 +856,7 @@ class ConsoleLogger implements ILogger {
 
     <h3>7.5 trait</h3>
 <pre><code>trait Trait_A {
-    method Hello(): void {
+    method hello(): void {
         print("Hello from Trait_A");
     }
 }
@@ -860,7 +864,7 @@ class ConsoleLogger implements ILogger {
 
     <h4>with による trait の適用</h4>
 <pre><code>var obj = new SomeClass() with Trait_A;
-obj.Hello(); // Trait_A から取り込まれたメソッド（競合がなければ）
+obj.hello(); // Trait_A から取り込まれたメソッド（競合がなければ）
 </code></pre>
 
     <h4>非破壊的な追加 / 削除（+ / -）</h4>
@@ -870,9 +874,9 @@ var obj3 = obj2 - Trait_A;     // obj3 は obj2 から Trait_A を除いたも�
 
     <h4>as によるエイリアス</h4>
 <pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.Hello(); // OK
+obj2.a.hello(); // OK
 
-// obj2.Hello(); // NG: エイリアスのみ; メンバーはフラット化されない
+// obj2.hello(); // NG: エイリアスのみ; メンバーはフラット化されない
 </code></pre>
 
     <h4>Trait conflicts（競合）</h4>
@@ -997,7 +1001,7 @@ var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
 
     <h3>10.3 Sets (T{})</h3>
 <pre><code>var st: int{} = {1, 2, 3};
-var structSt: Point{} = {Point { X:0, Y:0 }, Point { X:1, Y:1 }};
+var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
 </code></pre>
 
     <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
@@ -1051,7 +1055,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <h2 id="ch12">12. main Block（エントリポイント）</h2>
 <pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
-    fb.Run();
+    fb.run();
     return 0; // プロセスの終了コード
 }
 </code></pre>
@@ -1072,7 +1076,7 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     return 0;
 }
 
-method Foo(): void {
+method foo(): void {
     var x = 10;
     _ = x + 5;   // このブロックにおける最初の代入の型が _ の型になる
 }
@@ -1280,23 +1284,12 @@ class Result&lt;T&gt; {
       Aloe におけるフィルタは、可能な限り副作用を限定し、
       同じ入力に対して同じ出力を返す「準冪等性」を目指す設計とする。
     </p>
-
-    <h4>18.2.3 パイプライン内の例外処理</h4>
     <p>
-      パイプライン実行中に、フィルタやパイプ内部で例外が発生した場合、
+      なお、パイプライン中のフィルタや <code>map</code> などの処理内で例外が発生した場合、
       パイプラインフレームワークはその例外を自動的に捕捉し、
-      対応するステージの結果を <code>Result&lt;T&gt;</code> の
-      <strong>Error</strong> 状態として扱う。
+      対応するステージの戻り値を <code>Result&lt;T&gt;</code> の <code>Error(...)</code> に変換する。
+      このとき <code>ErrorMessage</code> には、捕捉した例外から取得したメッセージ（またはその要約）が格納される。
     </p>
-    <ul>
-      <li>例外はフレームワーク内部の <code>catch</code> により捕捉される。</li>
-      <li>そのステージの戻り値は、論理的には <code>Result&lt;T&gt;.Error(message)</code> として扱われる。</li>
-      <li><code>message</code>（<code>ErrorMessage</code> プロパティ）は、捕捉した例外オブジェクトから取得した文字列
-          （典型的には例外メッセージ文字列）とする。</li>
-      <li>この Error 状態は、以降のパイプラインで <code>match</code> や <code>is</code> による分岐の対象となる。</li>
-      <li>パイプラインフレームワークが捕捉しない「致命的な」例外
-          （VM 側の内部エラーなど）の扱いは VM 実装依存とする。</li>
-    </ul>
 
     <h3>18.3 filter(...) の基本と定義</h3>
     <p><code>filter(F)</code> はパイプライン中の中間変換ステージ。</p>
@@ -1310,7 +1303,7 @@ class Result&lt;T&gt; {
     options: LineSplitOptions;
 
     // フィールド定義（任意だが、副作用の観点からは最小限を推奨）
-    field _Buffer: string = "";
+    field _buffer: string = "";
 
     // コンストラクタ（任意）
     constructor(opts: LineSplitOptions) {
@@ -1320,12 +1313,12 @@ class Result&lt;T&gt; {
     // 入力パイプから出力パイプへ処理を流す本体
     bound(input, output): Result&lt;void&gt; {
         foreach (chunk in input) {
-            let lines = chunk.Split("\n");
+            let lines = chunk.split("\n");
             foreach (line in lines) {
-                output.Write(line);
+                output.write(line);
             }
         }
-        output.Close();
+        output.close();
         return Result&lt;void&gt;.Ok(); // 処理が成功したことを示す
     }
 }
@@ -1397,8 +1390,8 @@ users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
 }
 </code></pre>
     <ul>
-      <li><code>foreach (x in p)</code> は内部的に <code>p.Next()</code> を EOF まで呼ぶ。</li>
-      <li>書き込み側が <code>Close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
+      <li><code>foreach (x in p)</code> は内部的に <code>p.next()</code> を EOF まで呼ぶ。</li>
+      <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
     </ul>
 
     <h3>18.6 map による要素変換</h3>
@@ -1407,14 +1400,14 @@ users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
       別の型のストリームを得ることができる。
     </p>
 <pre><code>// 関数を用いた map
-function ToName(u: User): string {
+function toName(u: User): string {
     return u.Name;
 }
 
-var names = users | map(ToName);
+names = users | map(toName);
 
 // ラムダ風の記法（構文はドラフト）
-var names2 = users | map (u) =&gt; u.Name;
+names = users | map (u) =&gt; u.Name;
 </code></pre>
     <ul>
       <li><code>map</code> は組み込みの高階操作として定義される。</li>
@@ -1440,8 +1433,8 @@ var names2 = users | map (u) =&gt; u.Name;
 
     <h3>18.8 close と EOF 伝播</h3>
     <ul>
-      <li><code>p.Close()</code> 後の <code>Write()</code> は無効（エラーになり得る）。</li>
-      <li>フィルタは入力 EOF を検知したら出力側も <code>Close()</code> すべき。</li>
+      <li><code>p.close()</code> 後の <code>write()</code> は無効（エラーになり得る）。</li>
+      <li>フィルタは入力 EOF を検知したら出力側も <code>close()</code> すべき。</li>
     </ul>
 
     <h3>18.9 pipe を使った並行モデル</h3>
@@ -1466,7 +1459,7 @@ var names2 = users | map (u) =&gt; u.Name;
             // エラー系パイプ
             | filter(logError);
         default:
-            // どちらにもマッチしない場合（将来拡張用）
+            // どちらにもマッチしない場合（将来拡張用）:
             break;
     };
 </code></pre>
@@ -1490,35 +1483,164 @@ var names2 = users | map (u) =&gt; u.Name;
 
     <h3>18.11 例：簡単な REST 風パイプライン</h3>
 <pre><code>class User {
-    field Id: int;
-    field Name: string;
+    field id: int;
+    field name: string;
 }
 
 function main(args: string[]): int {
-    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.Create();
+    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
 
     stdin
         | filter(utf8)
         | filter(json&lt;User&gt;)
         | users;
 
-    let u: User? = users.Next();
+    let u: User? = users.next();
     if (u is User) {
-        print("User: " + u.Name);
+        print("User: " + u.name);
     }
 
     return 0;
 }
 </code></pre>
+
+    <hr>
+
+    <h2 id="appendix-ebnf">付録 A: 字句と構文（EBNF ドラフト）</h2>
+    <p class="note">
+      この付録は Aloe の字句・構文のごく一部を EBNF 風に示したドラフトであり、
+      本文の説明よりも優先されるものではない。矛盾があれば本文の記述を正とし、
+      必要に応じてこの付録を更新する。
+    </p>
+<pre><code>// 字句レベル（概略）
+
+Letter           ::= "A".."Z" | "a".."z" | "_" | NonAsciiLetter
+Digit            ::= "0".."9"
+
+Identifier       ::= Letter { Letter | Digit | "_" }
+
+IntegerLiteral   ::= Digit { Digit }
+FloatLiteral     ::= Digit { Digit } "." Digit { Digit }
+DecimalLiteral   ::= Digit { Digit } "." Digit { Digit } ":d"
+StringLiteral    ::= '"' { StringChar } '"'
+CharLiteral      ::= "'" CharChar "'"
+
+Comment          ::= LineComment | BlockComment
+LineComment      ::= "//" { any-char - NewLine } NewLine
+BlockComment     ::= "/*" { any-char - "*/" } "*/"
+
+WhiteSpace       ::= { " " | "\t" | NewLine }
+
+// トップレベル
+
+Program          ::= { TopLevelDecl }
+
+TopLevelDecl     ::= NamespaceDecl
+                   | ClassDecl
+                   | StructDecl
+                   | InterfaceDecl
+                   | TraitDecl
+                   | EnumDecl
+                   | BitfieldEnumDecl
+                   | FunctionDecl
+
+NamespaceDecl    ::= "namespace" QualifiedName "{" { TopLevelDecl } "}"
+QualifiedName    ::= Identifier { "." Identifier }
+
+// 関数・メソッド（概略）
+
+FunctionDecl     ::= "function" Identifier "(" ParamList? ")" ":" Type Block
+MethodDecl       ::= "method" Identifier "(" ParamList? ")" ":" Type Block
+
+ParamList        ::= Param { "," Param }
+Param            ::= Identifier ":" Type
+
+Type             ::= Identifier
+                   | Identifier "[" "]"      // 配列 T[]
+                   | Identifier "(" ")"      // リスト T()
+                   | Identifier "{" "}"      // セット T{}
+                   | "map" "&lt;" Type "/" Type "&gt;"  // マップ
+
+// 文（概略）
+
+Block            ::= "{" { Statement } "}"
+
+Statement        ::= VarDecl ";"
+                   | LetDecl ";"
+                   | ConstDecl ";"
+                   | ExprStatement ";"
+                   | IfStatement
+                   | WhileStatement
+                   | ForStatement
+                   | ReturnStatement ";"
+                   | WithBlock
+                   | UsingBlock
+                   | Block
+
+VarDecl          ::= "var" Identifier "=" Expression
+LetDecl          ::= "let" Identifier ":" Type "=" Expression
+ConstDecl        ::= "const" Identifier ":" Type "=" Expression
+
+ExprStatement    ::= Expression
+
+IfStatement      ::= "if" "(" Expression ")" Block
+                     [ "else" Block ]
+
+WhileStatement   ::= "while" "(" Expression ")" Block
+
+ReturnStatement  ::= "return" [ Expression ]
+
+// with / using ブロック
+
+WithBlock        ::= "with" "(" WithTarget { "," WithTarget } ")" Block
+WithTarget       ::= Expression        // 値対象 or 型名（型ベース with はコンパイラが解釈）
+
+UsingBlock       ::= "using" "(" UsingTarget { "," UsingTarget } ")" Block
+UsingTarget      ::= Expression        // Dispose 対象となる式
+
+// パイプライン文（概略）
+
+PipelineStmt     ::= PipelineSource "|" PipelineStage { "|" PipelineStage } ";"
+PipelineSource   ::= Identifier | "stdin" | "stdout" | "stderr"
+PipelineStage    ::= FilterCall
+                   | Identifier          // pipe&lt;T&gt; 変数への接続
+FilterCall       ::= "filter" "(" FilterSpec ")"
+FilterSpec       ::= Identifier "&lt;" Type "&gt;"
+                     [ ":" FilterOptions ]
+FilterOptions    ::= Identifier { "|" Identifier }
+
+// 条件付きパイプ（|&gt; の糖衣）
+
+PipeIfShortcut   ::= Expression "|&gt;" Expression ";"
+</code></pre>
+
+    <p class="note">
+      ここに示した EBNF 風記法は、実装ごとに拡張・詳細化されることを想定している。
+      特にパイプライン文・match 構文・trait 適用構文などは、今後のドラフトでより厳密な形に整理される。
+    </p>
+
+    <hr>
+
     <p class="note">
       <strong>編集ポリシー覚え書き：</strong><br>
       ・この文書は英語版仕様をベースとし、日本語版・英語版の内容（構造・意味）は常に一致させる。<br>
       ・<code>edit-version</code> は日本語版・英語版で共通とし、日本語版の内容を変更したときにのみ +1 する（減らない）。<br>
       ・<code>edit-date</code> は各版を出力した時刻（年月日時分秒）を記録する。<br>
       ・関係ない箇所については基本的に変更は禁止とする。意味的に同じであっても、文言や変数名を勝手に変更しない。<br>
-      ・「ここも直した方がよさそう」と感じた場合は、編集を中断し、ユーザーに確認してから反映する。<br>
-      ・直前に出力した全文 HTML を常に「正」とみなし、次の編集はその版に対する最小限の差分に限定する。<br>
-      ・前のHTML（直前の「正」）が見えなくなった／再現できなくなった場合は、修正を中断し、必ずユーザーに相談する。<br>
+      ・ユーザーから「ここを直して」「この機能を追加して」と明示された箇所以外は、一切変更してはならない。<br>
+      　（見た目・整形・インデント・改行・空白・フォント・メニュー構造・見出しレベルなども含む）<br>
+      ・「ついでにきれいにする」「表現をそろえる」「スタイルを統一する」といった、ユーザーが依頼していない改善・リファクタはすべて禁止とする。<br>
+      ・サンプルコードや識別子の名前・大文字小文字・命名規則は、ユーザーからの明示的な指示がない限り変更してはならない。<br>
+      ・過去に決めた「全体方針」（例：プロパティ名はパスカルケースなど）があっても、今回の編集依頼で明示されていない限り、新しい版に勝手に適用しない。<br>
+      ・「ここも直した方がよさそう」「誤字っぽい」と感じた場合は、本文は触らず、まず提案のみをテキストで行い、修正はユーザーの確認後に行う。<br>
+      ・直前に出力した全文 HTML を常に「正」とみなし、次の編集はその版に対する最小限の差分（依頼された箇所＋バージョン番号・日付の更新）に限定する。<br>
+      ・各編集作業の前に、「今回の編集対象が何か」を一文でまとめ、その範囲から差分がはみ出していないことを確認する。<br>
+      ・差分が想定外の章・コードブロック・スタイルにまで及んでいる場合、その編集は誤りとみなしてやり直す。<br>
+      ・レイアウトや CSS、サイドバー、見出し構造の変更は、それ専用の別依頼がある場合にのみ行い、仕様テキストの修正と同じタイミングでは触らない。<br>
+      ・前の HTML（直前の「正」）が見えなくなった／再現できなくなった場合は、修正を中断し、必ずユーザーに相談する。<br>
+      ・サンプルコードを修正するときは、「変更対象の行」と「その前後数行」以外のコード・コメント・整形には絶対に触れない。<br>
+      ・サンプルコードの大文字小文字や変数名の変更は、依頼に明記された範囲にのみ限定し、それ以外の箇所には波及させない。<br>
+      ・この編集ポリシーは本文だけでなく、付録や添付資料（別 HTML / Markdown など）を含む、本仕様書一式すべてに適用する。<br>
     </p>
 
   </main>
