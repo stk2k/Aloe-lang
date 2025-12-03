@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
   <meta name="edit-version" content="11">
-  <meta name="edit-date" content="2025-12-03T11:50:22+09:00">
+  <meta name="edit-date" content="2025-12-03T13:15:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -613,7 +613,7 @@ print(x);
 
 class MathUtil {
     static method max(a: int, b: int): int {
-        if (a > b) return a;
+        if (a &gt; b) return a;
         return b;
     }
 }
@@ -778,101 +778,48 @@ const AppName: string = "Aloe VM";
       <li>struct の継承はサポートしない（<code>sealed struct</code> は「拡張禁止」マーカー）。</li>
     </ul>
 
-    <h4>7.2.1 Struct レイアウトアノテーション（@StructLayout / @FieldOffset）</h4>
+    <h4>Struct layout annotations: @StructLayout / @FieldOffset</h4>
     <p>
-      struct の物理レイアウトを制御したい場合、Aloe ではアノテーション
-      <code>@StructLayout(...)</code> および <code>@FieldOffset(...)</code> を使用できる。
-      これらは主に FFI（ネイティブコードとの相互運用）やバイナリフォーマットとの対応付けを目的とした
-      「上級者向け・非ポータブル」機能である。
+      ネイティブコードとの相互運用などで、struct のメモリレイアウトを制御したい場合のために、
+      struct には限定的なアノテーション <code>@StructLayout</code> / <code>@FieldOffset</code> を付与できる。
     </p>
-
-    <h5>基本ルール</h5>
-    <ul>
-      <li><code>@StructLayout</code> は <strong>struct 宣言</strong> の直前にのみ付与できる。</li>
-      <li><code>@FieldOffset(n)</code> は <strong>struct のフィールド宣言</strong> にのみ付与できる。</li>
-      <li>class に対して <code>@StructLayout</code> / <code>@FieldOffset</code> を付けることは禁止（コンパイルエラー）。</li>
-      <li>アノテーションはコンパイル時メタデータであり、言語レベルの意味論（コピーが値コピーであること等）は変化しない。</li>
-    </ul>
-
-    <h5>@StructLayout の構文と意味</h5>
-<pre><code>@StructLayout(Sequential)
-struct Vertex {
-    field X: float;
-    field Y: float;
-    field Z: float;
-}
-
-@StructLayout(Explicit)
-struct Color {
-    @FieldOffset(0) field R: byte;
-    @FieldOffset(1) field G: byte;
-    @FieldOffset(2) field B: byte;
-    @FieldOffset(3) field A: byte;
-}
-
-@StructLayout(Auto)
-struct InternalCacheEntry {
-    field Id: int;
-    field Timestamp: int;
-    field Flag: bool;
+<pre><code>@StructLayout("Explicit")
+struct NativePoint {
+    @FieldOffset(0) field X: int;
+    @FieldOffset(4) field Y: int;
 }
 </code></pre>
-    <p><code>@StructLayout(kind)</code> の <code>kind</code> には次の 3 種類を指定できる：</p>
     <ul>
-      <li><code>Sequential</code></li>
-      <li><code>Explicit</code></li>
-      <li><code>Auto</code></li>
+      <li><code>@StructLayout("...")</code>
+        <ul>
+          <li>struct 宣言の直前にのみ付けられるアノテーション。</li>
+          <li>引数にはレイアウト種別を表す文字列を指定する。
+            <ul>
+              <li><code>"Auto"</code>（または省略時）: レイアウトは VM 実装依存。C 構造体との ABI 互換は保証しない。</li>
+              <li><code>"Sequential"</code>: フィールド宣言順に並べることを VM に要求する（アラインメントなどの詳細は実装依存）。</li>
+              <li><code>"Explicit"</code>: 各フィールドに <code>@FieldOffset</code> を指定して、バイトオフセットを明示する。</li>
+            </ul>
+          </li>
+          <li>構文上は、アノテーション名の後に <code>(...)</code> 付きで 1 つ以上の引数を取る形とするが、
+              現時点で仕様として定義するのは第 1 引数のレイアウト種別文字列のみとする。</li>
+        </ul>
+      </li>
+      <li><code>@FieldOffset(n)</code>
+        <ul>
+          <li>struct 内の <code>field</code> 宣言の直前にのみ付けられるアノテーション。</li>
+          <li>引数 <code>n</code> は 0 以上の整数リテラルで、struct 先頭からのバイトオフセットを表す。</li>
+          <li><code>@StructLayout("Explicit")</code> が付いた struct 内でのみ有効であり、それ以外のレイアウト種別で使用した場合はコンパイルエラー。</li>
+          <li>同じ struct 内で、フィールドのサイズや <code>@FieldOffset</code> の指定によってメモリ領域が重なった場合の扱いは実装依存だが、
+              多くの実装ではコンパイルエラーまたは警告とすることが推奨される。</li>
+        </ul>
+      </li>
+      <li>これらのアノテーションは、
+        <strong>VM / ランタイムのネイティブインターフェイスに対するヒント</strong> であり、
+        通常の Aloe コードにおける型システムの意味論（値コピー / 参照 / equality など）を変えるものではない。</li>
+      <li>現時点では一般的な「任意アノテーション機構」ではなく、
+          struct レイアウトを制御するための <strong>組み込みアノテーション</strong> としてのみ定義する。
+          他の宣言（class, field, method など）に付与するアノテーションについては将来拡張で検討する。</li>
     </ul>
-
-    <h6>StructLayout(Sequential)</h6>
-    <ul>
-      <li>フィールドは <strong>定義順</strong> に並ぶ。</li>
-      <li>デフォルトのアライメントは <strong>8 バイト境界</strong> とする。</li>
-      <li>コンパイラ / VM はアライメントのために必要に応じてパディングを挿入してよい。</li>
-      <li>同一プラットフォーム・同一 VM 実装の範囲では、
-          「定義順 + 8 バイトアライメント」に基づくオフセットが安定していることが期待される。</li>
-      <li><code>@StructLayout</code> が指定されていない struct は、明示的に
-          <code>@StructLayout(Sequential)</code> が付いているものとみなす（デフォルト）。</li>
-    </ul>
-
-    <h6>StructLayout(Explicit)</h6>
-    <ul>
-      <li>すべてのフィールドに <code>@FieldOffset(n)</code> を指定する必要がある。</li>
-      <li>n は struct 先頭からの <strong>バイトオフセット</strong>（0 起点）を表す。</li>
-      <li>フィールドのサイズはその型のサイズに従う（詳細は AloeVM 仕様書の「構造体レイアウト」を参照）。</li>
-      <li>フィールド同士のメモリ範囲が重なる場合はコンパイルエラーとする。</li>
-      <li>一部のフィールドにのみ <code>@FieldOffset</code> が付いている場合もコンパイルエラー。</li>
-      <li>アライメントやパディングはすべて開発者の責任で決める。
-          VM は指定されたオフセットに忠実にフィールドを配置する。</li>
-    </ul>
-
-    <h6>StructLayout(Auto)</h6>
-    <ul>
-      <li>VM / コンパイラが内部的に最適化したレイアウトを自由に選んでよい。</li>
-      <li>フィールドの順序やパディングは <strong>ABI 的に安定しない</strong> 可能性がある。</li>
-      <li>別バージョンの VM / 別プラットフォーム間でバイナリ互換性を前提にしてはならない。</li>
-      <li><strong>FFI やファイルフォーマットの定義には使用禁止</strong> とし、
-          内部実装用（性能チューニング等）に限定することを推奨する。</li>
-    </ul>
-
-    <h5>@FieldOffset(n) の詳細</h5>
-    <ul>
-      <li><code>@FieldOffset(n)</code> は、対象フィールドの格納開始位置（バイト単位）を指定する。</li>
-      <li>n は 0 以上の整数でなければならない。</li>
-      <li><code>@StructLayout(Sequential)</code> / <code>(Auto)</code> の struct に
-          <code>@FieldOffset</code> を付けることはできず、コンパイルエラーとする。</li>
-      <li><code>@StructLayout(Explicit)</code> の struct においてのみ使用可能。</li>
-      <li>struct 全体のサイズは「最大の <code>FieldOffset + フィールドサイズ</code>」以上になる。
-          正確なサイズ算出ルールは AloeVM 仕様書側で定義される。</li>
-    </ul>
-
-    <p class="note">
-      補足：<br>
-      ・struct はあくまで値型であり、<code>@StructLayout</code> / <code>@FieldOffset</code> を指定しても
-      「代入は値コピー」「フィールドには参照型を持てない」といった基本仕様は変わらない。<br>
-      ・低レベル API を扱わない通常のコードでは、<code>@StructLayout</code> を意識せず
-      デフォルト（Sequential + 8 バイトアライメント）のまま使用することを推奨する。
-    </p>
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
