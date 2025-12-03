@@ -2,9 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Aloe Language Specification (Draft, English Version)</title>
-  <meta name="edit-version" content="11">
-  <meta name="edit-date" content="2025-12-03T17:25:59+09:00">
+  <title>Aloe Standard Library Specification (Filters Edition, Draft, English Version)</title>
+  <meta name="edit-version" content="3">
+  <meta name="edit-date" content="2025-12-03T08:15:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -15,6 +15,7 @@
                    "Hiragino Sans", "Yu Gothic", sans-serif;
       line-height: 1.7;
       background: #f5f5f7;
+      color: #111827;
     }
     .layout {
       display: flex;
@@ -33,1473 +34,704 @@
       overflow-y: auto;
     }
     .sidebar h1 {
-      font-size: 1.1rem;
-      margin: 0 0 0.4rem;
+      font-size: 1rem;
+      margin: 0 0 0.25rem;
     }
     .sidebar .subtitle {
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       color: #9ca3af;
-      margin-bottom: 1.4rem;
+      margin-bottom: 1rem;
     }
-    .sidebar h2 {
-      font-size: 0.85rem;
-      margin: 1.2rem 0 0.4rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
+    .sidebar nav h2 {
+      font-size: 0.8rem;
+      margin: 1.25rem 0 0.25rem;
       color: #9ca3af;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
     .sidebar nav ul {
       list-style: none;
-      padding: 0;
+      padding-left: 0;
       margin: 0;
-      font-size: 0.9rem;
     }
     .sidebar nav li {
       margin: 0.15rem 0;
     }
-    .sidebar a {
-      color: inherit;
+    .sidebar nav a {
+      color: #e5e7eb;
       text-decoration: none;
-      display: block;
-      padding: 0.25rem 0.4rem;
-      border-radius: 0.35rem;
+      font-size: 0.85rem;
     }
-    .sidebar a:hover {
-      background: #1f2937;
+    .sidebar nav a:hover {
+      text-decoration: underline;
     }
-    .sidebar .chapter-index {
-      font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
-      font-size: 0.75rem;
-      color: #9ca3af;
-      margin-right: 0.35rem;
-    }
-
     .content {
       flex: 1;
-      max-width: 1100px;
-      padding: 2rem 3rem;
+      max-width: 1000px;
+      padding: 2rem 2.5rem 3rem;
       box-sizing: border-box;
-      margin: 0 auto;
-      background: #f9fafb;
     }
-    h1, h2, h3, h4, h5 {
-      margin-top: 1.6em;
-      color: #111827;
-    }
-    h1 {
+    .content h1 {
+      font-size: 1.6rem;
       margin-top: 0;
+      margin-bottom: 0.5rem;
     }
-    pre, code {
-      font-family: "JetBrains Mono", "Cascadia Code", Consolas,
-                   "Ricty Diminished", monospace;
-      font-size: 0.9rem;
+    .content .meta {
+      font-size: 0.8rem;
+      color: #6b7280;
+      margin-bottom: 1.5rem;
+    }
+    .content h2 {
+      font-size: 1.3rem;
+      border-bottom: 1px solid #e5e7eb;
+      padding-bottom: 0.25rem;
+      margin-top: 2.5rem;
+    }
+    .content h3 {
+      font-size: 1.05rem;
+      margin-top: 1.8rem;
+      margin-bottom: 0.4rem;
+    }
+    .content h4 {
+      font-size: 0.95rem;
+      margin-top: 1.2rem;
+      margin-bottom: 0.3rem;
+    }
+    .content p {
+      margin: 0.4rem 0;
+    }
+    .content ul, .content ol {
+      padding-left: 1.3rem;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 0.75rem;
+      background: #e5e7eb;
+      color: #374151;
+      border-radius: 999px;
+      padding: 0.05rem 0.6rem;
+      margin-right: 0.3rem;
+    }
+    code {
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85em;
+      background: #e5e7eb;
+      padding: 0.05rem 0.3rem;
+      border-radius: 0.25rem;
     }
     pre {
-      background: #1118270d;
-      padding: 0.75rem 1rem;
+      background: #111827;
+      color: #e5e7eb;
+      padding: 0.8rem 1rem;
       border-radius: 0.5rem;
       overflow-x: auto;
-      border: 1px solid #e5e7eb;
+      font-size: 0.85rem;
+      line-height: 1.5;
     }
-    ul, ol {
-      padding-left: 1.4em;
-    }
-    hr {
-      margin: 2.2rem 0;
-      border: none;
-      border-top: 1px solid #e5e7eb;
+    pre code {
+      background: transparent;
+      padding: 0;
     }
     .note {
-      font-size: 0.9rem;
-      color: #4b5563;
+      border-left: 3px solid #3b82f6;
+      background: #dbeafe;
+      color: #1e3a8a;
+      padding: 0.75rem 0.9rem;
+      font-size: 0.85rem;
+      border-radius: 0.25rem;
+      margin: 1rem 0;
     }
-    .operator {
-      font-family: "JetBrains Mono", "Cascadia Code", Consolas,
-                   "Ricty Diminished", monospace;
+    .filter-header {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin-top: 1.1rem;
+    }
+    .sig {
+      font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.85rem;
+    }
+    hr {
+      border: none;
+      border-top: 1px solid #e5e7eb;
+      margin: 2rem 0;
+    }
+    @media (max-width: 900px) {
+      .layout {
+        flex-direction: column;
+      }
+      .sidebar {
+        position: static;
+        width: 100%;
+        max-height: none;
+      }
+      .content {
+        padding: 1.5rem 1.25rem 2.5rem;
+      }
     }
   </style>
 </head>
 <body>
-<div class="layout">
+  <div class="layout">
+    <aside class="sidebar">
+      <h1>Aloe Standard Library</h1>
+      <div class="subtitle">Filters Library Spec (Draft, EN)</div>
 
-  <!-- Left menu -->
-  <aside class="sidebar">
-    <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft • English version + with extension</div>
-
-    <h2>Chapters</h2>
-    <nav>
-      <ul>
-        <li><a href="#ch0"><span class="chapter-index">0.</span>Overview</a></li>
-        <li><a href="#ch1"><span class="chapter-index">1.</span>Basic Syntax</a></li>
-        <li><a href="#ch2"><span class="chapter-index">2.</span>Type System</a></li>
-        <li><a href="#ch3"><span class="chapter-index">3.</span>Numbers &amp; Conversions</a></li>
-        <li><a href="#ch4"><span class="chapter-index">4.</span>Blocks &amp; Scope</a></li>
-        <li><a href="#ch5"><span class="chapter-index">5.</span>Variables &amp; Constants</a></li>
-        <li><a href="#ch6"><span class="chapter-index">6.</span>Fields</a></li>
-        <li><a href="#ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
-        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; null</a></li>
-        <li><a href="#ch9"><span class="chapter-index">9.</span>is Operator</a></li>
-        <li><a href="#ch10"><span class="chapter-index">10.</span>Collections</a></li>
-        <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
-        <li><a href="#ch12"><span class="chapter-index">12.</span>main Block</a></li>
-        <li><a href="#ch13"><span class="chapter-index">13.</span>Temporary Variable <code>_</code></a></li>
-        <li><a href="#ch14"><span class="chapter-index">14.</span>swap Keyword</a></li>
-        <li><a href="#ch15"><span class="chapter-index">15.</span>Operators</a></li>
-        <li><a href="#ch16"><span class="chapter-index">16.</span>Exceptions</a></li>
-        <li><a href="#ch17"><span class="chapter-index">17.</span>Modules / namespace / import</a></li>
-        <li><a href="#ch18"><span class="chapter-index">18.</span>Pipes &amp; Filters</a></li>
-      </ul>
-    </nav>
-
-    <h2>Key Section</h2>
-    <nav>
-      <ul>
-        <li><a href="#with-blocks">4.2 with Blocks</a></li>
-        <li><a href="#with-type">4.2.1 Type-based with</a></li>
-      </ul>
-    </nav>
-  </aside>
-
-  <!-- Main content -->
-  <main class="content">
-    <h1 id="top">Aloe Language Specification (Draft, English Version)</h1>
-    <p class="note">
-      This document is a draft of the Aloe language specification, based on the English version at<br>
-      <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>.<br>
-      On top of that, section <strong>4.2 with-blocks</strong> has been extended with
-      <strong>type-based with for classes / structs / enums (shortcuts to static members and enum values)</strong>.<br>
-      Aside from these extensions, the goal is to stay as faithful as possible to the original specification.
-    </p>
-
-    <hr>
-
-    <h2 id="ch0">0. Overview</h2>
-    <p>
-      Aloe is a statically typed scripting language that aims for simple and intuitive syntax.<br>
-      It runs on a stack-based virtual machine (AloeVM) and primarily has the following goals:
-    </p>
-    <ul>
-      <li>Easy to read and write for educational purposes and small applications</li>
-      <li>Runs on both the C# runtime and WebAssembly (WASM)</li>
-      <li>Allows I/O and concurrency control in a statically typed way via <code>pipe</code> and <code>filter</code></li>
-    </ul>
-    <p>Characteristics:</p>
-    <ul>
-      <li>Static typing
+      <nav>
+        <h2>Chapters</h2>
         <ul>
-          <li><code>var</code> for type inference</li>
-          <li><code>let</code> for explicit type annotations</li>
+          <li><a href="#ch0">0. Overview</a></li>
+          <li><a href="#ch1">1. Common Rules for Filters</a></li>
+          <li><a href="#ch2">2. Text / Encoding</a></li>
+          <li><a href="#ch3">3. JSON / Data Transformation</a></li>
+          <li><a href="#ch4">4. Conditionals / Reordering</a></li>
+          <li><a href="#ch5">5. Crypto / Hash / Binary</a></li>
+          <li><a href="#ch6">6. String Utilities</a></li>
+          <li><a href="#ch7">7. Archive / Compression / CSV</a></li>
+          <li><a href="#ch8">8. HTML / Sanitization</a></li>
+          <li><a href="#ch9">9. Parsing / Formatting</a></li>
         </ul>
-      </li>
-      <li>Value types / reference types
-        <ul>
-          <li><code>struct</code> … value type</li>
-          <li><code>class</code> … reference type</li>
-        </ul>
-      </li>
-      <li>GC-based memory management (the concrete algorithm is VM-implementation dependent)</li>
-      <li>Source code does not write <code>= null</code> directly
-        <ul>
-          <li>Reference types can internally be null, but are handled via the sugar syntax <code>delete</code>.</li>
-        </ul>
-      </li>
-      <li>Dataflow-oriented design via <code>pipe</code> / <code>filter</code></li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch1">1. Basic Syntax</h2>
-
-    <h3>1.1 Comments</h3>
-<pre><code>// single-line comment
-
-/* multi-line
-   comment */
-</code></pre>
-    <ul>
-      <li><code>//</code> to the end of line is a line comment.</li>
-      <li><code>/*</code> … <code>*/</code> is a multi-line comment.</li>
-      <li>Nested <code>/* */</code> comments are undefined (assumed not supported).</li>
-    </ul>
-
-    <h3>1.2 Identifiers</h3>
-    <ul>
-      <li>Allowed characters: letters (A–Z, a–z), digits (0–9), and underscore <code>_</code></li>
-      <li>The first character must be a letter or <code>_</code>.</li>
-      <li>Case-sensitive.</li>
-      <li>Identifiers cannot use the same spelling as keywords.</li>
-      <li>Identifiers starting with <code>_</code> are conventionally treated as “private” (not referenced from outside).</li>
-      <li>Unicode characters can be used (excluding whitespace and separators).</li>
-    </ul>
-
-    <h3>1.3 Keywords</h3>
-<pre><code>abstract
-and
-as
-async
-bitfield
-break
-case
-catch
-class
-const
-construct
-constructor
-continue
-default
-delete
-do
-else
-enum
-extends
-false
-field
-filter
-finally
-for
-function
-if
-import
-implements
-in
-interface
-is
-let
-main
-map
-match
-method
-namespace
-new
-null
-options
-or
-override
-pipe
-private
-protected
-public
-readonly
-return
-Result
-sealed
-static
-struct
-super
-switch
-swap
-this
-throw
-throws
-trait
-true
-try
-var
-virtual
-void
-while
-with
-yield
-</code></pre>
-    <ul>
-      <li><code>package</code> is not used; <code>namespace</code> is used instead.</li>
-      <li><code>final</code> is removed; use <code>sealed</code> to disallow inheritance.</li>
-      <li><code>instanceof</code> is removed; use <code>is</code> for type checks.</li>
-    </ul>
-
-    <h3>1.4 Literals</h3>
-    <ul>
-      <li>Integer literals: <code>10</code>, <code>0</code>, <code>-5</code>, <code>0x1A</code>, <code>0b1010</code>, etc.</li>
-      <li>Floating-point literals: <code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
-      <li>Decimal literals: <code>10.12345678901234567890:d</code>, etc.</li>
-      <li>Booleans: <code>true</code>, <code>false</code></li>
-      <li>Strings: <code>"Hello, World!"</code></li>
-      <li>Characters: <code>'A'</code>, <code>'z'</code>, etc.</li>
-      <li>null literal: <code>null</code></li>
-      <li>Array literals: <code>[1, 2, 3]</code></li>
-      <li>List literals: <code>(1, 2, 3)</code></li>
-      <li>Set literals: <code>{1, 2, 3}</code></li>
-      <li>Map literals: <code>["key1": 10, "key2": 20]</code></li>
-      <li>enum literals: <code>EnumType.Value1</code></li>
-      <li>struct literals: <code>Point { x: 0, y: 1 }</code></li>
-      <li>Object creation: <code>new ClassName()</code></li>
-    </ul>
-
-    <h3>1.5 Statement terminator</h3>
-<pre><code>var x = 10;
-x = x + 1;
-print(x);
-</code></pre>
-    <ul>
-      <li>Every statement ends with a semicolon <code>;</code>.</li>
-      <li>No automatic semicolon insertion based on newline.</li>
-    </ul>
-
-    <h3>1.6 Whitespace</h3>
-    <ul>
-      <li>Spaces, tabs, and newlines are treated as token separators.</li>
-      <li>Consecutive whitespace is treated as a single separator.</li>
-      <li>Indentation has no semantic meaning (unlike Python).</li>
-    </ul>
-
-    <h3>1.7 Case sensitivity</h3>
-    <ul>
-      <li>Identifiers and keywords are case-sensitive.</li>
-      <li>All keywords are lowercase (except <code>Result</code>).</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch2">2. Type System</h2>
-
-    <h3>2.1 Primitive types</h3>
-    <p>
-      Aloe has the following seven primitive types:
-    </p>
-    <ul>
-      <li><code>bool</code> / <code>boolean</code> – Boolean value</li>
-      <li><code>int</code> / <code>integer</code> – Signed integer</li>
-      <li><code>float</code> – Floating-point number</li>
-      <li><code>decimal</code> – High-precision decimal number</li>
-      <li><code>string</code> – String (internally Unicode)</li>
-      <li><code>null</code> – Special type/value representing “no value”</li>
-      <li><code>void</code> – No return value (for method return types only)</li>
-    </ul>
-    <p>
-      There is no <code>any</code> type, and dynamic typing is not supported.<br>
-      <code>char</code> and <code>byte</code> are supported by the language, but they are treated as value types
-      outside the primitive category and are described in detail in chapter 3 (Numbers &amp; conversions).
-    </p>
-
-    <h3>2.2 Composite / user-defined types</h3>
-    <ul>
-      <li>Array: <code>T[]</code></li>
-      <li>List: <code>T()</code></li>
-      <li>Set: <code>T{}</code></li>
-      <li>Map: <code>map&lt;T&gt;</code> or <code>map&lt;K/V&gt;</code></li>
-      <li><code>struct</code></li>
-      <li><code>class</code></li>
-      <li><code>enum</code>, <code>bitfield enum</code></li>
-      <li>Asynchronous task: <code>task</code></li>
-      <li>Pipe: <code>pipe&lt;T&gt;</code> (see chapter 18)</li>
-      <li>Result type: <code>Result&lt;T&gt;</code> (see chapter 18)</li>
-    </ul>
-    <p><code>any</code> does not exist; dynamic typing is not supported.</p>
-
-    <h3>2.3 Value types / reference types</h3>
-    <ul>
-      <li>Value types:
-        <ul>
-          <li><code>int</code>, <code>float</code>, <code>decimal</code>, <code>bool</code>, <code>byte</code>, <code>char</code></li>
-          <li><code>struct</code></li>
-          <li><code>enum</code>, <code>bitfield enum</code> (internally int32)</li>
-        </ul>
-      </li>
-      <li>Reference types:
-        <ul>
-          <li><code>class</code></li>
-          <li><code>string</code> (implementation-wise a reference type)</li>
-          <li><code>task</code>, <code>pipe&lt;T&gt;</code>, <code>Result&lt;T&gt;</code>, etc.</li>
-        </ul>
-      </li>
-    </ul>
-
-    <h4>Struct restrictions and copying</h4>
-    <ul>
-      <li>struct fields can only be primitive types or other structs.</li>
-      <li>They cannot have fields of reference types such as class.</li>
-      <li>Assigning a struct always copies the value.</li>
-      <li>There is no specification-level limit on maximum size.</li>
-    </ul>
-
-    <h4>Class vs struct</h4>
-    <ul>
-      <li>class can have struct fields.</li>
-      <li>Assigning a class instance copies the reference (the object itself is shared).</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch3">3. Numbers &amp; Conversions</h2>
-
-    <h3>3.1 int and float</h3>
-    <ul>
-      <li>Expressions mixing <code>int</code> and <code>float</code> yield a <code>float</code> result.
-        <ul>
-          <li><code>int + float → float</code></li>
-          <li><code>int - float → float</code></li>
-          <li><code>int * float → float</code></li>
-          <li><code>int / float → float</code></li>
-        </ul>
-      </li>
-    </ul>
-
-    <h3>3.2 decimal</h3>
-    <ul>
-      <li><code>decimal</code> is a high-precision decimal number.</li>
-      <li>Expressions mixing <code>int</code> / <code>float</code> may be promoted to <code>decimal</code> as needed.</li>
-      <li>Overflow / underflow / precision issues are treated as <code>OverflowException</code>.</li>
-    </ul>
-
-    <h3>3.3 enum and int</h3>
-    <ul>
-      <li>Aloe has no cast syntax.</li>
-      <li>Implicit / explicit conversions between enum and int are both disallowed.</li>
-      <li>Expressions mixing enum and numeric types are compile errors (except bit operations on bitfield enums).</li>
-      <li>Internally, enum / bitfield enum are all int32.</li>
-    </ul>
-
-    <h3>3.4 byte and char</h3>
-    <ul>
-      <li><code>byte</code>:
-        <ul>
-          <li>Range is 0–255.</li>
-          <li>Byte-by-byte arithmetic is allowed, but out-of-range results may cause errors.</li>
-          <li>Expressions mixing byte and int are promoted to int.</li>
-        </ul>
-      </li>
-      <li><code>char</code>:
-        <ul>
-          <li>Arithmetic on char is not allowed.</li>
-          <li>Comparison operators (<code>==</code>, <code>&lt;</code>, <code>&gt;</code>, etc.) are only valid between chars.</li>
-          <li>No implicit conversions to numeric types.</li>
-        </ul>
-      </li>
-    </ul>
-
-    <h3>3.5 NaN / Infinity</h3>
-    <ul>
-      <li>Numeric overflow / underflow are handled via exceptions, not NaN / Infinity.</li>
-      <li><code>ZeroDivisionException</code> is thrown for division by 0 / 0.0.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch4">4. Blocks &amp; Scope</h2>
-
-    <p>
-      Blocks are delimited by <code>{</code> and <code>}</code>, and each block introduces a new scope.
-    </p>
-    <ul>
-      <li><code>main</code> block</li>
-      <li>Class definition blocks</li>
-      <li>Method definition blocks</li>
-      <li>Arbitrary <code>{ ... }</code> blocks</li>
-    </ul>
-
-    <h3>4.1 Static (lexical) scope and shadowing</h3>
-<pre><code>class Sample {
-    field value: int = 1;
-    method foo(): void {
-        var value = 2;        // shadows the field
-        print(value);         // 2
-        print(this.value);    // 1
-    }
-}
-</code></pre>
-    <ul>
-      <li>Aloe uses static (lexical) scoping.</li>
-      <li>Declaring a variable with the same name in an inner block shadows the outer one.</li>
-      <li>If a field name and a local variable name collide, the local variable takes precedence.
-        Use <code>this.</code> to refer to the field.</li>
-    </ul>
-
-    <h3 id="with-blocks">4.2 with-blocks (member access shorthand)</h3>
-    <p>
-      Aloe has a <code>with</code> block to simplify repeated member access on the same object.
-    </p>
-<pre><code>with (user) {
-    .name = "Alice";
-    .age = .age + 1;
-    print(.name);
-}
-</code></pre>
-    <ul>
-      <li>Inside <code>with (expr) { ... }</code>:
-        <ul>
-          <li><code>.Member</code> is shorthand for <code>(expr).Member</code>.</li>
-          <li><code>expr</code> is evaluated once at the beginning of the block and stored in an internal temporary.</li>
-          <li>The special temporary variable <code>_</code> refers to “the with-target object”.
-            <ul>
-              <li>You can pass it, e.g. <code>log(_);</code>.</li>
-            </ul>
-          </li>
-        </ul>
-      </li>
-      <li>Nested <code>with</code> blocks:
-        <ul>
-          <li>The inner <code>with</code> shadows resolution of <code>.</code> and <code>_</code>.</li>
-          <li>The outer object can still be accessed via its normal variable name.</li>
-        </ul>
-      </li>
-      <li>Like C#’s <code>using</code>-style, multiple <code>with</code> targets can be declared in a single header:</li>
-    </ul>
-<pre><code>with (user), (profile) {
-    .name = "Alice";  // resolved against both user and profile
-}
-</code></pre>
-    <ul>
-      <li>The resolution order (which object’s member is chosen) is implementation-dependent.</li>
-      <li>However, if resolution is ambiguous (multiple objects have the same member), it is a compile error.</li>
-    </ul>
-    <p>
-      <code>with</code> is purely syntactic sugar; semantically, everything can be rewritten into explicit
-      <code>obj.member</code> calls before type checking and code generation.
-    </p>
-
-    <h4 id="with-type">4.2.1 Type-based with (shortcuts to static / enum members)</h4>
-    <p>
-      In addition to normal <code>with (expr)</code>, Aloe supports a <strong>type-based with</strong>
-      whose target is a <strong>type name</strong>.
-    </p>
-<pre><code>with (TypeName) {
-    .SomeStaticMethod();
-    .SomeStaticField = 1;
-}
-</code></pre>
-    <p>Here <code>TypeName</code> is one of:</p>
-    <ul>
-      <li>a <code>class</code> type</li>
-      <li>a <code>struct</code> type</li>
-      <li>an <code>enum</code> / <code>bitfield enum</code></li>
-    </ul>
-    <p>In this case, <code>with</code> is interpreted as a “type-context with”:</p>
-    <ul>
-      <li>The expression inside <code>()</code> is not evaluated as a runtime value.
-        <ul>
-          <li>The compiler resolves <code>TypeName</code> as a type; no instance is created.</li>
-        </ul>
-      </li>
-      <li>Inside the block:
-        <ul>
-          <li><code>.Member</code> is shorthand for <code>TypeName.Member</code>.
-            <ul>
-              <li>Valid <code>Member</code> targets are:
-                <ul>
-                  <li>static fields</li>
-                  <li>static methods</li>
-                  <li>enum / bitfield enum values</li>
-                </ul>
-              </li>
-            </ul>
-          </li>
-          <li>The temporary <code>_</code> behaves as a pseudo-object representing the static context of <code>TypeName</code>.
-            <ul>
-              <li><code>_.Member</code> is also equivalent to <code>TypeName.Member</code>.</li>
-            </ul>
-          </li>
-          <li>Accessing instance members within a type-based with is a compile error.</li>
-        </ul>
-      </li>
-    </ul>
-    <p>
-      Even in a type-based with, local variables or outer-scope variables with the same name take precedence.
-      To explicitly refer to enum values or static members, use <code>TypeName.Member</code> or <code>.Member</code> / <code>_.Member</code>.
-    </p>
-
-    <h5>Example: static access on class / struct</h5>
-<pre><code>struct AngleUtil {
-    static field Pi: float = 3.14159;
-
-    static method degToRad(deg: float): float {
-        return deg * Pi / 180.0;
-    }
-}
-
-class MathUtil {
-    static method max(a: int, b: int): int {
-        if (a &gt; b) return a;
-        return b;
-    }
-}
-
-function main(args: string[]): int {
-    with (AngleUtil) {
-        var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
-        print(.Pi);                // AngleUtil.Pi
-    }
-
-    with (MathUtil) {
-        var m = max(10, 20);       // MathUtil.max(10, 20)
-        print(m);
-    }
-    return 0;
-}
-</code></pre>
-
-    <h5>Example: enum value access</h5>
-<pre><code>enum Color {
-    Red,
-    Green,
-    Blue
-}
-
-function main(args: string[]): int {
-    with (Color) {
-        var c1: Color = Red;   // Color.Red
-        var c2: Color = Blue;  // Color.Blue
-        print(c1);
-        print(c2);
-    }
-    return 0;
-}
-</code></pre>
-    <p>
-      Type-based <code>with</code> can also be mixed with multiple targets:
-    </p>
-<pre><code>with (user), (Color) {
-    .name = "Alice"; // user.name
-    var c: Color = Red; // Color.Red
-}
-</code></pre>
-    <p>
-      Again, the resolution order is implementation-dependent, but ambiguity must be treated as a compile error.
-    </p>
-
-    <hr>
-
-    <h2 id="ch5">5. Variables &amp; Constants</h2>
-
-    <h3>5.1 var (type inference)</h3>
-<pre><code>var i = 10;
-var f = 10.5;
-var s = "Hello";
-var c = 'A';
-var b = 255;
-var arr = [1, 2, 3];
-var lst = (1, 2, 3);
-var st  = {1, 2, 3};
-var mp  = ["key": 10];
-var fb  = new FizzBuzz();
-</code></pre>
-    <ul>
-      <li>The variable type is inferred from the right-hand expression.</li>
-      <li><code>var x = 1;</code> is always <code>int</code>.</li>
-      <li><code>var x = 1.0;</code> is treated as <code>float</code>.</li>
-      <li><code>var x = null;</code> is a compile error (type cannot be inferred).</li>
-    </ul>
-
-    <h3>5.2 let (explicit types)</h3>
-<pre><code>let i: int = 10;
-let f: float = 10.5;
-let d: decimal = 10.12345678901234567890:d;
-let s: string = "Hello, Aloe!";
-let c: char = 'A';
-let b: byte = 255;
-
-let arr: int[] = [1, 2, 3];
-let lst: int() = (1, 2, 3);
-let st : int{} = {1, 2, 3};
-let mp : map&lt;string/int&gt; = ["key": 10];
-</code></pre>
-
-    <h3>5.3 Constants (const)</h3>
-<pre><code>const MaxCount: int = 100;
-const Pi: float = 3.14159;
-const AppName: string = "Aloe VM";
-</code></pre>
-    <ul>
-      <li><code>const</code> variables cannot be reassigned.</li>
-      <li><code>const</code> requires an explicit type annotation.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch6">6. Fields</h2>
-    <p>Fields of class / struct are declared with the <code>field</code> keyword.</p>
-<pre><code>class Sample {
-    field count: int = 0;
-    field name: string = "default";
-
-    readonly field id: int;
-
-    construct(id: int) {
-        this.id = id; // OK: inside the constructor
-    }
-    method change(): void {
-        this.count = this.count + 1; // OK
-        // this.id = 2; // NG: readonly field cannot be changed outside the constructor
-    }
-}
-</code></pre>
-    <ul>
-      <li><code>field</code> … normal field.</li>
-      <li><code>readonly field</code> … assignable only in the constructor, read-only afterwards.</li>
-      <li>Same semantics for both struct and class.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch7">7. Class / Struct / Interface / Trait</h2>
-
-    <h3>7.1 class</h3>
-<pre><code>class FizzBuzz {
-    field _count: int = 0;
-    field name: string = "FizzBuzz";
-
-    construct() {
-    }
-
-    method run(): void {
-        var i = 1;
-        while (i &lt;= 100) {
-            // ...
-            i = i + 1;
-        }
-    }
-}
-</code></pre>
-    <ul>
-      <li>class is a reference type.</li>
-      <li><code>sealed class</code> cannot be extended via <code>extends</code>.</li>
-      <li>Only single inheritance is supported.</li>
-    </ul>
-
-    <h3>7.2 struct</h3>
-<pre><code>struct Point {
-    field x: int;
-    field y: int;
-
-    construct(x: int, y: int) {
-        this.x = x;
-        this.y = y;
-    }
-}
-</code></pre>
-    <ul>
-      <li>struct is a value type.</li>
-      <li>Fields are limited to primitive types or other structs (reference type fields are forbidden).</li>
-      <li>Copying a struct always copies the value.</li>
-      <li>struct inheritance is not supported (use <code>sealed struct</code> as a “do not extend” marker).</li>
-    </ul>
-
-    <h4>Struct layout annotations: @StructLayout / @FieldOffset</h4>
-    <p>
-      To control the in-memory layout of structs for interop with native code, you can use limited annotations
-      <code>@StructLayout</code> / <code>@FieldOffset</code> on structs.
-    </p>
-<pre><code>@StructLayout("Explicit")
-struct NativePoint {
-    @FieldOffset(0) field X: int;
-    @FieldOffset(4) field Y: int;
-}
-</code></pre>
-    <ul>
-      <li><code>@StructLayout("...")</code>
-        <ul>
-          <li>An annotation that can only be placed immediately before a struct declaration.</li>
-          <li>The argument is a string indicating the layout kind:
-            <ul>
-              <li><code>"Auto"</code> (or omitted): layout is VM-implementation dependent. ABI compatibility with C structs is not guaranteed.</li>
-              <li><code>"Sequential"</code>: requests that fields be laid out in declaration order (alignment details are implementation-dependent).</li>
-              <li><code>"Explicit"</code>: each field must specify a <code>@FieldOffset</code> to indicate byte offset explicitly.</li>
-            </ul>
-          </li>
-          <li>At the syntax level, the annotation takes one or more arguments in <code>(...)</code>,
-              but for now only the first string argument (layout kind) is defined by the spec.</li>
-        </ul>
-      </li>
-      <li><code>@FieldOffset(n)</code>
-        <ul>
-          <li>An annotation that can only be placed immediately before a <code>field</code> inside a struct.</li>
-          <li>The argument <code>n</code> is a non-negative integer literal representing the byte offset from the start of the struct.</li>
-          <li>Valid only inside a struct annotated with <code>@StructLayout("Explicit")</code>. Using it with other layout kinds is a compile error.</li>
-          <li>If fields overlap in memory based on their size and <code>@FieldOffset</code> values, behavior is implementation-dependent, but
-              in most implementations it is recommended to treat this as a compile error or at least a warning.</li>
-        </ul>
-      </li>
-      <li>These annotations are <strong>hints to the VM/runtime’s native interface</strong> and do not change
-          the semantics of Aloe’s type system (value copy / references / equality, etc.).</li>
-      <li>Currently, they are defined as <strong>built-in annotations</strong> specifically for controlling struct layout.
-          A general-purpose annotation system (for classes, fields, methods, etc.) is left as a future extension.</li>
-    </ul>
-
-    <h3>7.3 Inheritance and sealed</h3>
-<pre><code>class Base {
-    method foo(): void { }
-}
-
-class Derived extends Base {
-    method bar(): void { }
-}
-
-sealed class FinalDerived extends Base {
-    // cannot be extended further
-}
-</code></pre>
-
-    <h3>7.4 interface</h3>
-<pre><code>interface ILogger {
-    method log(msg: string): void;
-}
-
-class ConsoleLogger implements ILogger {
-    method log(msg: string): void {
-        print(msg);
-    }
-}
-</code></pre>
-    <ul>
-      <li>Use the <code>implements</code> keyword to implement an interface.</li>
-      <li>Use the <code>is</code> operator to test whether an interface is implemented.</li>
-    </ul>
-
-    <h3>7.5 trait</h3>
-<pre><code>trait Trait_A {
-    method hello(): void {
-        print("Hello from Trait_A");
-    }
-}
-</code></pre>
-
-    <h4>Applying traits with with</h4>
-<pre><code>var obj = new SomeClass() with Trait_A;
-obj.hello(); // method brought in from Trait_A (if there is no conflict)
-</code></pre>
-
-    <h4>Non-destructive add / remove (+ / -)</h4>
-<pre><code>var obj2 = obj + Trait_A;      // obj is unchanged; obj2 has Trait_A applied
-var obj3 = obj2 - Trait_A;     // obj3 is obj2 with Trait_A removed
-</code></pre>
-
-    <h4>Aliases via as</h4>
-<pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.hello(); // OK
-
-// obj2.hello(); // NG: only accessible via alias; members are not flattened
-</code></pre>
-
-    <h4>Trait conflicts</h4>
-    <ul>
-      <li>If multiple traits define the same field / method name, it is a compile error.</li>
-      <li>Aliases via <code>as a</code> are excluded from conflict detection.</li>
-      <li>The treatment of conflicts between the class body and trait members is left for a future version.</li>
-    </ul>
-
-    <h3>7.6 abstract / virtual / override</h3>
-    <p>
-      To express polymorphism in inheritance hierarchies, Aloe uses three keywords:
-      <code>abstract</code>, <code>virtual</code>, and <code>override</code>.
-    </p>
-
-    <h4>abstract class / abstract method</h4>
-<pre><code>abstract class Animal {
-    method SayName(): void {
-        print("Unknown");
-    }
-
-    abstract method Speak(): void; // abstract method without a body
-}
-</code></pre>
-    <ul>
-      <li>When <code>abstract</code> is placed before a class, it becomes an abstract class.</li>
-      <li>Abstract classes cannot be instantiated directly (<code>new Animal()</code> is a compile error).</li>
-      <li><code>abstract method</code> declarations have no body (no method block).</li>
-      <li>Any class with an abstract method must itself be <code>abstract class</code>.</li>
-    </ul>
-
-<pre><code>class Dog extends Animal {
-    override method Speak(): void {
-        print("Bowwow");
-    }
-}
-</code></pre>
-    <ul>
-      <li>Abstract methods must be implemented with <code>override</code> in concrete (non-abstract) subclasses.</li>
-    </ul>
-
-    <h4>virtual method and override</h4>
-<pre><code>class BaseLogger {
-    virtual method Log(message: string): void {
-        print("[Base] " + message);
-    }
-}
-
-class FileLogger extends BaseLogger {
-    override method Log(message: string): void {
-        print("[File] " + message);
-    }
-}
-</code></pre>
-    <ul>
-      <li><code>virtual</code> marks a method as overridable in derived classes.</li>
-      <li>virtual methods have a body (unlike abstract methods).</li>
-      <li>Derived classes must use <code>override</code> when overriding.</li>
-      <li>The signature (name, arguments, return type) of an override must match the base abstract / virtual method.</li>
-      <li>Using <code>override</code> when there is no corresponding abstract / virtual method in base is a compile error.</li>
-    </ul>
-
-    <h4>Call behavior</h4>
-<pre><code>BaseLogger logger = new FileLogger();
-logger.Log("Hello");  // resolves to FileLogger.Log at runtime (virtual dispatch)
-
-FileLogger fl = new FileLogger();
-fl.Log("Hello");      // also calls FileLogger.Log
-</code></pre>
-    <ul>
-      <li>virtual / override methods are dispatched based on the runtime type, not the static type of the variable.</li>
-      <li>To explicitly call the base implementation, a syntax like <code>super.Log(...)</code> (planned extension) is intended.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch8">8. delete &amp; null</h2>
-<pre><code>var obj = new FizzBuzz();
-delete obj;  // equivalent to: obj = null (at VM level)
-</code></pre>
-    <ul>
-      <li><code>delete obj;</code> is equivalent to <code>obj = null</code> at the VM level.</li>
-      <li>You cannot write <code>obj = null;</code> directly in source code.</li>
-      <li>Reference types can internally be null, but the type system does not track nullability.</li>
-      <li>Accessing a null reference may cause a <code>NullReferenceException</code>.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch9">9. is Operator</h2>
-<pre><code>if (obj is FizzBuzz) {
-    // true if runtime type is FizzBuzz or a subclass
-}
-
-if (obj is ILogger) {
-    // true if obj implements ILogger
-}
-
-if (obj is Trait_A) {
-    // true if obj has Trait_A applied (with / +)
-}
-</code></pre>
-    <ul>
-      <li><code>is</code> performs a runtime type check.</li>
-      <li>It respects inheritance (Derived is also considered a Base).</li>
-      <li>It can also be used for interfaces and traits.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch10">10. Collections (Array / List / Set / Map)</h2>
-
-    <h3>10.1 Arrays (T[])</h3>
-<pre><code>var arr: int[] = [1, 2, 3];
-var matrix: float[][] = [[1.0, 2.0], [3.0, 4.0]];
-</code></pre>
-
-    <h3>10.2 Lists (T())</h3>
-<pre><code>var lst: int() = (1, 2, 3);
-var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
-</code></pre>
-
-    <h3>10.3 Sets (T{})</h3>
-<pre><code>var st: int{} = {1, 2, 3};
-var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
-</code></pre>
-
-    <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
-<pre><code>var mp: map&lt;int&gt; = ["key1": 10, "key2": 20];          // map&lt;int&gt; is an alias of map&lt;string/int&gt;
-var mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
-var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
-</code></pre>
-
-    <hr>
-
-    <h2 id="ch11">11. enum and bitfield enum</h2>
-
-    <h3>11.1 Normal enum</h3>
-<pre><code>enum Color {
-    Red,
-    Green,
-    Blue
-}
-</code></pre>
-    <ul>
-      <li>Internal representation is always int32.</li>
-      <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code>, etc. (change of underlying type) are not allowed.</li>
-      <li>enum types can also be targets for type-based with; e.g., <code>with (Color) { Red; }</code> accesses enum values directly.</li>
-    </ul>
-
-    <h3>11.2 bitfield enum</h3>
-<pre><code>bitfield enum LogFlags {
-    None = 1 &lt;&lt; 0,
-    Info = 1 &lt;&lt; 3,
-    Warn,
-}
-</code></pre>
-
-    <h4>b(n) notation</h4>
-<pre><code>bitfield enum LogFlags {
-    None : b(0),
-    Info : b(3),
-    Warn,            // highest b(n) so far is 3; Warn becomes b(4) = 1 &lt;&lt; 4
-}
-</code></pre>
-    <ul>
-      <li><code>b(n)</code> represents bit n (<code>1 &lt;&lt; n</code>).</li>
-      <li><code>Name : b(n)</code> assigns bit n to that enum value.</li>
-      <li><code>bitfield enum</code> can use at most 32 bits (n is 0–31).</li>
-      <li>Multiple enum values sharing the same bit are allowed; the compiler may warn but does not have to error.</li>
-      <li>The underlying type is always int32; <code>bitfield enum&lt;byte&gt;</code> etc. are compile errors.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch12">12. main Block (entry point)</h2>
-<pre><code>function main(args: string[]): int {
-    var fb = new FizzBuzz();
-    fb.run();
-    return 0; // process exit code
-}
-</code></pre>
-    <ul>
-      <li>This is the program entry point.</li>
-      <li><code>args</code> is the command-line argument list.</li>
-      <li><code>main</code> must be declared exactly as <code>function main(args: string[]): int</code>, and must return an <code>int</code> via a <code>return</code> statement.</li>
-      <li>The special temporary <code>_</code> has no special meaning in main (it behaves as a normal variable).</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch13">13. Temp Variable <code>_</code></h2>
-<pre><code>function main(args: string[]): int {
-    var x = 10;
-    var _ = x + 5;   // here it behaves as a normal local variable
-    return 0;
-}
-
-method foo(): void {
-    var x = 10;
-    _ = x + 5;   // the type of _ in this block is the type of the first assigned expression
-}
-</code></pre>
-    <ul>
-      <li><code>_</code> can be used as a special temporary variable in any block without explicit declaration.</li>
-      <li>In main, it has no special meaning; it behaves as a normal variable.</li>
-      <li>In blocks other than main, the type of <code>_</code> is set by the first assignment in that block.</li>
-      <li>Inside a with block, <code>_</code> additionally refers to the current with-target object (see 4.2).</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch14">14. swap Keyword</h2>
-<pre><code>var a = 10;
-var b = 20;
-swap (a, b);
-print(a); // 20
-print(b); // 10
-</code></pre>
-    <ul>
-      <li><code>swap (x, y);</code> swaps the values (or references) of <code>x</code> and <code>y</code>.</li>
-      <li>The compiler checks at compile time whether swap is valid.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch15">15. Operators</h2>
-
-    <h3>15.1 Precedence (from highest to lowest)</h3>
-    <ol>
-      <li>Member / call: <code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
-      <li>Unary: <code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
-      <li>Multiplicative: <code>*</code>, <code>/</code>, <code>%</code></li>
-      <li>Additive: <code>+</code>, <code>-</code></li>
-      <li>Shift: <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
-      <li>Relational: <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
-      <li>Equality: <code>==</code>, <code>!=</code></li>
-      <li>Bitwise AND: <code>&amp;</code></li>
-      <li>Bitwise XOR: <code>^</code></li>
-      <li>Bitwise OR: <code>|</code> (different meaning in pipeline statements)</li>
-      <li>Logical AND: <code>&amp;&amp;</code> (alias: <code>and</code>)</li>
-      <li>Logical OR: <code>||</code> (alias: <code>or</code>)</li>
-      <li>Assignment: <code>=</code></li>
-    </ol>
-    <p>Compound assignments (such as <code>+=</code>) are not yet specified.</p>
-
-    <h3>15.2 Associativity</h3>
-    <ul>
-      <li>Unary operators: right-associative.</li>
-      <li>Assignment: right-associative.</li>
-      <li>Other binary operators: left-associative.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch16">16. Exceptions</h2>
-<pre><code>try {
-    // code that might throw
-}
-catch (e) {
-    // handle exception
-}
-finally {
-    // cleanup
-}
-</code></pre>
-
-    <h3>16.1 Overview of standard exceptions</h3>
-<pre><code>Exception
-├── SystemException
-│   ├── NullReferenceException
-│   ├── IndexOutOfBoundsException
-│   ├── OverflowException
-│   ├── ZeroDivisionException
-│   ├── InvalidOperationException
-│   ├── NotImplementedException
-│   ├── TimeoutException
-│   ├── ArgumentException
-│   │   ├── ArgumentNullException
-│   │   └── ArgumentOutOfRangeException
-│   └── FormatException
-└── IOException
-    ├── FileNotFoundException
-    ├── EndOfStreamException
-    └── IOException (general)
-</code></pre>
-    <ul>
-      <li><code>OverflowException</code> is used for both overflow and underflow.</li>
-      <li><code>ZeroDivisionException</code> is thrown for division by 0 / 0.0.</li>
-      <li>Parsing and formatting errors use <code>FormatException</code>.</li>
-      <li><code>InvalidOperationException</code> is used for invalid operations in the current state
-          (e.g., accessing a <code>Result</code> property that does not match its status).</li>
-      <li>Other VM-level fatal errors are implementation-dependent.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch17">17. Modules / namespace / import</h2>
-<pre><code>namespace Aloe.Sample {
-    import Aloe.Core.Logging;
-
-    class App {
-        // ...
-    }
-}
-</code></pre>
-    <ul>
-      <li><code>namespace</code> defines a logical namespace.</li>
-      <li><code>import</code> brings other namespaces / symbols into scope.</li>
-      <li>Details such as file layout and circular imports are defined in the module specification.</li>
-    </ul>
-
-    <hr>
-
-    <h2 id="ch18">18. Pipes &amp; Filters</h2>
-
-    <p>
-      Aloe uses <code>pipe&lt;T&gt;</code> and <code>filter(...)</code> to structure streaming processing
-      for servers, CLI, web applications, etc.
-    </p>
-
-    <h3>18.1 Basics of pipe&lt;T&gt;</h3>
-    <ul>
-      <li><code>pipe&lt;T&gt;</code> is a stream of elements of type T.</li>
-      <li><code>pipe&lt;byte&gt;</code> … byte streams such as stdin or sockets.</li>
-      <li><code>pipe&lt;string&gt;</code> … string stream.</li>
-      <li>Pipes assume value copying rather than shared mutable memory.</li>
-    </ul>
-
-    <h4>18.1.1 Built-in pipes</h4>
-    <ul>
-      <li><code>stdin : pipe&lt;byte&gt;</code></li>
-      <li><code>stdout : pipe&lt;byte&gt;</code></li>
-      <li><code>stderr : pipe&lt;byte&gt;</code> (optional)</li>
-    </ul>
-
-    <h3>18.2 Result&lt;T&gt; and the idea of ROP (Railway Oriented Programming)</h3>
-    <p>
-      In Aloe, error handling and branching in pipelines and filters are expressed via
-      the built-in generic type <strong>Result&lt;T&gt;</strong> and the idea of
-      <strong>Railway Oriented Programming (ROP)</strong>.
-    </p>
-    <ul>
-      <li><code>Result&lt;T&gt;</code> is a built-in generic type representing either “success (Success = true)” or “failure (Success = false)”.</li>
-      <li>Filters and pipes typically return <code>Result&lt;T&gt;</code> to explicitly signal success or failure.</li>
-    </ul>
-
-    <h4>18.2.1 Type specification of Result&lt;T&gt; (overview)</h4>
-<pre><code>// Conceptual pseudo-code (syntax to be finalized)
-class Result&lt;T&gt; {
-    // State:
-    // Success == true  : Value is valid
-    // Success == false : ErrorMessage is valid
-    field Success: bool;
-    field Value: T;
-    field ErrorMessage: string;
-
-    // Factory methods (built-in)
-    static method Ok(value: T): Result&lt;T&gt;;
-    static method Error(message: string): Result&lt;T&gt;;
-}
-</code></pre>
-    <ul>
-      <li>If <code>Success</code> is <code>true</code>:
-        <ul>
-          <li><code>Value</code> holds a valid value.</li>
-          <li><code>ErrorMessage</code> is an empty string or implementation-defined; reading it is allowed.</li>
-        </ul>
-      </li>
-      <li>If <code>Success</code> is <code>false</code>:
-        <ul>
-          <li><code>ErrorMessage</code> holds an error message (or a part of it).</li>
-          <li><code>Value</code> is treated as “no value”, and reading it is an invalid operation.</li>
-        </ul>
-      </li>
-      <li>Accessing a property that does not match the current state (for example, reading <code>Value</code> when
-          <code>Success == false</code>) throws <code>InvalidOperationException</code> at runtime
-          (and may be a compile error when statically detectable).</li>
-      <li>For <code>Result&lt;void&gt;</code>, <code>Result&lt;void&gt;.Ok()</code> (no arguments) is specially allowed
-          to represent a success with no value:
-        <ul>
-          <li>In this case, <code>Success == true</code>, and <code>ErrorMessage</code> is typically empty.</li>
-          <li>Attempting to read <code>Value</code> on <code>Result&lt;void&gt;</code> is always invalid and throws <code>InvalidOperationException</code>.</li>
-        </ul>
-      </li>
-    </ul>
-    <p>
-      The above is a logical model; actual field names and implementation details may be adjusted in the VM / runtime spec.
-      However, the contract—“only access the property valid for the current Success state”—is guaranteed by the language spec.
-    </p>
-
-    <h4>18.2.2 Intuition of ROP (Railway Oriented Programming)</h4>
-    <p>
-      ROP imagines a “success track” and a “failure track” running in parallel.
-      Each step (filter) returns a <code>Result&lt;T&gt;</code>, and once an error occurs, subsequent steps are skipped.
-    </p>
-<pre><code>Input
-  ├─&gt; [ Filter A ] ──&gt; [ Filter B ] ──&gt; [ Filter C ] ──&gt; Output
-  │         │               │               │
-  │         └─&gt; Error ──────┴───────────────┴───&gt; Error track
-  │
-  └─&gt; (other branches such as logging)
-</code></pre>
-    <p>
-      Filters in Aloe are designed to minimize side effects and aim to be “almost idempotent”:
-      given the same input, they should ideally produce the same output.
-    </p>
-
-    <h3>18.3 filter(...) basics and definitions</h3>
-    <p><code>filter(F)</code> is an intermediate transformation stage in a pipeline.</p>
-
-    <h4>18.3.1 Filter definition (filter definition statement)</h4>
-<pre><code>filter lineSplit {
-    in:  pipe&lt;string&gt;;
-    out: pipe&lt;string&gt;;
-
-    // Optional type for options
-    options: LineSplitOptions;
-
-    // Field definitions (optional but should be minimal for side-effect reasons)
-    field _buffer: string = "";
-
-    // Constructor (optional)
-    constructor(opts: LineSplitOptions) {
-        // Initialize according to the options, etc.
-    }
-
-    // Main body that processes from input pipe to output pipe
-    bound(input, output): Result&lt;void&gt; {
-        foreach (chunk in input) {
-            let lines = chunk.split("\n");
-            foreach (line in lines) {
-                output.write(line);
-            }
-        }
-        output.close();
-        return Result&lt;void&gt;.Ok(); // indicates success
-    }
-}
-</code></pre>
-    <ul>
-      <li><code>in</code> / <code>out</code> specify the types of the input and output pipes.</li>
-      <li><code>options</code> specifies an option type (typically bitfield enum etc.) for the filter.</li>
-      <li><code>field</code> can be used to keep internal state, but to stay true to ROP (same input → same output),
-          stateful fields should be minimized.</li>
-      <li><code>constructor</code> can optionally be defined to receive options and external parameters.</li>
-      <li><code>bound(input, output): Result&lt;void&gt;</code> is the main execution body of the filter.
-          It returns <code>Result&lt;void&gt;.Ok()</code> on success, or <code>Result&lt;void&gt;.Error(...)</code> on failure.</li>
-    </ul>
-
-    <h4>18.3.2 Filter options (filter option specification)</h4>
-<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
-</code></pre>
-    <ul>
-      <li>Options are specified after <code>:</code>, joined by <code>|</code>.</li>
-      <li>Each filter can define its own option type (bitfield enum etc.).</li>
-      <li>When a filter definition specifies <code>options: JsonOptions;</code>, it may allow omitting the class name when
-          using that filter in a pipeline:
-      </li>
-    </ul>
-<pre><code>filter(json&lt;User&gt;: PrettyPrint | IncludeNulls)
-</code></pre>
-    <p>
-      The above is equivalent to <code>JsonOptions.PrettyPrint | JsonOptions.IncludeNulls</code>, and the compiler validates
-      that these enum values belong to the option type specified by <code>options</code>.
-    </p>
-
-    <h3>18.4 Pipeline statements with <code>|</code> and pipe-with operator <span class="operator">|&gt;</span></h3>
-<pre><code>stdin
+      </nav>
+    </aside>
+
+    <main class="content">
+      <h1>Aloe Standard Library Specification (Filters Edition)</h1>
+      <div class="meta">
+        Draft • English • Filters Library • version 3<br>
+        This document is a “Standard Filter Library Specification” that is separate from the Aloe language specification.
+      </div>
+
+      <section id="ch0">
+        <h2>0. Overview</h2>
+        <p>
+          This document defines the <span class="tag">standard filter set</span> of the Aloe language,
+          assuming the existence of <code>pipe&lt;T&gt;</code> and <code>filter</code>.
+        </p>
+        <p>
+          The core language specification defines syntax, the type system, and
+          <code>pipe</code> / <code>filter</code> syntax,
+          while this document independently specifies the names, behavior, and types
+          of the filters that are provided as the standard library.
+        </p>
+        <p>
+          Implementations should aim to be “as faithful as possible” to the signatures
+          and semantics defined here, but some behavior may be implementation-dependent
+          due to performance or platform differences.
+        </p>
+
+        <div class="note">
+          <strong>NOTE:</strong> All code examples in this document are Aloe pseudo code,
+          and may be updated in the future as the language specification evolves.
+        </div>
+      </section>
+
+      <section id="ch1">
+        <h2>1. Common Rules for Filters</h2>
+
+        <h3>1.1 Call Syntax</h3>
+        <p>
+          All filters in this document are applied to <code>pipe&lt;T&gt;</code>
+          using the form <code>filter(NAME ...)</code>.
+        </p>
+
+        <pre><code>// Full form
+stdin
     | filter(utf8)
-    | filter(json&lt;DateTime&gt;)
-    | dates;
-</code></pre>
-    <ul>
-      <li><code>A | B | C;</code> connects A’s output to B, and B’s output to C.</li>
-      <li>Type checking verifies input/output type consistency between stages.</li>
-      <li>The pipeline statement itself does not return a value; it just wires up stages as a side effect.</li>
-    </ul>
+    | filter(lineSplit)
+    | filter(trim)
+    | stdout;</code></pre>
 
-    <h4>18.4.1 Pipe-with operator <span class="operator">|&gt;</span> (shortcut for filter conditions)</h4>
-    <p>
-      The operator <span class="operator">|&gt;</span> is defined as a shortcut for conditional filtering
-      using <code>filter(if)</code>.
-    </p>
-<pre><code>// Full syntax
-users
-    | filter(if : .Age &gt;= 20 and .Gender == Gender.Male);
+        <p>
+          However, <strong>inside a pipeline statement</strong>, the keyword
+          <code>filter</code> may be omitted, and a shorthand syntax
+          <code>|: NAME ...</code> can be used.
+        </p>
 
-// Shortcut syntax (equivalent)
-users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
-</code></pre>
-    <ul>
-      <li>The right-hand side of <span class="operator">|&gt;</span> is a condition expression using an implicit context
-          (similar to <code>.</code> in with blocks) that refers to the current element.</li>
-      <li>In the example, the filter passes only users who are male and at least 20 years old.</li>
-      <li><span class="operator">|&gt;</span> is internally expanded to <code>filter(if : ...)</code>, so implementing a single
-          <code>if</code> filter is sufficient.</li>
-    </ul>
+        <pre><code>// Shorthand (pipeline-only syntax)
+stdin
+    |: utf8
+    |: lineSplit
+    |: trim
+    | stdout;</code></pre>
 
-    <h3>18.5 foreach and pipe</h3>
-<pre><code>foreach (line in lines) {
-    print("Input: " + line);
-}
-</code></pre>
-    <ul>
-      <li><code>foreach (x in p)</code> is internally implemented by calling <code>p.next()</code> until EOF.</li>
-      <li>When the writer side calls <code>close()</code>, the reader detects EOF and terminates the loop.</li>
-    </ul>
+        <p>
+          The following two snippets are equivalent:
+        </p>
 
-    <h3>18.6 Element transformation with map</h3>
-    <p>
-      Applying <code>map</code> to a pipe applies a function (or lambda) to each element
-      and yields a stream of another type.
-    </p>
-<pre><code>// Using a function
-function toName(u: User): string {
-    return u.Name;
-}
+        <pre><code>stdin
+    | filter(utf8)
+    | filter(json: User);
 
-names = users | map(toName);
+stdin
+    |: utf8
+    |: json: User;</code></pre>
 
-// Lambda-style notation (syntax draft)
-names = users | map (u) =&gt; u.Name;
-</code></pre>
-    <ul>
-      <li><code>map</code> is defined as a built-in higher-order operation.</li>
-      <li>The result of <code>map</code> is also a <code>pipe&lt;T&gt;</code> and can be further connected to other filters.</li>
-    </ul>
+        <p>
+          Filters that require a type argument receive it as a
+          <strong>labeled argument</strong>:
+        </p>
 
-    <h3>18.7 Template map for collection pipes</h3>
-    <p>
-      For collections (such as <code>User()</code> or <code>User{}</code>),
-      Aloe also supports a template-based <code>map</code> syntax.
-    </p>
-<pre><code>users as u | map Customer {
-    Name    = u.Name,
-    Address = u.Address
-}
-</code></pre>
-    <ul>
-      <li><code>as u</code> introduces an alias for each element.</li>
-      <li><code>map Customer { ... }</code> is treated as a template that constructs a new <code>Customer</code> object
-          and assigns fields inside the block.</li>
-      <li>The result is a collection of <code>Customer</code> (e.g., <code>Customer()</code>), mirroring the original collection type.</li>
-    </ul>
+        <pre><code>stdin
+    |: utf8
+    |: json: User
+    | users;</code></pre>
 
-    <h3>18.8 close and EOF propagation</h3>
-    <ul>
-      <li>After <code>p.close()</code>, calling <code>write()</code> is invalid and may be treated as an error.</li>
-      <li>Filters should call <code>close()</code> on their output when they detect EOF on their input.</li>
-    </ul>
+        <h3>1.2 Type Notation</h3>
+        <p>
+          This document uses a simplified notation for types. Examples:
+        </p>
+        <ul>
+          <li><code>pipe&lt;string&gt;</code> – a stream of strings</li>
+          <li><code>pipe&lt;byte&gt;</code> – a stream of bytes</li>
+          <li><code>pipe&lt;T&gt;</code> – a pipe with a type parameter</li>
+        </ul>
 
-    <h3>18.9 Concurrency model using pipes</h3>
-    <ul>
-      <li>The primary communication means between tasks is <code>pipe&lt;T&gt;</code>.</li>
-      <li>The design assumes a shared-nothing model, avoiding shared mutable data structures.</li>
-    </ul>
+        <h3>1.3 Side Effects and Exceptions</h3>
+        <p>
+          Filters may behave in several ways, such as:
+        </p>
+        <ul>
+          <li>Consuming the entire input pipe before producing any output (e.g. <code>sort</code>, <code>shuffle</code>, <code>zip</code>)</li>
+          <li>Letting only a subset of elements pass through (e.g. <code>if</code>, <code>startswith</code>, <code>contains</code>)</li>
+          <li>Holding internal state (e.g. <code>AESencrypt</code> with an encryption context)</li>
+        </ul>
 
-    <h3>18.10 match-based branching for pipes (branching Result&lt;T&gt;)</h3>
-    <p>
-      For pipes and filters that return <code>Result&lt;T&gt;</code>, you can branch using <code>match</code>.
-    </p>
-<pre><code>stdin
-    | filter(parseUser)
-    | match {
-        case Ok(u):
-            // success track
-            | filter(saveUser)
-            | filter(logSuccess);
-        case Error(e):
-            // error track
-            | filter(logError);
-        default:
-            // fallback when nothing matches (for future extensions)
-            break;
-    };
-</code></pre>
-    <ul>
-      <li><code>| match { ... }</code> branches on the <code>Result&lt;T&gt;</code> produced by the preceding stage.</li>
-      <li>Each <code>case pattern:</code> can be followed by further pipeline stages such as <code>| filter(...)</code>.</li>
-      <li><code>default:</code> is optional and used as a fallback when no cases match.</li>
-    </ul>
-<pre><code>| match {
-    case condition1:
-        | filter(handleCase1);
-    case condition2:
-        | filter(handleCase2);
-    default:
-        | filter(handleDefault);
-}
-</code></pre>
-    <p>
-      In the condition, you can use <code>is</code> or Result patterns such as <code>Ok(...)</code>, <code>Error(...)</code>.
-    </p>
+        <p>
+          How filters handle errors (exceptions, returning <code>Result&lt;T&gt;</code>, etc.)
+          is mentioned in each filter’s description when needed.
+        </p>
 
-    <h3>18.11 Example: simple REST-like pipeline</h3>
-<pre><code>class User {
-    field id: int;
-    field name: string;
-}
+        <h3>1.4 Namespace</h3>
+        <p>
+          The root namespace of the standard library is <code>aloe</code>.
+          Every standard filter belongs to some namespace under this root.
+        </p>
+        <ul>
+          <li>Namespace names are <strong>all lowercase</strong>, separated by <code>.</code>.</li>
+          <li>Examples: <code>aloe.text</code>, <code>aloe.encoding</code>, <code>aloe.crypto.hash</code>, etc.</li>
+        </ul>
+        <p>
+          For each filter, this document assigns a <strong>canonical fully-qualified name</strong>
+          of the form <code>aloe.xxx.yyy</code>. How imports and short names
+          (using only the simple filter name) work in actual code is defined
+          on the language-spec side.
+        </p>
+      </section>
 
-function main(args: string[]): int {
-    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
+      <section id="ch2">
+        <h2>2. Text / Encoding</h2>
 
-    stdin
-        | filter(utf8)
-        | filter(json&lt;User&gt;)
-        | users;
+        <h3>2.1 <code>utf8</code></h3>
+        <p class="filter-header">Namespace / Signature</p>
+        <p class="sig">
+          Namespace: <code>aloe.encoding</code><br>
+          filter utf8 : pipe&lt;byte&gt; -&gt; pipe&lt;string&gt;
+        </p>
+        <p>
+          Decodes the input byte stream as UTF-8 and converts it into a stream of strings.
+        </p>
 
-    let u: User? = users.next();
-    if (u is User) {
-        print("User: " + u.name);
-    }
+        <pre><code>stdin
+    |: utf8
+    |: lineSplit
+    | stdout;</code></pre>
 
-    return 0;
-}
-</code></pre>
+        <h3>2.2 <code>lineSplit</code></h3>
+        <p class="filter-header">Namespace / Signature</p>
+        <p class="sig">
+          Namespace: <code>aloe.text</code><br>
+          filter lineSplit : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+        <p>
+          Splits string chunks on line breaks and outputs one line of text per element.
+          How line breaks (<code>\n</code> vs <code>\r\n</code>) are treated is
+          implementation-dependent, but at minimum <code>\n</code> must be recognized.
+        </p>
 
-    <h2 id="editor-notes">Appendix: Editing Policy for Generative AI (not part of the spec)</h2>
-    <p class="note">
-      <strong>Common editing policy for generative AI (Aloe Language Spec / AloeVM Spec):</strong><br>
-      ・This document and the AloeVM specification must always be maintained under the same editing policy.<br>
-      ・The Japanese and English versions must always match in content (chapter structure, headings, and semantic meaning). Do not arbitrarily simplify or extend only one side.<br>
-      ・The <code>edit-version</code> must be shared by the Japanese and English versions, and should be incremented by +1 only when the specification body (including examples) changes. Do not decrease or roll it back.<br>
-      ・<code>edit-date</code> must always contain the precise Asia/Tokyo time at the moment the edit is applied, in ISO 8601 format (YYYY-MM-DDThh:mm:ss+09:00). Do not guess or use another time zone.<br>
-      ・As a rule, unrelated parts must not be changed. Even if the meaning is “the same”, do not rename variables, methods, or wording just “for the better”.<br>
-      ・If you want to add a new feature to the spec or change the meaning of an existing one, you must first consult the user, obtain agreement, and then reflect the change.<br>
-      ・Always treat the latest full HTML that the user explicitly provided as “the canonical original”, and only apply the minimal diff necessary against that version.<br>
-      ・If you cannot reproduce the latest HTML in your working context, or if you are unsure which version is the newest, do not continue editing. Always ask the user to clarify first.<br>
-    </p>
+        <pre><code>stdin
+    |: utf8
+    |: lineSplit
+    |: trim
+    | stdout;</code></pre>
+      </section>
 
-  </main>
-</div>
+      <section id="ch3">
+        <h2>3. JSON / Data Transformation</h2>
+
+        <h3>3.1 <code>json</code> (decode)</h3>
+        <p class="filter-header">Namespace / Signature</p>
+        <p class="sig">
+          Namespace: <code>aloe.json</code><br>
+          filter json&lt;T&gt; : pipe&lt;string&gt; -&gt; pipe&lt;T&gt;
+        </p>
+        <p>
+          Decodes JSON text into typed objects.
+          At call sites, the target type is passed as in <code>filter(json: User)</code>.
+        </p>
+
+        <pre><code>stdin
+    |: utf8
+    |: json: User
+    | users;    // pipe&lt;User&gt;</code></pre>
+
+        <h3>3.2 CSV: <code>csvenode</code> / <code>csvdecode</code></h3>
+
+        <h4>3.2.1 <code>csvenode</code></h4>
+        <p class="sig">
+          Namespace: <code>aloe.csv</code><br>
+          filter csvenode : pipe&lt;string[]&gt; -&gt; pipe&lt;string&gt;
+        </p>
+        <p>
+          Encodes a string array into a single CSV line.
+          Delimiters and escape rules are implementation-dependent, but following
+          a standard CSV specification is recommended.
+        </p>
+
+        <h4>3.2.2 <code>csvdecode</code></h4>
+        <p class="sig">
+          Namespace: <code>aloe.csv</code><br>
+          filter csvdecode : pipe&lt;string&gt; -&gt; pipe&lt;string[]&gt;
+        </p>
+        <p>
+          Parses each input line as CSV and outputs an array of column strings.
+        </p>
+
+        <pre><code>stdin
+    |: utf8
+    |: lineSplit
+    |: csvdecode
+    | rows;   // pipe&lt;string[]&gt;</code></pre>
+      </section>
+
+      <section id="ch4">
+        <h2>4. Conditionals / Reordering</h2>
+
+        <h3>4.1 <code>if</code> / <code>elseif</code> / <code>else</code></h3>
+        <p>
+          These filters form a composite “conditional pass-through” construct:
+          elements are passed through depending on conditions.
+        </p>
+
+        <p class="filter-header">Namespace / Signature (conceptual)</p>
+        <p class="sig">
+          Namespace: <code>aloe.filter</code><br>
+          filter if     : pipe&lt;T&gt; -&gt; pipe&lt;T&gt;<br>
+          filter elseif : pipe&lt;T&gt; -&gt; pipe&lt;T&gt;<br>
+          filter else   : pipe&lt;T&gt; -&gt; pipe&lt;T&gt;
+        </p>
+
+        <pre><code>users
+    |: if:     .Age &gt;= 20 and .Gender == Gender.Male
+    |: elseif: .Age &gt;= 13
+    |: else
+    | stdout;</code></pre>
+
+        <ul>
+          <li><code>if</code> – first conditional branch.</li>
+          <li><code>elseif</code> – additional conditional branch,
+              valid only if it directly follows an <code>if</code> or another <code>elseif</code>.</li>
+          <li><code>else</code> – passes elements that did not match any prior branch.</li>
+        </ul>
+
+        <h3>4.2 <code>switch</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.filter</code><br>
+          filter switch : pipe&lt;T&gt; -&gt; pipe&lt;T&gt; (detailed spec to be added later)
+        </p>
+        <p>
+          <code>switch</code> is a filter that extracts a key from each element and
+          dispatches it to one of multiple branches based on that key.
+          At the moment, only the name and rough role are reserved;
+          details such as the syntax of <code>case</code> clauses are to be defined
+          in the language specification later.
+        </p>
+
+        <h3>4.3 <code>sort</code></h3>
+        <p class="filter-header">Namespace / Signature</p>
+        <p class="sig">
+          Namespace: <code>aloe.collection</code><br>
+          filter sort       : pipe&lt;T&gt; -&gt; pipe&lt;T&gt;<br>
+          filter sort(key)  : pipe&lt;T&gt; -&gt; pipe&lt;T&gt;
+        </p>
+        <p>
+          Sorts input elements and outputs them in order.
+          Internally, all elements are buffered, sorted, then emitted.
+        </p>
+
+        <pre><code>users
+    |: sort: .Age   // sort ascending by Age
+    | stdout;</code></pre>
+
+        <h3>4.4 <code>shuffle</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.collection</code><br>
+          filter shuffle : pipe&lt;T&gt; -&gt; pipe&lt;T&gt;
+        </p>
+        <p>
+          Randomly shuffles the order of elements.
+          Internally buffers all elements, randomizes their order, then outputs them.
+        </p>
+
+        <pre><code>cards
+    |: shuffle
+    | gameDeck;</code></pre>
+      </section>
+
+      <section id="ch5">
+        <h2>5. Crypto / Hash / Binary</h2>
+
+        <h3>5.1 Hash: <code>md4</code> / <code>sha1</code> / <code>sha256</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.crypto.hash</code><br>
+          filter md4    : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;<br>
+          filter sha1   : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;<br>
+          filter sha256 : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;
+        </p>
+        <p>
+          Computes a hash over the entire input and outputs the resulting hash bytes.
+          For security purposes, <code>sha256</code> is recommended;
+          <code>md4</code> and <code>sha1</code> are provided mainly for compatibility.
+        </p>
+
+        <pre><code>stdin
+    |: sha256
+    |: bin2hex
+    | stdout;</code></pre>
+
+        <h3>5.2 Byte-Stream Conversions: <code>bin2hex</code> / <code>crc32</code></h3>
+
+        <h4>5.2.1 <code>bin2hex</code></h4>
+        <p class="sig">
+          Namespace: <code>aloe.encoding</code><br>
+          filter bin2hex : pipe&lt;byte&gt; -&gt; pipe&lt;string&gt;
+        </p>
+        <p>
+          Converts bytes to their hexadecimal string representation.
+        </p>
+
+        <h4>5.2.2 <code>crc32</code></h4>
+        <p class="sig">
+          Namespace: <code>aloe.crypto.hash</code><br>
+          filter crc32 : pipe&lt;byte&gt; -&gt; pipe&lt;uint32&gt;
+        </p>
+        <p>
+          Calculates the CRC32 value over the entire input and outputs it as a single integer.
+        </p>
+
+        <h3>5.3 Base64 / URL</h3>
+        <p class="sig">
+          Namespace: <code>aloe.encoding</code><br>
+          filter base64encode : pipe&lt;byte&gt; -&gt; pipe&lt;string&gt;<br>
+          filter base64decode : pipe&lt;string&gt; -&gt; pipe&lt;byte&gt;
+        </p>
+        <p class="sig">
+          Namespace: <code>aloe.net.http</code><br>
+          filter urlencode    : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter urldecode    : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+
+        <pre><code>fileBytes
+    |: base64encode
+    | stdout;
+
+// ...
+
+stdin
+    |: base64decode
+    | fileBytes;</code></pre>
+
+        <h3>5.4 Symmetric Crypto: Blowfish / AES</h3>
+
+        <h4>5.4.1 Blowfish: <code>blowfishencrypt</code> / <code>blowfishdecrypt</code></h4>
+        <p class="sig">
+          Namespace: <code>aloe.crypto.cipher</code><br>
+          filter blowfishencrypt(ctx: BlowfishContext) : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;<br>
+          filter blowfishdecrypt(ctx: BlowfishContext) : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;
+        </p>
+        <p>
+          Uses <code>ctx</code> (holding key, IV, mode, etc.) to encrypt or decrypt data.
+        </p>
+
+        <h4>5.4.2 AES: <code>AESencrypt</code> / <code>AESdecrypt</code></h4>
+        <p class="sig">
+          Namespace: <code>aloe.crypto.cipher</code><br>
+          filter AESencrypt(ctx: AESContext) : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;<br>
+          filter AESdecrypt(ctx: AESContext) : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;
+        </p>
+        <p>
+          Encrypts/decrypts using AES (CBC / GCM, etc.).
+          The specific mode and padding are defined by <code>AESContext</code>.
+        </p>
+      </section>
+
+      <section id="ch6">
+        <h2>6. String Utilities</h2>
+
+        <h3>6.1 Case Conversion: <code>tolower</code> / <code>toupper</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.text</code><br>
+          filter tolower : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter toupper : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+
+        <pre><code>lines
+    |: tolower
+    | normalized;</code></pre>
+
+        <h3>6.2 Case Styles: <code>camelcase</code> / <code>pascalcase</code> / <code>snakecase</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.text</code><br>
+          filter camelcase  : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter pascalcase : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter snakecase  : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+
+        <ul>
+          <li><strong>camelcase</strong>: <code>"hello world"</code> → <code>"helloWorld"</code></li>
+          <li><strong>pascalcase</strong>: <code>"hello world"</code> → <code>"HelloWorld"</code></li>
+          <li><strong>snakecase</strong>: <code>"Hello World"</code> → <code>"hello_world"</code></li>
+        </ul>
+
+        <h3>6.3 Substring/Match Filters: <code>startswith</code> / <code>contains</code> / <code>strstr</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.text</code><br>
+          filter startswith(prefix: string) : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter contains(needle: string)   : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter strstr(needle: string)     : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+        <ul>
+          <li><code>startswith</code>: passes only lines that start with <code>prefix</code>.</li>
+          <li><code>contains</code>: passes only lines that contain <code>needle</code>.</li>
+          <li><code>strstr</code>: returns the substring starting from the position where <code>needle</code> first appears (similar to PHP’s <code>strstr</code>).</li>
+        </ul>
+
+        <pre><code>lines
+    |: startswith: "[ERROR]"
+    |: strstr: "detail="
+    | stdout;</code></pre>
+
+        <h3>6.4 Trim / Join: <code>ltrim</code> / <code>rtrim</code> / <code>trim</code> / <code>join</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.text</code><br>
+          filter ltrim : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter rtrim : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter trim  : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter join(sep: string) : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+
+        <p>
+          <code>join</code> concatenates all input strings with <code>sep</code>
+          and outputs a single string.
+        </p>
+
+        <pre><code>lines
+    |: trim
+    |: join: "\n"
+    | text;</code></pre>
+      </section>
+
+      <section id="ch7">
+        <h2>7. Archive / Compression / CSV</h2>
+
+        <h3>7.1 ZIP / TAR: <code>zip</code> / <code>unzip</code> / <code>tar</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.archive</code><br>
+          filter zip   : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;<br>
+          filter unzip : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;<br>
+          filter tar   : pipe&lt;byte&gt; -&gt; pipe&lt;byte&gt;
+        </p>
+        <p>
+          Here we assume a simple model in which “the entire stream” is treated
+          as a single archive.
+          More advanced operations (multiple entries, file names, etc.) may be
+          provided as separate high-level APIs.
+        </p>
+
+        <pre><code>stdin
+    |: zip
+    | stdout;
+
+// ...
+
+stdin
+    |: unzip
+    | stdout;</code></pre>
+
+        <h3>7.2 CSV: <code>csvenode</code> / <code>csvdecode</code></h3>
+        <p>(Described in section 3.2; only re-listed here as part of this category.)</p>
+      </section>
+
+      <section id="ch8">
+        <h2>8. HTML / Sanitization</h2>
+
+        <h3>8.1 Escape / Unescape</h3>
+        <p class="sig">
+          Namespace: <code>aloe.html</code><br>
+          filter htmlspecialchars          : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter htmlspecialchars_decode   : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter html_entity_decode        : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;<br>
+          filter strip_tags                : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+
+        <ul>
+          <li><code>htmlspecialchars</code>: escapes characters like <code>&lt;</code>, <code>&gt;</code>, <code>&amp;</code>, <code>&quot;</code> into safe entities.</li>
+          <li><code>htmlspecialchars_decode</code>: reverses <code>htmlspecialchars</code>.</li>
+          <li><code>html_entity_decode</code>: decodes a broader set of HTML entities (e.g. <code>&amp;nbsp;</code>).</li>
+          <li><code>strip_tags</code>: strips HTML tags and leaves only plain text.</li>
+        </ul>
+
+        <pre><code>htmlLines
+    |: strip_tags
+    |: trim
+    | plainText;</code></pre>
+      </section>
+
+      <section id="ch9">
+        <h2>9. Parsing / Formatting</h2>
+
+        <h3>9.1 Query String: <code>parse_str</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.net.http</code><br>
+          filter parse_str : pipe&lt;string&gt; -&gt; pipe&lt;map&lt;string, string&gt;&gt;
+        </p>
+        <p>
+          Parses a query string like <code>"foo=1&amp;bar=2"</code> into a map of keys and values.
+        </p>
+
+        <h3>9.2 Number Formatting: <code>number_format</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.number</code><br>
+          filter number_format(spec: string) : pipe&lt;decimal&gt; -&gt; pipe&lt;string&gt;
+        </p>
+        <p>
+          Formats numbers into strings.
+          The format string <code>spec</code> is implementation-dependent,
+          but something like <code>"#,##0.00"</code> can be assumed as an example.
+        </p>
+
+        <h3>9.3 Regex Escaping: <code>quote_meta</code></h3>
+        <p class="sig">
+          Namespace: <code>aloe.text</code><br>
+          filter quote_meta : pipe&lt;string&gt; -&gt; pipe&lt;string&gt;
+        </p>
+        <p>
+          Escapes characters that are special in the regex engine,
+          so they can be safely treated as literals.
+        </p>
+
+        <pre><code>patterns
+    |: quote_meta
+    | safePatterns;</code></pre>
+
+        <hr>
+
+        <p>
+          Filters not listed in this document may be freely added as user-defined filters
+          or by external libraries.
+          The names defined here are reserved as “Aloe standard filters” and are intended
+          to act as a common API surface across compatible implementations.
+        </p>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
