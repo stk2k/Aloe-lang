@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="11">
-  <meta name="edit-date" content="2025-12-03T13:15:00+09:00">
+  <meta name="edit-version" content="12">
+  <meta name="edit-date" content="2025-12-04T10:04:38+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -222,7 +222,10 @@
     <ul>
       <li><code>//</code> から行末までが行コメント。</li>
       <li><code>/*</code> ～ <code>*/</code> が複数行コメント。</li>
-      <li>ネストした <code>/* */</code> は未定義（サポートしない想定）。</li>
+      <li>複数行コメントはネストをサポートしない。</li>
+      <li><code>/*</code> でコメントを開始したら、最初に現れた <code>*/</code> までのすべての文字をコメントとして扱う。</li>
+      <li>コメント内に現れる <code>//</code> や <code>/*</code>, <code>*/</code> は、あくまでコメントの内容として扱い、構文チェックやネスト処理は行わない。</li>
+      <li><code>/*</code> でコメントを開始してから、ファイル終端までに対応する <code>*/</code> が現れなかった場合はコンパイルエラーとする。</li>
     </ul>
 
     <h3>1.2 Identifiers（識別子）</h3>
