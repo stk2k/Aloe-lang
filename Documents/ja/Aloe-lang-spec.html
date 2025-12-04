@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="16">
-  <meta name="edit-date" content="2025-12-04T09:15:00+09:00">
+  <meta name="edit-version" content="17">
+  <meta name="edit-date" content="2025-12-04T12:07:18+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -218,16 +218,18 @@
 
 /* multi-line
    comment */
+
+/* ネストしたコメント */
+/*
+   outer
+   /* inner */
+*/
 </code></pre>
     <ul>
       <li><code>//</code> から行末までが行コメント。</li>
       <li><code>/*</code> ～ <code>*/</code> が複数行コメント。</li>
-      <li><code>/* ... */</code> のネストは許可される。
-        <ul>
-          <li>コメント内にさらに <code>/*</code> や <code>*/</code> が現れても、最初の <code>/*</code> に対応するバランスで解釈される。</li>
-          <li>コメントの途中で <code>*/</code> が不足している場合はコンパイルエラー。</li>
-        </ul>
-      </li>
+      <li><code>/* ... */</code> はネスト可能であり、コンパイラはコメントの入れ子を正しく解釈しなければならない。</li>
+      <li>コメント内に現れる <code>/*</code> や <code>//</code> の並びは、字句解析器がコメントの区切りとして認識できない崩れた形であっても、その外側のコメントが正しく閉じられていればプログラム全体としては問題としない（コメントの内容はトークンとして解釈されないため）。</li>
     </ul>
 
     <h3>1.2 Identifiers（識別子）</h3>
@@ -245,7 +247,6 @@
 and
 as
 async
-base
 bitfield
 break
 case
@@ -294,6 +295,7 @@ Result
 sealed
 static
 struct
+super
 switch
 swap
 this
@@ -821,10 +823,49 @@ struct NativePoint {
       <li>これらのアノテーションは、
         <strong>VM / ランタイムのネイティブインターフェイスに対するヒント</strong> であり、
         通常の Aloe コードにおける型システムの意味論（値コピー / 参照 / equality など）を変えるものではない。</li>
-      <li>現時点では一般的な「任意アノテーション機構」ではなく、
-          struct レイアウトを制御するための <strong>組み込みアノテーション</strong> としてのみ定義する。
-          他の宣言（class, field, method など）に付与するアノテーションについては将来拡張で検討する。</li>
+      <li>構文上は、ここで挙げたものも含めてすべてのアノテーションは
+          汎用のアノテーション機構の一部として扱われる。必要なアノテーションが増えた場合は、
+          その都度仕様書に個別に追記する。</li>
     </ul>
+
+    <h4>汎用アノテーション機構</h4>
+    <p>
+      Aloe では、言語組み込みのアノテーションに加えて、ユーザがアノテーションライブラリとして
+      追加定義することができる。アノテーションは次のような形で宣言する：
+    </p>
+<pre><code>annotation AnnotationName {
+    text:   "アノテーションテキスト",
+    target: TargetKind,        // struct, class, method, function など
+    params: アノテーションの「()」内に記載される配列/リスト/セット/マップ
+
+    build:  コンパイラフック関数 { ... }
+}
+</code></pre>
+    <ul>
+      <li><code>text</code> … アノテーションの説明文やドキュメント用の文字列。</li>
+      <li><code>target</code> … このアノテーションを付与できる対象種別を表す列挙値（例：struct, class, method, function など）。</li>
+      <li><code>params</code> … ソース上でアノテーションを適用したときの <code>()</code> 内の引数を表す
+        配列 / リスト / セット / マップのいずれか。</li>
+      <li><code>build</code> … コンパイラから呼び出されるフック関数。アノテーションの解釈や、付与対象ノードへの追加検査などを実装できる。</li>
+    </ul>
+    <p>
+      例えば、次のようなソースコードがあった場合：
+    </p>
+<pre><code>@MyAnnotation(key1 = value1, key2 = value2)
+class Sample {
+}
+</code></pre>
+    <p>
+      コンパイラはこれをアノテーション定義の <code>params</code> に対して
+      次のようなマップとして渡すものとする：
+    </p>
+<pre><code>params = { key1: value1, key2: value2 }
+</code></pre>
+    <p>
+      アノテーションの宣言・解釈の詳細なインタフェース（<code>build</code> 関数に渡される引数の型など）は
+      コンパイラ / VM 実装仕様で拡張される余地があるが、「アノテーションの構文」と
+      「<code>params</code> にマップとして渡される」という契約は言語仕様として固定される。
+    </p>
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
@@ -885,11 +926,12 @@ obj2.a.hello(); // OK
     <ul>
       <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
       <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
-      <li>クラス本体と trait メンバとの衝突の扱いは、右側に配置した trait が左側のメンバを上書きする。
-        <ul>
-          <li>trait によって上書きされた後、そのオブジェクトにさらに trait を <code>+</code> した場合も同様に右側の trait が優先される。</li>
-          <li>上書きを避けたい場合は <code>as a</code> などで別名を使用し、メンバーをフラット化しない形でアクセスする。</li>
-        </ul>
+      <li>
+        クラス本体と trait メンバーが同名だった場合は、
+        右側に記述された trait のメンバーで上書きされる。
+        さらにその状態のオブジェクトに別の trait を <code>+</code> した場合も同様に、
+        右側に追加された trait が同名メンバーを上書きする。
+        上書きを避けたい場合は <code>as a</code> によるエイリアスなどで別名を用いる。
       </li>
     </ul>
 
@@ -946,25 +988,19 @@ class FileLogger extends BaseLogger {
       <li>基底クラスに対応する virtual / abstract メソッドが存在しないのに <code>override</code> を付けた場合はコンパイルエラー。</li>
     </ul>
 
-    <h4>呼び出しの挙動と <code>base</code> キーワード</h4>
+    <h4>呼び出しの挙動</h4>
 <pre><code>BaseLogger logger = new FileLogger();
 logger.Log("Hello");  // 実行時型に応じて FileLogger.Log が呼ばれる（仮想呼び出し）
 
-class FileLogger extends BaseLogger {
-    override method Log(message: string): void {
-        base.Log(message);            // 基底クラス BaseLogger.Log を明示的に呼び出す
-        print("[File] " + message);
-    }
-}
+FileLogger fl = new FileLogger();
+fl.Log("Hello");      // 当然 FileLogger.Log が呼ばれる
 </code></pre>
     <ul>
       <li>virtual / override メソッドは、変数の静的型ではなく実行時型に基づいて解決される（仮想メソッド呼び出し）。</li>
-      <li><code>base</code> は「現在のクラスの直接の継承元クラス」を指す特別なキーワードである。
+      <li>基底クラス側の実装を呼び出したい場合は <code>base.Log(...)</code> のような構文を用いる。
         <ul>
-          <li><code>base</code> は <strong>インスタンスメソッド内でのみ</strong> 使用可能。</li>
-          <li>static メソッド内やトップレベル関数、コンストラクタ以外のブロックなどで使用した場合はコンパイルエラー。</li>
-          <li><code>base.Log(...)</code> のように、基底クラス側の実装を明示的に呼び出したい場合に使用する。</li>
-          <li><code>base</code> 自体に代入したり、他の変数に再代入したりすることはできない（読み取り専用の「基底クラスビュー」として扱う）。</li>
+          <li><code>base</code> はインスタンスメソッド内でのみ使用可能であり、継承元クラスのメンバーにアクセスする。</li>
+          <li>static メソッド内での <code>base</code> 使用は認められない。</li>
         </ul>
       </li>
     </ul>
@@ -1251,7 +1287,7 @@ class Result&lt;T&gt; {
     field Value: T;
     field ErrorMessage: string;
 
-    // ファクトリメソッド（標準ライブラリ）
+    // ファクトリメソッド（標準ライブラリメソッド）
     static method Ok(value: T): Result&lt;T&gt;;
     static method Error(message: string): Result&lt;T&gt;;
 }
@@ -1345,10 +1381,9 @@ class Result&lt;T&gt; {
       <li><code>bound(input, output): Result&lt;void&gt;</code> は
           フィルタの実行本体であり、成功時には <code>Result&lt;void&gt;.Ok()</code>、
           失敗時には <code>Result&lt;void&gt;.Error(...)</code> を返すことができる。</li>
-      <li><strong>async 関数が必ず <code>task</code> を返す必要があるのと同様に、<code>filter</code> の <code>bound</code> メソッドは <code>Result&lt;T&gt;</code> もしくはその派生クラスを返すことが強制される。</strong>
-        <ul>
-          <li>それ以外のオブジェクト型やプリミティブ型を返した場合、または戻り値が <code>void</code> の場合はコンパイルエラー。</li>
-        </ul>
+      <li>
+        <code>bound</code> メソッドの戻り値型は、<code>Result&lt;T&gt;</code> またはその派生型でなければならない。
+        それ以外の型（プリミティブ型や <code>void</code> など）を返す <code>bound</code> はコンパイルエラーとなる。
       </li>
     </ul>
 
@@ -1413,7 +1448,7 @@ users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
 
     <h3>18.6 map による要素変換</h3>
     <p>
-      pipe に対して <code>map</code> を適用することで、各要素に関数（またはラムダ）を適用し、
+      pipe に対して <code>map</code> を適用することで、各要素に関数を適用し、
       別の型のストリームを得ることができる。
     </p>
 <pre><code>// 関数を用いた map
@@ -1422,9 +1457,6 @@ function toName(u: User): string {
 }
 
 names = users | map(toName);
-
-// ラムダ風の記法（構文はドラフト）
-names = users | map (u) =&gt; u.Name;
 </code></pre>
     <ul>
       <li><code>map</code> は組み込みの高階操作として定義される。</li>
@@ -1433,19 +1465,50 @@ names = users | map (u) =&gt; u.Name;
 
     <h3>18.7 コレクションパイプに対するテンプレート map</h3>
     <p>
-      コレクション（例：<code>User()</code> や <code>User{}</code>）に対して、
-      テンプレート構文を用いる <code>map</code> も利用できる。
+      コレクション（例：<code>User()</code> や <code>User{}</code>）や <code>pipe&lt;T&gt;</code> に対して、
+      テンプレート構文を用いる <code>map</code> を利用できる。
     </p>
-<pre><code>users as u | map Customer {
-    Name    = u.Name,
-    Address = u.Address
+    <p>テンプレート <code>map</code> には次の 2 つの書き方がある。</p>
+<pre><code>// 要素エイリアスあり
+users as u | map Customer {
+    Name    = u.Name;
+    Address = u.Address;
+}
+
+// 要素エイリアスなし
+users | map Customer {
+    Name = "Anonymous";
+    Flag = GetDefaultFlag();
 }
 </code></pre>
     <ul>
-      <li><code>as u</code> で各要素に対するエイリアスを導入する。</li>
-      <li><code>map Customer { ... }</code> は、新しい <code>Customer</code> オブジェクトを生成し、
-          ブロック内のフィールド代入を用いてマッピングするテンプレートとみなされる。</li>
-      <li>結果は <code>Customer()</code> など、元のコレクションと同様のコレクション型になる。</li>
+      <li><code>X as u | map Y { ... }</code> 形式:
+        <ul>
+          <li><code>as u</code> で各要素に対するエイリアスを導入する。</li>
+          <li><code>map Y { ... }</code> は、各要素ごとに新しい <code>Y</code> オブジェクトを生成し、
+              ブロック内のフィールド代入を用いてマッピングするテンプレートとみなされる。</li>
+          <li>ブロック内の右辺からは <code>u</code> を参照でき、要素ごとに異なる値を用いて <code>Y</code> を構築できる。</li>
+        </ul>
+      </li>
+      <li><code>X | map Y { ... }</code> 形式:
+        <ul>
+          <li>現在の要素を参照するエイリアスは導入されない。</li>
+          <li>テンプレートブロック内からは、通常のレキシカルスコープどおりにローカル変数や
+              <code>this</code>、（インスタンスメソッド内であれば）<code>base</code>、および
+              static メソッドや定数などを参照できる。</li>
+          <li>一方、入力要素そのものにはアクセスできないため、各要素に対して同じ初期化パターンで
+              <code>Y</code> のインスタンスが生成される（固定値、入力に依存しない関数呼び出し、
+              <code>this</code>/<code>base</code> に依存する値など）。</li>
+        </ul>
+      </li>
+      <li>どちらの形式でも、結果は元のコンテナと同じ「形」を持つ：
+        <ul>
+          <li><code>T[]</code> → <code>Y[]</code></li>
+          <li><code>T()</code> → <code>Y()</code></li>
+          <li><code>T{}</code> → <code>Y{}</code></li>
+          <li><code>pipe&lt;T&gt;</code> → <code>pipe&lt;Y&gt;</code></li>
+        </ul>
+      </li>
     </ul>
 
     <h3>18.8 close と EOF 伝播</h3>
