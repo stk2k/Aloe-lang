@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="13">
-  <meta name="edit-date" content="2025-12-04T10:14:55+09:00">
+  <meta name="edit-version" content="15">
+  <meta name="edit-date" content="2025-12-04T09:00:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -222,8 +222,7 @@
     <ul>
       <li><code>//</code> から行末までが行コメント。</li>
       <li><code>/*</code> ～ <code>*/</code> が複数行コメント。</li>
-      <li>Aloe の <code>/* ... */</code> コメントは入れ子（ネスト）をサポートする。</li>
-      <li>コメント内では通常のトークンは構文解析されないが、<code>/*</code> と <code>*/</code> の並びだけは入れ子レベルを増減するために認識される。入れ子レベルが 0 に戻る前にファイル終端に達した場合はコンパイルエラーとなる。</li>
+      <li><code>/*</code> ～ <code>*/</code> はネスト可能であり、開始・終了トークンの対応が取れていない場合はコンパイルエラー。</li>
     </ul>
 
     <h3>1.2 Identifiers（識別子）</h3>
@@ -238,6 +237,7 @@
 
     <h3>1.3 Keywords（キーワード）</h3>
 <pre><code>abstract
+annotation
 and
 as
 async
@@ -801,8 +801,7 @@ struct NativePoint {
               <li><code>"Explicit"</code>: 各フィールドに <code>@FieldOffset</code> を指定して、バイトオフセットを明示する。</li>
             </ul>
           </li>
-          <li>構文上は、アノテーション名の後に <code>(...)</code> 付きで 1 つ以上の引数を取る形とするが、
-              現時点で仕様として定義するのは第 1 引数のレイアウト種別文字列のみとする。</li>
+          <li>構文上は、アノテーション名の後に <code>(...)</code> 付きで 1 つ以上の引数を取る形とする。</li>
         </ul>
       </li>
       <li><code>@FieldOffset(n)</code>
@@ -817,10 +816,80 @@ struct NativePoint {
       <li>これらのアノテーションは、
         <strong>VM / ランタイムのネイティブインターフェイスに対するヒント</strong> であり、
         通常の Aloe コードにおける型システムの意味論（値コピー / 参照 / equality など）を変えるものではない。</li>
-      <li>現時点では一般的な「任意アノテーション機構」ではなく、
-          struct レイアウトを制御するための <strong>組み込みアノテーション</strong> としてのみ定義する。
-          他の宣言（class, field, method など）に付与するアノテーションについては将来拡張で検討する。</li>
+      <li><code>@StructLayout</code> / <code>@FieldOffset</code> は、後述する汎用アノテーション定義構文を用いて定義された
+          <strong>標準アノテーション</strong> の一例であり、本仕様書に明示的に記載されたもの以外の標準アノテーションは存在しない。</li>
     </ul>
+
+    <h4>7.2.1 汎用アノテーション定義（annotation）</h4>
+    <p>
+      Aloe には、ユーザーが独自のアノテーションを定義するための <code>annotation</code> 構文が用意されている。
+      これにより、<code>filter</code> と同様に「アノテーションライブラリ」をユーザーコードとして拡張できる。
+    </p>
+<pre><code>annotation AnnotationName {
+    text:   "アノテーションテキスト",
+    target: AnnotationTarget,        // struct, class, method, function など
+    params: &lt;配列 / リスト / セット / マップ&gt;,
+    build:  BuildHook { ... }        // コンパイラフック関数
+}
+</code></pre>
+    <ul>
+      <li><code>AnnotationName</code>
+        <ul>
+          <li>アノテーション名。通常の識別子と同じ規則に従う。</li>
+        </ul>
+      </li>
+      <li><code>text</code>
+        <ul>
+          <li>型は <code>string</code>。アノテーションの説明文（ドキュメント）を表す。</li>
+          <li>IDE やドキュメント生成ツールがヘルプとして表示してよいテキスト。</li>
+        </ul>
+      </li>
+      <li><code>target</code>
+        <ul>
+          <li>このアノテーションをどの宣言に付与できるかを表すフラグ値。</li>
+          <li>想定される種別の例：<code>AnnotationTarget.Struct</code>, <code>.Class</code>, <code>.Method</code>, <code>.Function</code>, <code>.Field</code> など。</li>
+          <li>実際の <code>AnnotationTarget</code> の定義はランタイム / 標準ライブラリ側で提供される。</li>
+        </ul>
+      </li>
+      <li><code>params</code>
+        <ul>
+          <li>このアノテーションに渡される「() 内の引数」の仕様を表す。</li>
+          <li>許されるリテラル種別は次の 4 種類のいずれか：
+            <ul>
+              <li>配列リテラル：<code>[...]</code></li>
+              <li>リストリテラル：<code>(...)</code></li>
+              <li>セットリテラル：<code>{...}</code></li>
+              <li>マップリテラル：<code>["key": value, ...]</code></li>
+            </ul>
+          </li>
+          <li>位置引数のみを許したい場合はリストや配列で定義し、名前付き引数を許したい場合はマップで定義する、という使い分けができる。</li>
+          <li>名前付き引数形式のアノテーション
+<pre><code>@MyAnnotation(key1 = value1, key2 = value2)
+</code></pre>
+              は、仕様上「マップを 1 つだけ渡した」ものと見なされ、
+<pre><code>params = { key1: value1, key2: value2 }
+</code></pre>
+              と等価に解釈される。</li>
+        </ul>
+      </li>
+      <li><code>build</code>
+        <ul>
+          <li>コンパイル時に呼び出されるフック関数（ビルドフック）。</li>
+          <li>シグネチャや引数（対象宣言の情報、パラメータの AST、診断インタフェースなど）の詳細は、コンパイラ仕様 / 実装で定義される。</li>
+          <li><code>build</code> の役割は、主に次のようなもの：
+            <ul>
+              <li>アノテーション引数の検証</li>
+              <li>追加の制約チェック（型や値の検査）</li>
+              <li>コード生成や最適化へのヒント付与</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+    <p>
+      標準で提供される <code>@StructLayout</code> / <code>@FieldOffset</code> も、この汎用アノテーション機構を用いて
+      定義されたものとみなすことができる。追加の標準アノテーションが必要になった場合は、本仕様書に追記する形で拡張する。
+    </p>
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
@@ -881,7 +950,10 @@ obj2.a.hello(); // OK
     <ul>
       <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
       <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
-      <li>クラス本体と trait メンバとの衝突の扱いは将来バージョンで定義予定。</li>
+      <li>クラス本体のメンバーと trait から混入したメンバーが同名だった場合、右側に記述された trait のメンバーで上書きされる。
+        既に別の trait によって上書きされたメンバーに対してさらに <code>+ 他のTrait</code> を適用した場合も、
+        常に「右側」に書かれた trait の定義が最終的に有効になる。</li>
+      <li>元のクラス実装や特定の trait の実装を保持したい場合は、<code>as</code> によるエイリアスで別名を付けて参照すること。</li>
     </ul>
 
     <h3>7.6 abstract / virtual / override</h3>
@@ -1222,7 +1294,7 @@ finally {
     </ul>
 
     <h4>18.2.1 Result&lt;T&gt; の型仕様（概要）</h4>
-<pre><code>// Result&lt;T&gt; は言語仕様で定義される組み込みジェネリッククラス
+<pre><code>// 言語仕様としての概念図（実装もこのインタフェースに従う）
 class Result&lt;T&gt; {
     // 状態
     // Success == true のとき: Value が有効
@@ -1231,7 +1303,7 @@ class Result&lt;T&gt; {
     field Value: T;
     field ErrorMessage: string;
 
-    // ファクトリメソッド（標準ライブラリで提供される）
+    // ファクトリメソッド（標準ライブラリ提供）
     static method Ok(value: T): Result&lt;T&gt;;
     static method Error(message: string): Result&lt;T&gt;;
 }
@@ -1259,11 +1331,14 @@ class Result&lt;T&gt; {
               <code>InvalidOperationException</code> を投げる。</li>
         </ul>
       </li>
+      <li><code>Ok</code> / <code>Error</code> は言語構文レベルの特別扱いではなく、<code>Result&lt;T&gt;</code> クラスに定義された
+          標準ライブラリの static メソッドとして実装される。ユーザーは必要であれば <code>new Result&lt;T&gt;(...)</code> のようなコンストラクタスタイル
+          を併用してもよいが、慣例として <code>Ok</code> / <code>Error</code> の使用を推奨する。</li>
     </ul>
     <p>
-      上記は Result&lt;T&gt; 型の仕様そのものであり、ここに示されたフィールドおよびメソッドはプログラマから観測可能なインタフェースとして必ず提供される。
-      VM / ランタイム実装は内部表現や最適化戦略を自由に選べるが、「Success フラグを軸に、有効なプロパティだけにアクセスする」という契約は言語仕様として保証される。
-      <code>Ok</code> / <code>Error</code> は標準ライブラリで提供される静的メソッドであり、キーワードや特別な構文ではない。
+      上記は論理モデルであると同時に、フィールド名 <code>Success</code> / <code>Value</code> / <code>ErrorMessage</code> と
+      <code>Ok</code> / <code>Error</code> メソッドの存在および挙動は言語仕様として固定される。
+      VM 実装は内部表現や最適化を自由に行ってよいが、このインタフェースと意味論を崩してはならない。
     </p>
 
     <h4>18.2.2 ROP（Railway Oriented Programming）のイメージ</h4>
@@ -1323,10 +1398,10 @@ class Result&lt;T&gt; {
           ROP 的な観点からは「同じ入力に対して同じ出力」を返すことが望ましいため、
           副作用を持つフィールドは最小限にとどめることが推奨される。</li>
       <li><code>constructor</code> は任意で定義でき、オプション値や外部パラメータを受け取って初期化を行う。</li>
-      <li><code>bound(input, output): Result&lt;void&gt;</code> は
-          フィルタの実行本体であり、成功時には <code>Result&lt;void&gt;.Ok()</code>、
-          失敗時には <code>Result&lt;void&gt;.Error(...)</code> を返すことができる。</li>
-      <li><code>bound</code> メソッドの戻り値型は、必ず <code>Result&lt;T&gt;</code> または <code>Result&lt;T&gt;</code> を継承した型でなければならない。プリミティブ型や任意のクラス型、<code>void</code> などを戻り値型として宣言した場合、その filter 定義はコンパイルエラーとなる。ここで <code>T</code> は任意の型（<code>void</code> を含む）とする。</li>
+      <li><code>bound(input, output)</code> はフィルタの実行本体であり、
+          戻り値の型は必ず <code>Result&lt;T&gt;</code> またはその派生クラスでなければならない。
+          それ以外のオブジェクト型やプリミティブ型、あるいは <code>void</code> を戻り値とする定義はコンパイルエラーとなる。
+          （これは、<code>async</code> 関数が <code>task</code> を返すことを強制されるルールと同じスタイルの制約である。）</li>
     </ul>
 
     <h4>18.3.2 フィルタオプション（filter オプション指定）</h4>
