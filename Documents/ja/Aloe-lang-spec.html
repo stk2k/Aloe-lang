@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="17">
-  <meta name="edit-date" content="2025-12-04T12:07:18+09:00">
+  <meta name="edit-version" content="18">
+  <meta name="edit-date" content="2025-12-04T09:00:00+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -218,18 +218,18 @@
 
 /* multi-line
    comment */
-
-/* ネストしたコメント */
-/*
-   outer
-   /* inner */
-*/
 </code></pre>
     <ul>
       <li><code>//</code> から行末までが行コメント。</li>
       <li><code>/*</code> ～ <code>*/</code> が複数行コメント。</li>
-      <li><code>/* ... */</code> はネスト可能であり、コンパイラはコメントの入れ子を正しく解釈しなければならない。</li>
-      <li>コメント内に現れる <code>/*</code> や <code>//</code> の並びは、字句解析器がコメントの区切りとして認識できない崩れた形であっても、その外側のコメントが正しく閉じられていればプログラム全体としては問題としない（コメントの内容はトークンとして解釈されないため）。</li>
+      <li>
+        複数行コメントは、開始 <code>/*</code> から最初に現れる <code>*/</code> までを
+        まるごとコメントとして扱う。
+        コメントの内部に追加の <code>/*</code> や <code>*/</code> が現れても、
+        それらはすべてコメントの一部として無視される（ネストしたコメントの構文解析は行わない）。<br>
+        したがって、コメント内の「コメント構文」が破綻していても、
+        いったん <code>/*</code> が始まってから最初の <code>*/</code> が来るまでは常にコメント扱いとなる。
+      </li>
     </ul>
 
     <h3>1.2 Identifiers（識別子）</h3>
@@ -789,6 +789,7 @@ const AppName: string = "Aloe VM";
     <p>
       ネイティブコードとの相互運用などで、struct のメモリレイアウトを制御したい場合のために、
       struct には限定的なアノテーション <code>@StructLayout</code> / <code>@FieldOffset</code> を付与できる。
+      これらは Aloe に組み込みで定義されているアノテーションであり、後述の汎用アノテーション機構の一例でもある。
     </p>
 <pre><code>@StructLayout("Explicit")
 struct NativePoint {
@@ -823,48 +824,58 @@ struct NativePoint {
       <li>これらのアノテーションは、
         <strong>VM / ランタイムのネイティブインターフェイスに対するヒント</strong> であり、
         通常の Aloe コードにおける型システムの意味論（値コピー / 参照 / equality など）を変えるものではない。</li>
-      <li>構文上は、ここで挙げたものも含めてすべてのアノテーションは
-          汎用のアノテーション機構の一部として扱われる。必要なアノテーションが増えた場合は、
-          その都度仕様書に個別に追記する。</li>
     </ul>
 
-    <h4>汎用アノテーション機構</h4>
+    <h4>7.2.1 汎用アノテーション機構（annotation 定義）</h4>
     <p>
-      Aloe では、言語組み込みのアノテーションに加えて、ユーザがアノテーションライブラリとして
-      追加定義することができる。アノテーションは次のような形で宣言する：
+      Aloe では、<code>@StructLayout</code> や <code>@FieldOffset</code> のような組み込みアノテーションに加えて、
+      ユーザが独自のアノテーションを定義・利用できる。
+      アノテーションは <code>annotation</code> 宣言で定義する。
     </p>
-<pre><code>annotation AnnotationName {
-    text:   "アノテーションテキスト",
-    target: TargetKind,        // struct, class, method, function など
-    params: アノテーションの「()」内に記載される配列/リスト/セット/マップ
+<pre><code>annotation MyAnnotation {
+    text:   "アノテーションテキスト";         // 説明用文字列（任意）
+    target: TargetKind;                      // struct, class, method, function などを表す列挙型
+    params: map&lt;string/any&gt;;                // () 内に与えられるパラメータの論理表現
 
-    build:  コンパイラフック関数 { ... }
+    build:  function (ctx: AnnotationBuildContext): void {
+        // コンパイラから呼び出されるフック関数（擬似シグネチャ例）
+        // ctx から付与先や params などの情報を取得して検証・変換などを行う。
+    }
 }
 </code></pre>
     <ul>
-      <li><code>text</code> … アノテーションの説明文やドキュメント用の文字列。</li>
-      <li><code>target</code> … このアノテーションを付与できる対象種別を表す列挙値（例：struct, class, method, function など）。</li>
-      <li><code>params</code> … ソース上でアノテーションを適用したときの <code>()</code> 内の引数を表す
-        配列 / リスト / セット / マップのいずれか。</li>
-      <li><code>build</code> … コンパイラから呼び出されるフック関数。アノテーションの解釈や、付与対象ノードへの追加検査などを実装できる。</li>
+      <li><code>annotation</code> 宣言は、アノテーションの「メタ定義」を行うための専用構文であり、
+          通常の <code>class</code> / <code>struct</code> とは別枠の宣言とする。</li>
+      <li><code>text</code> は人間向けの説明文であり、エディタやドキュメント生成ツールなどが利用してもよい。</li>
+      <li><code>target</code> は、このアノテーションを付与できる対象種別（struct, class, method, function など）を表す列挙型（またはそれに準ずる型）とする。</li>
+      <li><code>params</code> は、アノテーションに与えられた引数の論理表現を表す。
+        <ul>
+          <li>配列 / リスト / セット / マップなど、複合的な値を含みうる。</li>
+        </ul>
+      </li>
+      <li><code>build</code> はコンパイラから呼び出されるフック関数であり、
+          付与先の情報や <code>params</code> をもとに検証や補助的なコード生成などを行うことができる。
+          具体的な引数型や戻り値はコンパイラ実装側の詳細に委ねられる。</li>
     </ul>
     <p>
-      例えば、次のようなソースコードがあった場合：
+      実際のアノテーション使用時には、次のような構文でパラメータを指定する。
     </p>
-<pre><code>@MyAnnotation(key1 = value1, key2 = value2)
-class Sample {
+<pre><code>@MyAnnotation(key1 = value1, key2 = value2, ...)
+struct Example {
+    // ...
 }
 </code></pre>
     <p>
-      コンパイラはこれをアノテーション定義の <code>params</code> に対して
-      次のようなマップとして渡すものとする：
+      このとき、アノテーション定義側から見た <code>params</code> には、次のようなマップとして渡されるものとする。
     </p>
-<pre><code>params = { key1: value1, key2: value2 }
+<pre><code>params = { key1: value1, key2: value2, ... }
 </code></pre>
     <p>
-      アノテーションの宣言・解釈の詳細なインタフェース（<code>build</code> 関数に渡される引数の型など）は
-      コンパイラ / VM 実装仕様で拡張される余地があるが、「アノテーションの構文」と
-      「<code>params</code> にマップとして渡される」という契約は言語仕様として固定される。
+      配列 / リスト / セット / マップリテラルを引数に取る場合も同様に、
+      それらの構造が <code>params</code> の値としてそのまま渡される。
+      組み込みアノテーション <code>@StructLayout</code> や <code>@FieldOffset</code> も、
+      この汎用アノテーション機構を用いて実装された「標準アノテーション」とみなしてよい。
+      新たに必要なアノテーションが出てきた場合は、この機構を用いて仕様書に都度追記していく。
     </p>
 
     <h3>7.3 Inheritance and sealed</h3>
@@ -924,15 +935,14 @@ obj2.a.hello(); // OK
 
     <h4>Trait conflicts（競合）</h4>
     <ul>
-      <li>複数 trait が同名フィールド / メソッドを定義するとコンパイルエラー。</li>
-      <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外。</li>
-      <li>
-        クラス本体と trait メンバーが同名だった場合は、
-        右側に記述された trait のメンバーで上書きされる。
-        さらにその状態のオブジェクトに別の trait を <code>+</code> した場合も同様に、
-        右側に追加された trait が同名メンバーを上書きする。
-        上書きを避けたい場合は <code>as a</code> によるエイリアスなどで別名を用いる。
-      </li>
+      <li>複数 trait が同名フィールド / メソッドを定義する場合、右側に記述した trait が左側の定義を上書きする。</li>
+      <li>クラス本体のメンバーと trait メンバーが同名の場合も同様に、
+          最後に適用された（右側に書かれた） trait のメンバーで上書きされるとみなす。</li>
+      <li>既に trait によって上書きされたメンバーに対して、さらに別の trait を <code>+</code> した場合も、
+          その適用順に従って右側の trait が最終的な定義を提供する。</li>
+      <li>上書きを避けたい場合は、<code>as a</code> のようなエイリアスを用いて、
+          クラス本体のメンバー名と競合しない別名としてアクセスする。</li>
+      <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外（エイリアス名の下に別の名前空間がぶら下がる）とする。</li>
     </ul>
 
     <h3>7.6 abstract / virtual / override</h3>
@@ -988,7 +998,7 @@ class FileLogger extends BaseLogger {
       <li>基底クラスに対応する virtual / abstract メソッドが存在しないのに <code>override</code> を付けた場合はコンパイルエラー。</li>
     </ul>
 
-    <h4>呼び出しの挙動</h4>
+    <h4>呼び出しの挙動と <code>base</code> キーワード</h4>
 <pre><code>BaseLogger logger = new FileLogger();
 logger.Log("Hello");  // 実行時型に応じて FileLogger.Log が呼ばれる（仮想呼び出し）
 
@@ -999,8 +1009,9 @@ fl.Log("Hello");      // 当然 FileLogger.Log が呼ばれる
       <li>virtual / override メソッドは、変数の静的型ではなく実行時型に基づいて解決される（仮想メソッド呼び出し）。</li>
       <li>基底クラス側の実装を呼び出したい場合は <code>base.Log(...)</code> のような構文を用いる。
         <ul>
-          <li><code>base</code> はインスタンスメソッド内でのみ使用可能であり、継承元クラスのメンバーにアクセスする。</li>
-          <li>static メソッド内での <code>base</code> 使用は認められない。</li>
+          <li><code>base</code> は、インスタンスメソッドの本体内からのみ使用可能であり、
+              そのメソッドを宣言しているクラスの直接の基底クラスを指す。</li>
+          <li><code>base</code> は静的メソッドやトップレベル関数からは使用できない。</li>
         </ul>
       </li>
     </ul>
@@ -1229,18 +1240,133 @@ finally {
     <hr>
 
     <h2 id="ch17">17. Modules / namespace / import</h2>
-<pre><code>namespace Aloe.Sample {
-    import Aloe.Core.Logging;
 
-    class App {
-        // ...
-    }
+    <h3>17.1 Module（モジュール / コンパイル単位）</h3>
+    <p>
+      Aloe における <strong>モジュール</strong> は、コンパイル対象となる 1 つのソースファイルを指す。
+      言語仕様のスコープ外として、モジュール名やファイルパス・ディレクトリ構成・パッケージ管理は
+      ビルドツールやパッケージマネージャ側の責務とする。
+    </p>
+    <p>
+      この章では、1 ファイル内部での <code>import</code> / <code>namespace</code> の書式と
+      それによる名前解決のルールのみを定義する。
+    </p>
+
+    <h3>17.2 ファイル構造の制約</h3>
+    <p>
+      1 つのモジュール（ソースファイル）の構造は、次の形に限定される。
+    </p>
+<pre><code>import Foo.Bar;
+import Aloe.Core.Logging;
+import Aloe.Json.*;
+import MyCompany.Project.Module;
+
+namespace My.App {
+    // class / struct / enum / bitfield enum / trait / function などの宣言だけ
 }
 </code></pre>
     <ul>
-      <li><code>namespace</code> は論理的な名前空間を定義する。</li>
-      <li><code>import</code> は他の namespace / シンボルへの参照を導入する。</li>
-      <li>ファイル構成や循環 import の扱いなど詳細はモジュール仕様で定義される。</li>
+      <li><code>import</code> はファイルの先頭にのみ書ける。</li>
+      <li><code>import</code> より前に、他のコード（宣言や文）を書いてはならない。</li>
+      <li><code>import</code> は複数行並べてよい。</li>
+      <li><code>namespace</code> は、すべての <code>import</code> の後に 1 回だけ現れなければならない。</li>
+      <li><code>namespace</code> の外側には、<code>import</code> と <code>namespace</code> 以外の要素を書いてはならない。</li>
+      <li>トップレベルに実行文（<code>print(...);</code> など）を書くことは禁止であり、
+          実行コードは必ず <code>main</code> や他の関数 / メソッド内部に置く。</li>
+    </ul>
+
+    <h3>17.3 namespace のルール</h3>
+    <ul>
+      <li>1 モジュールにつき、<strong><code>namespace</code> 文はちょうど 1 回だけ</strong> 許可される。</li>
+      <li>構文は
+<pre><code>namespace My.App {
+    // 宣言
+}
+</code></pre>
+        のようにフルパス 1 段のみとし、<code>namespace A { namespace B { ... } }</code> のような
+        <strong>namespace のネスト構文は禁止</strong>とする。
+      </li>
+      <li>namespace ブロックの中に、さらに <code>namespace</code> 文を書くことはできない。</li>
+      <li>namespace ブロック内に書けるのは、
+        <ul>
+          <li><code>class</code>, <code>struct</code>, <code>enum</code>, <code>bitfield enum</code>, <code>trait</code>, <code>function</code> などの宣言のみ。</li>
+        </ul>
+        トップレベルの実行文は書けない。
+      </li>
+      <li>namespace ブロックの内側から <code>import</code> を書くことはできない。</li>
+      <li>同じ namespace 名を持つ宣言が複数のモジュールにまたがって存在する場合、
+          それらは 1 つの論理的な namespace にマージされる。
+          ただし、それらが属するモジュールのビルド単位やパッケージとしての扱いは別途ビルド仕様に委ねられる。</li>
+    </ul>
+
+    <h3>17.4 import のルール</h3>
+    <h4>17.4.1 文法と制限</h4>
+    <ul>
+      <li><code>import</code> はファイル先頭にのみ書ける。</li>
+      <li>namespace、クラス、メソッド、その他のブロックの内部に <code>import</code> を書くことはできない。</li>
+      <li>サポートされる構文は次の通り。
+<pre><code>import Aloe.Core.Logging;   // 単一 namespace / 型のインポート
+import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下の公開シンボル）
+</code></pre>
+      </li>
+      <li><strong>相対 import はサポートしない。</strong>
+        <ul>
+          <li><code>import ./util.Json;</code> や <code>import ../common.*;</code> のような表記はコンパイルエラーとする。</li>
+        </ul>
+      </li>
+      <li>import はすべて「絶対指定」（ルート namespace からのフルパス）でなければならない。</li>
+    </ul>
+
+    <h4>17.4.2 ワイルドカード import の挙動</h4>
+    <ul>
+      <li><code>import Foo.*;</code> は、<code>Foo</code> namespace 直下の公開シンボル（型・関数など）をまとめて導入する。</li>
+      <li>サブ namespace（<code>Foo.Bar</code> など）をどこまで自動的に含めるかは、
+          将来的にモジュール仕様で詳細化する余地を残すが、少なくとも <code>Foo</code> 直下の型・関数は導入されるものとする。</li>
+      <li>ワイルドカード import によって同名シンボルが複数の namespace から導入され、
+          解決が曖昧になる場合はコンパイルエラーとし、プログラマに完全修飾名の使用を要求する。</li>
+    </ul>
+
+    <h3>17.5 名前解決の優先順位（概要）</h3>
+    <p>
+      ある識別子 <code>X</code> を解決するときの大まかな優先順位は次の通りとする。
+    </p>
+    <ol>
+      <li>ローカルスコープ（メソッドのローカル変数・パラメータ、そのブロック内の宣言）</li>
+      <li>現在のクラス / struct / trait / function 自身のメンバー</li>
+      <li>現在の namespace 内の宣言（同じ namespace を共有する他モジュールを含む）</li>
+      <li><code>import</code> された namespace 達の公開メンバー
+        <ul>
+          <li><code>import Foo.Bar;</code> によって、<code>Foo.Bar</code> 直下の公開シンボルが導入される。</li>
+        </ul>
+      </li>
+    </ol>
+    <p>
+      この優先順位で複数の候補が見つかり、どれを指しているかが曖昧になる場合はコンパイルエラーとする。
+      その場合は、完全修飾名（例：<code>Foo.Bar.TypeName</code>）で明示的に指定する必要がある。
+    </p>
+
+    <h3>17.6 可視性と公開範囲</h3>
+    <ul>
+      <li><code>public</code> な型・メンバーは、他の namespace / モジュールから <code>import</code> を通じて参照できる。</li>
+      <li><code>private</code> な型・メンバーは、同一モジュール内でのみ参照できる。
+          （より細かい「同一 namespace 内だけ」などの制御が必要になった場合は、
+           別途 <code>internal</code> のような修飾子を導入する余地を残す。）</li>
+      <li><code>protected</code> なメンバーは、継承関係にあるクラス / struct から参照できる。
+          そのモジュール境界をまたいだ挙動は VM / ランタイムよりも「言語仕様」に属するが、
+          詳細なアクセス制御は今後のバージョンで拡張されうる。</li>
+    </ul>
+
+    <h3>17.7 循環 import の扱い</h3>
+    <ul>
+      <li>モジュール同士の <code>import</code> が循環していても、それ自体は構文的にも意味的にも禁止しない。</li>
+      <li>コンパイラは、すべてのモジュールから宣言情報（型・関数のシグネチャなど）を先に収集し、
+          その後で型チェックや struct のレイアウト決定を行うモデルを想定する。</li>
+      <li>したがって、通常の class / interface / trait どうしの相互参照は問題にならない。</li>
+      <li>一方で、struct のフィールドが互いを値型として再帰的に含み合うなど、
+          「定義そのものが矛盾している」場合は、import グラフとは無関係に
+          通常の型エラー（例：<q>この struct のサイズを決定できない</q>）としてコンパイルエラーになる。</li>
+      <li>言い換えると、<strong>循環 import の有無を特別扱いするのではなく、
+          あくまで通常の型システムのルールに基づいて正当性を判定する。</strong></li>
     </ul>
 
     <hr>
@@ -1273,13 +1399,12 @@ finally {
       <strong>Result&lt;T&gt;</strong> 型と <strong>Railway Oriented Programming（ROP）</strong> の考え方で扱う。
     </p>
     <ul>
-      <li><code>Result&lt;T&gt;</code> は「成功（Success = true）」または「失敗（Success = false）」のどちらかを表す、言語組み込みのジェネリック型。</li>
+      <li><code>Result&lt;T&gt;</code> は「成功（Success = true）」または「失敗（Success = false）」のどちらかを表す、言語組み込みランタイムが提供する標準ライブラリ型。</li>
       <li>フィルタやパイプは通常 <code>Result&lt;T&gt;</code> を返すことで、成功 / 失敗を明示的に表現する。</li>
     </ul>
 
-    <h4>18.2.1 Result&lt;T&gt; の型仕様（概要）</h4>
-<pre><code>// 擬似コードによる概念図（構文は今後確定）
-class Result&lt;T&gt; {
+    <h4>18.2.1 Result&lt;T&gt; の型仕様</h4>
+<pre><code>class Result&lt;T&gt; {
     // 状態
     // Success == true のとき: Value が有効
     // Success == false のとき: ErrorMessage が有効
@@ -1287,7 +1412,7 @@ class Result&lt;T&gt; {
     field Value: T;
     field ErrorMessage: string;
 
-    // ファクトリメソッド（標準ライブラリメソッド）
+    // ファクトリメソッド（標準ライブラリの static メソッド）
     static method Ok(value: T): Result&lt;T&gt;;
     static method Error(message: string): Result&lt;T&gt;;
 }
@@ -1306,7 +1431,8 @@ class Result&lt;T&gt; {
         </ul>
       </li>
       <li>状態（<code>Success</code>）と一致しないプロパティへのアクセス（例：<code>Success == false</code> なのに <code>Value</code> を読む、など）は
-          実行時に <code>InvalidOperationException</code> を投げるものとする（コンパイラが静的に検出できる場合はコンパイルエラーとしてもよい）。</li>
+          実行時に <code>InvalidOperationException</code> を投げるものとする
+          （コンパイラが静的に検出できる場合はコンパイルエラーとしてもよい）。</li>
       <li><code>Result&lt;void&gt;</code> については、値を持たない成功を表現するために
           <code>Result&lt;void&gt;.Ok()</code>（引数なし）を特別に許可する：
         <ul>
@@ -1317,8 +1443,10 @@ class Result&lt;T&gt; {
       </li>
     </ul>
     <p>
-      上記はあくまで論理モデルであり、実際のフィールド名や実装詳細は VM / ランタイム仕様で調整される余地がある。
-      ただし「Success フラグを軸に、有効なプロパティだけにアクセスする」という契約自体は言語仕様として保証される。
+      <code>Ok</code> / <code>Error</code> は言語構文としての特別扱いではなく、
+      あくまで <code>Result&lt;T&gt;</code> クラスが提供する通常の static メソッドである。
+      ただし、パイプラインやフィルタと組み合わせたときに扱いやすくするため、
+      標準ライブラリの一部として特別に定義されている。
     </p>
 
     <h4>18.2.2 ROP（Railway Oriented Programming）のイメージ</h4>
@@ -1378,12 +1506,13 @@ class Result&lt;T&gt; {
           ROP 的な観点からは「同じ入力に対して同じ出力」を返すことが望ましいため、
           副作用を持つフィールドは最小限にとどめることが推奨される。</li>
       <li><code>constructor</code> は任意で定義でき、オプション値や外部パラメータを受け取って初期化を行う。</li>
-      <li><code>bound(input, output): Result&lt;void&gt;</code> は
-          フィルタの実行本体であり、成功時には <code>Result&lt;void&gt;.Ok()</code>、
-          失敗時には <code>Result&lt;void&gt;.Error(...)</code> を返すことができる。</li>
-      <li>
-        <code>bound</code> メソッドの戻り値型は、<code>Result&lt;T&gt;</code> またはその派生型でなければならない。
-        それ以外の型（プリミティブ型や <code>void</code> など）を返す <code>bound</code> はコンパイルエラーとなる。
+      <li><code>bound(input, output)</code> は
+          フィルタの実行本体であり、戻り値の型は <strong><code>Result&lt;T&gt;</code> もしくはその派生クラス</strong> でなければならない。
+        <ul>
+          <li>これは、<code>async</code> 関数が <code>task</code> を返すことを要求されるのと同様に、
+              フィルタの <code>bound</code> が ROP ベースの成功 / 失敗を表現できることを保証するための制約である。</li>
+          <li>それ以外のオブジェクト型やプリミティブ型を返そうとしたり、戻り値が <code>void</code> の場合はコンパイルエラーとする。</li>
+        </ul>
       </li>
     </ul>
 
@@ -1446,7 +1575,7 @@ users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
       <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知してループを終了する。</li>
     </ul>
 
-    <h3>18.6 map による要素変換</h3>
+    <h3>18.6 map による要素変換（pipe 用）</h3>
     <p>
       pipe に対して <code>map</code> を適用することで、各要素に関数を適用し、
       別の型のストリームを得ることができる。
@@ -1461,54 +1590,40 @@ names = users | map(toName);
     <ul>
       <li><code>map</code> は組み込みの高階操作として定義される。</li>
       <li><code>map</code> の結果も <code>pipe&lt;T&gt;</code> であり、さらに他のフィルタに接続できる。</li>
+      <li>ラムダ風の簡易構文（<code>map (u) =&gt; u.Name</code> のような表記）は現時点では採用せず、
+          関数またはメソッド名を渡すシンプルな形のみを仕様に含める。</li>
     </ul>
 
-    <h3>18.7 コレクションパイプに対するテンプレート map</h3>
+    <h3>18.7 コレクションに対するテンプレート map</h3>
     <p>
-      コレクション（例：<code>User()</code> や <code>User{}</code>）や <code>pipe&lt;T&gt;</code> に対して、
-      テンプレート構文を用いる <code>map</code> を利用できる。
+      コレクション（例：<code>User()</code> や <code>User{}</code>）に対して、
+      テンプレート構文を用いる <code>map</code> も利用できる。
     </p>
-    <p>テンプレート <code>map</code> には次の 2 つの書き方がある。</p>
-<pre><code>// 要素エイリアスあり
-users as u | map Customer {
-    Name    = u.Name;
-    Address = u.Address;
-}
-
-// 要素エイリアスなし
-users | map Customer {
-    Name = "Anonymous";
-    Flag = GetDefaultFlag();
-}
+<pre><code>// User() コレクションから Customer() コレクションを生成する例
+customers = users | map Customer {
+    Name    = "FixedName";           // 固定値
+    Created = now();                 // 固定関数呼び出し
+    BaseUrl = base.ApiEndpoint;      // base による外部設定参照（例）
+};
 </code></pre>
     <ul>
-      <li><code>X as u | map Y { ... }</code> 形式:
+      <li><code>users | map Customer { ... }</code> のように記述すると、
+          各要素ごとに <code>Customer</code> 型のインスタンスを新たに生成し、
+          ブロック内のフィールド代入を用いてマッピングするテンプレートとみなされる。</li>
+      <li>テンプレート内では、<strong>「固定値」または「固定関数呼び出し」</strong> のみで
+          <code>Customer</code> の各フィールドを構成することができる。
         <ul>
-          <li><code>as u</code> で各要素に対するエイリアスを導入する。</li>
-          <li><code>map Y { ... }</code> は、各要素ごとに新しい <code>Y</code> オブジェクトを生成し、
-              ブロック内のフィールド代入を用いてマッピングするテンプレートとみなされる。</li>
-          <li>ブロック内の右辺からは <code>u</code> を参照でき、要素ごとに異なる値を用いて <code>Y</code> を構築できる。</li>
+          <li>ここでいう「固定関数」とは、テンプレートが評価されるたびに同じ意味で呼び出される
+              外側スコープの関数 / メソッドであり、コレクションの要素そのものを引数に取らないものを指す。</li>
         </ul>
       </li>
-      <li><code>X | map Y { ... }</code> 形式:
-        <ul>
-          <li>現在の要素を参照するエイリアスは導入されない。</li>
-          <li>テンプレートブロック内からは、通常のレキシカルスコープどおりにローカル変数や
-              <code>this</code>、（インスタンスメソッド内であれば）<code>base</code>、および
-              static メソッドや定数などを参照できる。</li>
-          <li>一方、入力要素そのものにはアクセスできないため、各要素に対して同じ初期化パターンで
-              <code>Y</code> のインスタンスが生成される（固定値、入力に依存しない関数呼び出し、
-              <code>this</code>/<code>base</code> に依存する値など）。</li>
-        </ul>
-      </li>
-      <li>どちらの形式でも、結果は元のコンテナと同じ「形」を持つ：
-        <ul>
-          <li><code>T[]</code> → <code>Y[]</code></li>
-          <li><code>T()</code> → <code>Y()</code></li>
-          <li><code>T{}</code> → <code>Y{}</code></li>
-          <li><code>pipe&lt;T&gt;</code> → <code>pipe&lt;Y&gt;</code></li>
-        </ul>
-      </li>
+      <li>テンプレート内からコレクションの個々の要素には直接アクセスできない。
+          すなわち、<code>users</code> の各 <code>User</code> を参照するような <code>u.Name</code> などの記法は許可されない。</li>
+      <li>外部の設定値やコンテキストを参照したい場合には、
+          <code>base</code> による外側の設定オブジェクトを用いるなど、
+          明示的に別経路で情報を渡すことを想定する（<code>base</code> の具体的な意味付けは、
+          テンプレート map を利用するコンテキスト側の仕様に委ねられる）。</li>
+      <li>結果は <code>Customer()</code> など、元のコレクションと同様のコレクション型になる。</li>
     </ul>
 
     <h3>18.8 close と EOF 伝播</h3>
