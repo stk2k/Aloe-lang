@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="12">
-  <meta name="edit-date" content="2025-12-04T10:04:38+09:00">
+  <meta name="edit-version" content="13">
+  <meta name="edit-date" content="2025-12-04T10:14:55+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -222,10 +222,8 @@
     <ul>
       <li><code>//</code> から行末までが行コメント。</li>
       <li><code>/*</code> ～ <code>*/</code> が複数行コメント。</li>
-      <li>複数行コメントはネストをサポートしない。</li>
-      <li><code>/*</code> でコメントを開始したら、最初に現れた <code>*/</code> までのすべての文字をコメントとして扱う。</li>
-      <li>コメント内に現れる <code>//</code> や <code>/*</code>, <code>*/</code> は、あくまでコメントの内容として扱い、構文チェックやネスト処理は行わない。</li>
-      <li><code>/*</code> でコメントを開始してから、ファイル終端までに対応する <code>*/</code> が現れなかった場合はコンパイルエラーとする。</li>
+      <li>Aloe の <code>/* ... */</code> コメントは入れ子（ネスト）をサポートする。</li>
+      <li>コメント内では通常のトークンは構文解析されないが、<code>/*</code> と <code>*/</code> の並びだけは入れ子レベルを増減するために認識される。入れ子レベルが 0 に戻る前にファイル終端に達した場合はコンパイルエラーとなる。</li>
     </ul>
 
     <h3>1.2 Identifiers（識別子）</h3>
@@ -1224,7 +1222,7 @@ finally {
     </ul>
 
     <h4>18.2.1 Result&lt;T&gt; の型仕様（概要）</h4>
-<pre><code>// 擬似コードによる概念図（構文は今後確定）
+<pre><code>// Result&lt;T&gt; は言語仕様で定義される組み込みジェネリッククラス
 class Result&lt;T&gt; {
     // 状態
     // Success == true のとき: Value が有効
@@ -1233,7 +1231,7 @@ class Result&lt;T&gt; {
     field Value: T;
     field ErrorMessage: string;
 
-    // ファクトリメソッド（言語組み込み）
+    // ファクトリメソッド（標準ライブラリで提供される）
     static method Ok(value: T): Result&lt;T&gt;;
     static method Error(message: string): Result&lt;T&gt;;
 }
@@ -1263,8 +1261,9 @@ class Result&lt;T&gt; {
       </li>
     </ul>
     <p>
-      上記はあくまで論理モデルであり、実際のフィールド名や実装詳細は VM / ランタイム仕様で調整される余地がある。
-      ただし「Success フラグを軸に、有効なプロパティだけにアクセスする」という契約自体は言語仕様として保証される。
+      上記は Result&lt;T&gt; 型の仕様そのものであり、ここに示されたフィールドおよびメソッドはプログラマから観測可能なインタフェースとして必ず提供される。
+      VM / ランタイム実装は内部表現や最適化戦略を自由に選べるが、「Success フラグを軸に、有効なプロパティだけにアクセスする」という契約は言語仕様として保証される。
+      <code>Ok</code> / <code>Error</code> は標準ライブラリで提供される静的メソッドであり、キーワードや特別な構文ではない。
     </p>
 
     <h4>18.2.2 ROP（Railway Oriented Programming）のイメージ</h4>
@@ -1327,6 +1326,7 @@ class Result&lt;T&gt; {
       <li><code>bound(input, output): Result&lt;void&gt;</code> は
           フィルタの実行本体であり、成功時には <code>Result&lt;void&gt;.Ok()</code>、
           失敗時には <code>Result&lt;void&gt;.Error(...)</code> を返すことができる。</li>
+      <li><code>bound</code> メソッドの戻り値型は、必ず <code>Result&lt;T&gt;</code> または <code>Result&lt;T&gt;</code> を継承した型でなければならない。プリミティブ型や任意のクラス型、<code>void</code> などを戻り値型として宣言した場合、その filter 定義はコンパイルエラーとなる。ここで <code>T</code> は任意の型（<code>void</code> を含む）とする。</li>
     </ul>
 
     <h4>18.3.2 フィルタオプション（filter オプション指定）</h4>
