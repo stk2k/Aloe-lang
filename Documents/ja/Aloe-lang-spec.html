@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="18">
-  <meta name="edit-date" content="2025-12-04T09:00:00+09:00">
+  <meta name="edit-version" content="19">
+  <meta name="edit-date" content="2025-12-06T18:18:12+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -261,6 +261,7 @@ delete
 do
 else
 enum
+expects
 extends
 false
 field
@@ -943,6 +944,63 @@ obj2.a.hello(); // OK
       <li>上書きを避けたい場合は、<code>as a</code> のようなエイリアスを用いて、
           クラス本体のメンバー名と競合しない別名としてアクセスする。</li>
       <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外（エイリアス名の下に別の名前空間がぶら下がる）とする。</li>
+    </ul>
+
+    <h4>7.5.1 expects による前提インタフェース / 型制約</h4>
+    <p>
+      trait は <code>expects</code> 句を使って、適用先オブジェクトが満たすべき前提インタフェースを宣言できる。
+    </p>
+<pre><code>interface Interface_A {
+    method Foo(): void;
+}
+
+trait Trait_B expects Interface_A {
+    method CallFoo(): void {
+        // Interface_A で定義されたメンバーを this 経由で安全に呼び出せる
+        this.Foo();
+    }
+}
+</code></pre>
+    <ul>
+      <li><code>trait T expects I1, I2, ... { ... }</code> のように、1 個以上のインタフェース名を列挙できる。</li>
+      <li><code>expects</code> に列挙された各インタフェース <code>Ik</code> について、
+          trait を適用する先の静的型 <code>TTarget</code> は <strong><code>Ik</code> を実装していなければならない</strong>。
+        <ul>
+          <li><code>TTarget</code> が <code>implements Ik</code> を持つ、または基底クラスが <code>Ik</code> を実装している場合は OK。</li>
+        </ul>
+      </li>
+      <li>この条件を満たさない型に対して
+<pre><code>var x = new SomeType() with Trait_B;
+</code></pre>
+          のように適用しようとした場合はコンパイルエラーとなる。</li>
+      <li>同様に、<code>+</code> や <code>as</code> を使った適用でも同じ制約がかかる：
+<pre><code>var x = new A() + Trait_B;         // A が Interface_A を実装していれば OK
+var y = new B() + Trait_B as b;    // B が Interface_A を実装していない場合はコンパイルエラー
+</code></pre>
+      </li>
+      <li>trait 本体から見た <code>this</code> は、
+          <code>expects</code> で宣言されたすべてのインタフェースを実装するオブジェクトとして扱われる。
+        <ul>
+          <li>そのため、trait 内ではこれらのインタフェースで定義されたプロパティ / メソッドを
+              明示的なキャストなしに利用できる。</li>
+        </ul>
+      </li>
+      <li>インタフェースを増やしたい場合は <code>expects I1, I2</code> のようにカンマで複数列挙する。
+        <ul>
+          <li>将来的な拡張として、インタフェース以外の型（例えば trait 自体や特定の基底クラス）も
+              期待対象に含めることは検討余地として残すが、現時点の仕様では
+              <strong>expects の右辺には interface 型だけを書く</strong> ことを前提とする。</li>
+        </ul>
+      </li>
+    </ul>
+    <p>直感的には、次のように読むことができる：</p>
+    <ul>
+      <li><code>class A implements Interface_A {}</code><br>
+        ⇒ クラス A は <code>Interface_A</code> を「実装」する。</li>
+      <li><code>trait B expects Interface_A {}</code><br>
+        ⇒ Trait B は「<code>Interface_A</code> を実装したオブジェクトにアタッチされることを期待する」。<br>
+        ⇒ したがって、Trait B の内部では <code>Interface_A</code> で定義されたプロパティ / メソッドを利用できる。
+      </li>
     </ul>
 
     <h3>7.6 abstract / virtual / override</h3>
