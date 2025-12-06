@@ -28,6 +28,10 @@ Current focus:
   https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-vm-opcode.html
 - Aloe standard filter library (HTML)  
   https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-standard-filters.html
+- Aloe standard library specification (HTML)  
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-stdlib-spec.html
+- Aloe package specification (HTML)  
+  https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-package-spec.html
 
 ---
 

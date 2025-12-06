@@ -1,6 +1,9 @@
 # Promptプロジェクトのファイルすべてを除外
 .vs/
 
+AloeSample/bin/
+AloeSample/obj/
+
 CommonLib/bin/
 CommonLib/obj/
 
