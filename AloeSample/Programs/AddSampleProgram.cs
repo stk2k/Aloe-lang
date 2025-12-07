@@ -1,6 +1,7 @@
-﻿using System.Collections.Generic;
-using Aloe.CommonLib;
+﻿using Aloe.CommonLib;
 using Aloe.CommonLib.Constants;
+using System.Collections.Generic;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace AloeSample.Programs
 {
@@ -14,6 +15,21 @@ namespace AloeSample.Programs
     /// コード配置:
     ///   Main.EntryIp = 0
     ///   Add.EntryIp  = 4
+    ///   
+    /// 2 つの int を足して返す関数
+    /// function Add(a: int, b: int): int
+    /// {
+    ///     return a + b;
+    /// }
+    ///
+    /// // エントリポイント
+    /// function Main(): int
+    /// {
+    ///     let x: int = 2;
+    ///     let y: int = 3;
+    /// 
+    ///     return Add(x, y);
+    /// }
     /// </summary>
     public sealed class AddSampleProgram : ISampleProgram
     {
