@@ -2,46 +2,78 @@
 
 namespace Aloe.CommonLib
 {
-    public class CallFrame
+    /// <summary>
+    /// 単一関数呼び出しの実行コンテキスト。
+    /// - Module       : 実行中モジュール
+    /// - Function     : このフレームが対象としている関数
+    /// - Ip           : 関数内の現在の命令インデックス
+    /// - Locals       : ローカル変数スロット
+    /// - ReturnAddress: 呼び出し元に戻る際の再開 IP
+    /// </summary>
+    public sealed class CallFrame
     {
         /// <summary>このフレームが属するモジュール。</summary>
         public Module Module { get; }
 
-        /// <summary>このフレームが実行している関数情報。</summary>
+        /// <summary>このフレームが表す関数情報。</summary>
         public FunctionInfo Function { get; }
 
-        /// <summary>現在の命令ポインタ（Module.Code 配列のインデックス）。</summary>
-        public int Ip;
+        /// <summary>
+        /// 現在の命令インデックス（Instruction[] の添字）。
+        /// 実行ループ側でインクリメント／ジャンプ書き換えを行う。
+        /// </summary>
+        public int Ip { get; set; }
+
+        /// <summary>ローカル変数スロット。</summary>
+        public AloeValue[] Locals { get; }
+
+        /// <summary>ローカル変数の数。</summary>
+        public int LocalCount => Locals.Length;
 
         /// <summary>
-        /// 呼び出し元に戻る際の命令ポインタ。
-        /// エントリ関数など「戻り先がない」場合は -1。
+        /// 呼び出し元に戻る際に再開する命令インデックス。
+        /// -1 は「戻り先なし（エントリポイント）」を意味する。
         /// </summary>
         public int ReturnAddress { get; }
 
-        /// <summary>ローカル変数領域。</summary>
-        public AloeValue[] Locals { get; }
-
-        /// <summary>
-        /// 新しいフレームを生成する。
-        /// </summary>
-        /// <param name="module">対象モジュール。</param>
-        /// <param name="function">対象関数情報。</param>
-        /// <param name="ip">このフレームの開始 IP（通常は function.CodeOffset）。</param>
-        /// <param name="returnAddress">呼び出し元に戻る IP（エントリ関数の場合は -1）。</param>
-        /// <param name="localCount">ローカル変数数。</param>
         public CallFrame(
             Module module,
             FunctionInfo function,
             int ip,
-            int returnAddress,
-            int localCount)
+            AloeValue[] locals,
+            int returnAddress = -1)
         {
             Module = module ?? throw new ArgumentNullException(nameof(module));
-            Function = function;
+            Function = function ?? throw new ArgumentNullException(nameof(function));
             Ip = ip;
+            Locals = locals ?? Array.Empty<AloeValue>();
             ReturnAddress = returnAddress;
-            Locals = localCount > 0 ? new AloeValue[localCount] : Array.Empty<AloeValue>();
+        }
+
+        /// <summary>ローカル変数の取得。</summary>
+        public AloeValue GetLocal(int index)
+        {
+            if ((uint)index >= (uint)Locals.Length)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(index),
+                    $"Local index out of range. index={index}, count={Locals.Length}");
+            }
+
+            return Locals[index];
+        }
+
+        /// <summary>ローカル変数の設定。</summary>
+        public void SetLocal(int index, AloeValue value)
+        {
+            if ((uint)index >= (uint)Locals.Length)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(index),
+                    $"Local index out of range. index={index}, count={Locals.Length}");
+            }
+
+            Locals[index] = value;
         }
     }
 }

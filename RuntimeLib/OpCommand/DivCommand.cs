@@ -1,37 +1,30 @@
-﻿// Aloe.Runtime/Execution/NopCommand.cs
+﻿using System;
 using Aloe.CommonLib;
-using Aloe.CommonLib.Constants;
 using Aloe.CommonLib.Exceptions;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
-    internal sealed class DivCommand : IOpcodeCommand
+    /// <summary>
+    /// 除算命令。
+    ///
+    /// Stack: [..., left, right] -> [..., (left / right)]
+    /// AloeValue の operator / が ZeroDivisionException を投げる。
+    /// </summary>
+    public sealed class DivCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            var stack = vm.OperandStack;
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            if (frame == null) throw new ArgumentNullException(nameof(frame));
 
-            var right = stack.Pop();
-            var left = stack.Pop();
+            // スタックから右・左の順に取り出す（left / right）
+            var right = vm.Pop();
+            var left = vm.Pop();
 
-            if (left.Kind == EnumValueKind.Int &&
-                right.Kind == EnumValueKind.Int)
-            {
-                int rhs = right.AsInt();
-                if (rhs == 0)
-                {
-                    // TODO: 仕様に合わせて ZeroDivisionException など専用例外を実装して差し替えてもよい
-                    throw new VmException("Division by zero.");
-                }
+            // AloeValue.operator / 内で数値チェック & ゼロ除算チェック
+            var result = left / right;
 
-                int result = left.AsInt() / rhs;
-                stack.Push(AloeValue.FromInt(result));
-            }
-            else
-            {
-                throw new VmException(
-                    $"Div is not supported for {left.Kind} and {right.Kind}.");
-            }
+            vm.Push(result);
         }
     }
 }

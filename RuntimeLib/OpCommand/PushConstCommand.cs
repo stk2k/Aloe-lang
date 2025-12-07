@@ -1,25 +1,38 @@
-﻿// Aloe.Runtime/Execution/NopCommand.cs
+﻿using System;
 using Aloe.CommonLib;
 using Aloe.CommonLib.Exceptions;
-using Aloe.RuntimeLib;
-using System;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
-    internal sealed class PushConstCommand : IOpcodeCommand
+    /// <summary>
+    /// 定数プールから 1 つ値を取り出して評価スタックに積む。
+    ///
+    /// Operand:
+    ///   - 定数プールのインデックス (int)
+    /// </summary>
+    public sealed class PushConstCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            int constIndex = reader.ReadInt32();
-            var module = vm.Module;
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            if (frame == null) throw new ArgumentNullException(nameof(frame));
 
-            if (constIndex < 0 || constIndex >= module.Constants.Length)
+            var module = frame.Module
+                         ?? throw new VmException("PushConst: CallFrame.Module is null.");
+
+            var constIndex = instruction.Operand;
+
+            var constants = module.Constants;
+            if (constIndex < 0 || constIndex >= constants.Count)
             {
-                throw new VmException($"Invalid constant index: {constIndex}");
+                throw new VmException(
+                    $"PushConst: constant index out of range. index={constIndex}, count={constants.Count}");
             }
 
-            var value = module.Constants[constIndex];
-            vm.OperandStack.Push(value);
+            var value = constants[constIndex];
+
+            // 評価スタックに積む
+            vm.ValueStack.Push(value);
         }
     }
 }

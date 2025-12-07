@@ -1,74 +1,71 @@
-﻿// Aloe.Runtime/Execution/NopCommand.cs
+﻿using System;
 using Aloe.CommonLib;
+using Aloe.CommonLib.Constants;
 using Aloe.CommonLib.Exceptions;
-using Aloe.RuntimeLib;
-using System;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
-    internal sealed class CallCommand : IOpcodeCommand
+    /// <summary>
+    /// CALL 命令。
+    /// 
+    /// Instruction.Operand0 : 呼び出す関数のインデックス（Module.Functions のインデックス）
+    /// 
+    /// - スタックから引数をポップして、新しい CallFrame の Locals[0..ParameterCount-1] に詰める。
+    /// - 新しい CallFrame を生成して vm.CallStack に Push する。
+    /// - 呼び出し元フレームの IP は AloeVm.Run 側で既に次命令を指している前提。
+    /// </summary>
+    public sealed class CallCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            // 1) バイトコードから関数インデックスと引数個数を読む
-            int functionIndex = reader.ReadInt32();
-            int argCount = reader.ReadInt32();
-
             var module = vm.Module;
-            var stack = vm.OperandStack;
-            var callStack = vm.CallStack;
+            var functions = module.Functions;
 
-            if (functionIndex < 0 || functionIndex >= module.Functions.Count)
-            {
-                throw new VmException($"Invalid function index: {functionIndex}");
-            }
+            // Operand0: 呼び出し先関数のインデックス
+            int functionIndex = instruction.Operand0;
 
-            var function = module.Functions[functionIndex];
-
-            // パラメータ数チェック（仕様に合わせてゆるく／厳しく）
-            if (argCount != function.ParameterCount)
+            if (functionIndex < 0 || functionIndex >= functions.Count)
             {
                 throw new VmException(
-                    $"Function '{function.Name}' expects {function.ParameterCount} arguments, " +
-                    $"but {argCount} were supplied.");
+                    $"CALL: function index out of range. index={functionIndex}, count={functions.Count}");
             }
 
-            if (argCount > stack.Count)
+            var callee = functions[functionIndex];
+
+            int parameterCount = callee.ParameterCount;
+            int localCount = callee.LocalCount;
+
+            // LocalCount が ParameterCount 未満でも一応動くようにフォールバック
+            if (localCount < parameterCount)
             {
-                throw new VmException(
-                    $"Stack underflow: Call requires {argCount} arguments but stack contains only {stack.Count} values.");
+                localCount = parameterCount;
             }
 
-            // 2) スタックから引数を取り出す（args[0] が最初の引数になるように）
-            var args = new AloeValue[argCount];
-            for (int i = argCount - 1; i >= 0; i--)
+            // ローカル変数＋引数用スロットを確保
+            AloeValue[] locals = localCount > 0
+                ? new AloeValue[localCount]
+                : Array.Empty<AloeValue>();
+
+            // 引数を評価スタックから取り出して Locals[0..parameterCount-1] に格納
+            // スタックには [ ... arg0, arg1, ..., argN-1 ] の順で積まれている前提で、
+            // 最後に積まれた argN-1 から逆順に取り出す。
+            for (int i = parameterCount - 1; i >= 0; i--)
             {
-                args[i] = stack.Pop();
+                locals[i] = vm.Pop();
             }
 
-            // 3) 新しい CallFrame を作成
-            //    - returnAddress: 現在の reader.Position（＝次の命令）
-            //    - ip: 呼び出し先関数のコード開始位置
-            var frame = new CallFrame(
+            // 関数エントリ IP
+            int entryIp = callee.EntryIp;
+
+            // 新しいコールフレームを生成してスタックに積む
+            var newFrame = new CallFrame(
                 module: module,
-                function: function,
-                ip: function.CodeOffset,
-                returnAddress: reader.Position,
-                localCount: function.LocalCount
+                function: callee,
+                ip: entryIp,
+                locals: locals
             );
 
-            // 4) ローカルに引数をコピー
-            //    ここでは「先頭 local がパラメータ領域」という前提
-            for (int i = 0; i < argCount; i++)
-            {
-                frame.Locals[i] = args[i];
-            }
-
-            // 5) コールスタックにプッシュして、IP を遷移
-            callStack.Push(frame);
-
-            // VM 側の Reader も、呼び出し先関数のコード位置に飛ばす
-            vm.Reader.Position = function.CodeOffset;
+            vm.CallStack.Push(newFrame);
         }
     }
 }

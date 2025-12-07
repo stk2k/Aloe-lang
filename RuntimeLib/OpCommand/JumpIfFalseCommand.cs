@@ -1,33 +1,53 @@
-﻿// Aloe.Runtime/Execution/NopCommand.cs
+﻿using System;
 using Aloe.CommonLib;
 using Aloe.CommonLib.Constants;
 using Aloe.CommonLib.Exceptions;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
-    internal sealed class JumpIfFalseCommand : IOpcodeCommand
+    /// <summary>
+    /// 条件が false の場合にジャンプする命令。
+    ///
+    /// Stack: [..., cond] → [...]
+    /// cond が false なら IP をオペランド位置へ書き換える。
+    /// </summary>
+    public sealed class JumpIfFalseCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            // 1. 先に相対オフセット(int32)を読む
-            int offset = reader.ReadInt32();
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            if (frame == null) throw new ArgumentNullException(nameof(frame));
 
-            var stack = vm.OperandStack;
-            var condition = stack.Pop();
+            // スタックトップから条件を取得
+            var cond = vm.Pop();
 
-            if (condition.Kind != EnumValueKind.Bool)
+            bool value;
+            try
+            {
+                // ★ AsBool はプロパティなので () を付けない
+                value = cond.AsBool;
+            }
+            catch (VmException ex)
             {
                 throw new VmException(
-                    $"JumpIfFalse requires bool, but got {condition.Kind}.");
+                    $"JumpIfFalse expects Bool condition, but got {cond.Kind}.", ex);
             }
 
-            // 2. false のときだけジャンプする
-            if (!condition.AsBool())
+            // false のときだけジャンプ
+            if (!value)
             {
-                // BytecodeReader は Position プロパティで命令ポインタを管理する
-                reader.Position += offset;
+                var target = instruction.Operand;
+
+                if (target < 0)
+                {
+                    throw new VmException($"JumpIfFalse: invalid jump target {target}.");
+                }
+
+                // AloeVm.Run 側で frame.Ip++ 済みを想定して、
+                // ここでは絶対 IP として上書き
+                frame.Ip = target;
             }
-            // true の場合は何もしない（そのまま次の命令へ）
+            // true の場合は何もしない（Run ループ側の Ip++ のまま次の命令へ）
         }
     }
 }

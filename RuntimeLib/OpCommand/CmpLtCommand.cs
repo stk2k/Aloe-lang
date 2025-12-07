@@ -1,33 +1,38 @@
-﻿// Aloe.Runtime/Execution/NopCommand.cs
-using Aloe.CommonLib;
-using Aloe.CommonLib.Constants;
+﻿using Aloe.CommonLib;
 using Aloe.CommonLib.Exceptions;
-using Aloe.RuntimeLib;
-using Microsoft.VisualBasic;
-using System;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
     internal sealed class CmpLtCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            var stack = vm.OperandStack;
+            // 右側・左側のオペランドをスタックから取り出す
+            var right = vm.Pop();
+            var left = vm.Pop();
 
-            var right = stack.Pop();
-            var left = stack.Pop();
-
-            if (left.Kind == EnumValueKind.Int &&
-                right.Kind == EnumValueKind.Int)
+            // 数値以外には対応しない
+            if (!left.IsNumber || !right.IsNumber)
             {
-                bool result = left.AsInt() < right.AsInt();
-                stack.Push(AloeValue.FromBool(result));
+                throw new VmException(
+                    $"CmpLt is only defined for numeric operands (left={left.Kind}, right={right.Kind}).");
+            }
+
+            bool result;
+
+            // どちらかが Float なら浮動小数で比較
+            if (left.IsFloat || right.IsFloat)
+            {
+                // ★ ここがポイント: プロパティなので () を付けない
+                result = left.AsFloat < right.AsFloat;
             }
             else
             {
-                throw new VmException(
-                    $"CmpLt is not supported for {left.Kind} and {right.Kind}.");
+                // 両方 Int のときは整数比較
+                result = left.AsInt < right.AsInt;
             }
+
+            vm.Push(AloeValue.FromBool(result));
         }
     }
 }

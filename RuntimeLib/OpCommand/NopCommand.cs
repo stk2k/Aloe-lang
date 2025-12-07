@@ -7,7 +7,7 @@ namespace Aloe.RuntimeLib.OpCommand
 {
     internal sealed class NopCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
             // 何もしない
         }

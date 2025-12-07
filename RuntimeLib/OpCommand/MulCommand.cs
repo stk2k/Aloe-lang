@@ -1,31 +1,29 @@
-﻿// Aloe.Runtime/Execution/NopCommand.cs
+﻿using System;
 using Aloe.CommonLib;
-using Aloe.CommonLib.Constants;
-using Aloe.CommonLib.Exceptions;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
-    internal sealed class MulCommand : IOpcodeCommand
+    /// <summary>
+    /// 乗算命令。
+    ///
+    /// Stack: [..., left, right] -> [..., (left * right)]
+    /// 数値でない場合は AloeValue 側で例外になる想定。
+    /// </summary>
+    public sealed class MulCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            var stack = vm.OperandStack;
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            if (frame == null) throw new ArgumentNullException(nameof(frame));
 
-            var right = stack.Pop();
-            var left = stack.Pop();
+            // スタックから右・左の順に取り出す（left * right）
+            var right = vm.Pop();
+            var left = vm.Pop();
 
-            if (left.Kind == EnumValueKind.Int &&
-                right.Kind == EnumValueKind.Int)
-            {
-                // TODO: オーバーフロー検出を入れたくなったら checked コンテキストを検討
-                int result = left.AsInt() * right.AsInt();
-                stack.Push(AloeValue.FromInt(result));
-            }
-            else
-            {
-                throw new VmException(
-                    $"Mul is not supported for {left.Kind} and {right.Kind}.");
-            }
+            // AloeValue.operator * に任せる
+            var result = left * right;
+
+            vm.Push(result);
         }
     }
 }

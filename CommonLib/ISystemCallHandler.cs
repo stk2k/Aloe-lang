@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Aloe.CommonLib.Constants;
+using System;
 
 namespace Aloe.CommonLib
 {
@@ -10,6 +11,6 @@ namespace Aloe.CommonLib
         /// <summary>
         /// 指定された syscall を実行する。
         /// </summary>
-        void Invoke(SyscallId id, ReadOnlySpan<AloeValue> args);
+        void Invoke(EnumSyscallId id, ReadOnlySpan<AloeValue> args);
     }
 }

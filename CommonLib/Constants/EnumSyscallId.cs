@@ -1,17 +1,16 @@
 ﻿using System;
 
-namespace Aloe.CommonLib
+namespace Aloe.CommonLib.Constants
 {
     /// <summary>
     /// VM から呼び出すシステムコール ID 一覧。
     /// </summary>
-    public enum SyscallId : int
+    public enum EnumSyscallId : int
     {
         /// <summary>
-        /// 標準出力に文字列を書き出す。
-        /// args[0]: string
+        /// スタックトップの値を文字列化して標準出力に書き出す。
         /// </summary>
-        WriteStdout = 1,
+        Print = 1,
 
         // 将来拡張:
         // WriteStderr = 2,

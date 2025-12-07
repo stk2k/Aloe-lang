@@ -2,32 +2,34 @@
 using Aloe.CommonLib;
 using Aloe.CommonLib.Constants;
 using Aloe.CommonLib.Exceptions;
-using Aloe.RuntimeLib;
-using Microsoft.VisualBasic;
-using System;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
     internal sealed class SubCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            var stack = vm.OperandStack;
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            if (frame == null) throw new ArgumentNullException(nameof(frame));
 
-            var right = stack.Pop();
-            var left = stack.Pop();
+            // 旧: vm.OperandStack.Pop() などを使っていた想定
+            var right = vm.Pop();
+            var left = vm.Pop();
 
-            if (left.Kind == EnumValueKind.Int &&
-                right.Kind == EnumValueKind.Int)
+            // AloeValue に演算子 - が定義されている前提
+            AloeValue result;
+            try
             {
-                int result = left.AsInt() - right.AsInt();
-                stack.Push(AloeValue.FromInt(result));
+                result = left - right;
             }
-            else
+            catch (Exception ex)
             {
+                // 型不一致などで落ちたときに VM 例外にラップ
                 throw new VmException(
-                    $"Sub is not supported for {left.Kind} and {right.Kind}.");
+                    $"SubCommand failed: cannot subtract {right.Kind} from {left.Kind}.", ex);
             }
+
+            vm.Push(result);
         }
     }
 }

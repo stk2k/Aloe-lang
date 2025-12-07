@@ -1,27 +1,31 @@
-﻿// Aloe.Runtime/Execution/NopCommand.cs
+﻿using System;
 using Aloe.CommonLib;
 using Aloe.CommonLib.Exceptions;
-using Aloe.RuntimeLib;
-using System;
 
 namespace Aloe.RuntimeLib.OpCommand
 {
-    internal sealed class LoadLocalCommand : IOpcodeCommand
+    /// <summary>
+    /// ローカル変数を評価スタックに積む命令。
+    ///
+    /// Operand: ローカル変数インデックス (0-based)
+    /// Stack: [... ] -> [..., value]
+    /// </summary>
+    public sealed class LoadLocalCommand : IOpcodeCommand
     {
-        public void Execute(AloeVm vm, BytecodeReader reader)
+        public void Execute(AloeVm vm, CallFrame frame, in Instruction instruction)
         {
-            int localIndex = reader.ReadInt32();
+            if (vm == null) throw new ArgumentNullException(nameof(vm));
+            if (frame == null) throw new ArgumentNullException(nameof(frame));
 
-            // 現在のフレームを ref で取得
-            var frame = vm.CurrentFrame;
+            var index = instruction.Operand;
 
-            if (localIndex < 0 || localIndex >= frame.Locals.Length)
+            if (index < 0 || index >= frame.Locals.Length)
             {
-                throw new VmException($"Invalid local index: {localIndex}");
+                throw new VmException($"LoadLocal: invalid local index {index}.");
             }
 
-            // ローカルから値を取り出してオペランドスタックへ積む
-            vm.OperandStack.Push(frame.Locals[localIndex]);
+            var value = frame.Locals[index];
+            vm.Push(value);
         }
     }
 }

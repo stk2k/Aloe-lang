@@ -49,7 +49,7 @@ namespace Aloe.CompilerLib.Tests
                 "extends", "implements", "import"
             };
 
-            CollectionAssert.IsSubsetOf(expected, keywords);
+            Assert.That(expected, Is.SubsetOf(keywords));
         }
 
         [Test]
@@ -138,18 +138,25 @@ namespace Aloe.CompilerLib.Tests
                 .Select(t => t.Lexeme)
                 .ToArray();
 
-            CollectionAssert.AreEquivalent(
-                new[] { "10.5", "0.0", "-3.14" },
-                floats);
+            // CollectionAssert.AreEquivalent(new[] { "10.5", "0.0", "-3.14" }, floats);
+            Assert.That(
+                floats,
+                Is.EquivalentTo(new[] { "10.5", "0.0", "-3.14" })
+            );
 
-            CollectionAssert.AreEquivalent(
-                new[]
+            // CollectionAssert.AreEquivalent(
+            //     new[] { "10.12345678901234567890:d", "1.0:D" },
+            //     decimals);
+            Assert.That(
+                decimals,
+                Is.EquivalentTo(new[]
                 {
-                    "10.12345678901234567890:d",
-                    "1.0:D"
-                },
-                decimals);
+            "10.12345678901234567890:d",
+            "1.0:D"
+                })
+            );
         }
+
 
         // ----------------------------------------
         // ï∂éöóÒÅEï∂éöÉäÉeÉâÉã
