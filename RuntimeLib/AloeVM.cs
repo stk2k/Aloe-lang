@@ -58,6 +58,15 @@ namespace Aloe.RuntimeLib
         /// </summary>
         public Module Module => _module;
 
+        /// <summary>トレースを有効にするかどうか。</summary>
+        public bool TraceEnabled { get; set; }
+
+        /// <summary>
+        /// トレース出力先。デフォルトは Console.WriteLine。
+        /// null の場合は何もしない。
+        /// </summary>
+        public Action<string>? TraceWriter { get; set; } = Console.WriteLine;
+
         /// <summary>
         /// VM インスタンスを生成する。
         /// </summary>
@@ -221,6 +230,11 @@ namespace Aloe.RuntimeLib
                     throw new VmException($"Unknown opcode: {instruction.Opcode}");
                 }
 
+                if (TraceEnabled)
+                {
+                    TraceWriter?.Invoke(FormatTrace(frame, in instruction));
+                }
+
                 // ★ 実行前の状態を覚えておく
                 var beforeIp = ip;
                 var beforeFrame = frame;
@@ -250,7 +264,26 @@ namespace Aloe.RuntimeLib
                 // もしフレームが変わっていれば（Call/Return 済み）、そのまま次ループで新トップを使う
             }
         }
+        private string FormatTrace(CallFrame frame, in Instruction instruction)
+        {
+            // スタック上位 5 個くらいだけ見る（上が一番右）
+            var stackPreview = _valueStack
+                .Reverse()         // bottom ... top にする
+                .Take(5)
+                .Select(v => v.ToString())
+                .ToArray();
 
+            var stackText = stackPreview.Length == 0
+                ? "(empty)"
+                : string.Join(", ", stackPreview);
+
+            return
+                $"IP={frame.Ip:0000} " +
+                $"OP={instruction.Opcode} " +
+                $"O0={instruction.Operand0} " +
+                $"O1={instruction.Operand1} " +
+                $"| STACK=[{stackText}]";
+        }
 
         /// <summary>
         /// 評価スタックに値をプッシュするヘルパー。
@@ -277,14 +310,14 @@ namespace Aloe.RuntimeLib
         }
 
         // システムコール ID -> 実装
-        private readonly Dictionary<EnumSyscallId, Action<AloeVm>> _syscalls
-            = new Dictionary<EnumSyscallId, Action<AloeVm>>();
+        private readonly Dictionary<EnumSyscall, Action<AloeVm>> _syscalls
+            = new Dictionary<EnumSyscall, Action<AloeVm>>();
 
         /// <summary>
         /// システムコールを登録する。
         /// 例えば id=0 を print、id=1 を readLine など。
         /// </summary>
-        public void RegisterSyscall(EnumSyscallId id, Action<AloeVm> impl)
+        public void RegisterSyscall(EnumSyscall id, Action<AloeVm> impl)
         {
             if (impl == null) throw new ArgumentNullException(nameof(impl));
             _syscalls[id] = impl;
@@ -293,14 +326,26 @@ namespace Aloe.RuntimeLib
         /// <summary>
         /// SyscallCommand から呼び出される内部 API。
         /// </summary>
-        internal void InvokeSyscall(EnumSyscallId id)
+        public void InvokeSyscall(EnumSyscall syscallId)
         {
-            if (!_syscalls.TryGetValue(id, out var impl))
+            switch (syscallId)
             {
-                throw new VmException($"Unknown syscall id: {id}");
-            }
+                case EnumSyscall.Print:
+                    {
+                        // スタックトップを取り出して、そのまま ToString() して出力
+                        var v = Pop();
+                        Console.WriteLine(v.ToString());
+                        break;
+                    }
 
-            impl(this);
+                // 将来拡張:
+                // case EnumSyscall.WriteStderr:
+                //     ...
+                //     break;
+
+                default:
+                    throw new VmException($"Unknown syscall id: {syscallId}");
+            }
         }
 
         /// <summary>
@@ -308,7 +353,7 @@ namespace Aloe.RuntimeLib
         /// </summary>
         internal void InvokeSyscall(int id)
         {
-            var enumId = (EnumSyscallId)id;
+            var enumId = (EnumSyscall)id;
             InvokeSyscall(enumId);
         }
     }

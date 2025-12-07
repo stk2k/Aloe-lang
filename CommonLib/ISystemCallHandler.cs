@@ -11,6 +11,6 @@ namespace Aloe.CommonLib
         /// <summary>
         /// 指定された syscall を実行する。
         /// </summary>
-        void Invoke(EnumSyscallId id, ReadOnlySpan<AloeValue> args);
+        void Invoke(EnumSyscall id, ReadOnlySpan<AloeValue> args);
     }
 }

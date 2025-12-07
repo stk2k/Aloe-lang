@@ -10,8 +10,8 @@ namespace Aloe.RuntimeLib.OpCommand
             // オペランド0をシステムコールIDとして解釈
             vm.InvokeSyscall(instruction.Operand0);
 
-            // 次の命令へ
-            frame.Ip++;
+            // ここでは Ip を変更しない。
+            // Run() 側で「同じフレーム & Ip 変更なし」を検知して自動で +1 してくれる。
         }
     }
 }
