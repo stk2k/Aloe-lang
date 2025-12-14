@@ -1,10 +1,11 @@
+```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="22">
-  <meta name="edit-date" content="2025-12-13T16:22:06+09:00">
+  <meta name="edit-version" content="23">
+  <meta name="edit-date" content="2025-12-14T21:25:08+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -125,7 +126,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + with 拡張</div>
+    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 23)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -164,6 +165,10 @@
   <!-- 本文 -->
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
+    <p class="note">
+      edit-version: 23<br>
+      edit-date: 2025-12-14T21:25:08+09:00
+    </p>
     <p class="note">
       この文書は、英語版仕様
       <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>
@@ -415,7 +420,6 @@ print(x);
       </li>
     </ul>
 
-    
     <h4>any type（any 型）</h4>
     <ul>
       <li><code>any</code> は、<code>void</code> を除く任意の値を保持できる特別な型である。</li>
@@ -446,10 +450,10 @@ print(x);
     <ul>
       <li><code>int</code> と <code>float</code> を混在させた式の結果は <code>float</code> になる。
         <ul>
-          <li><code>int + float -> float</code></li>
-          <li><code>int - float -> float</code></li>
-          <li><code>int * float -> float</code></li>
-          <li><code>int / float -> float</code></li>
+          <li><code>int + float -&gt; float</code></li>
+          <li><code>int - float -&gt; float</code></li>
+          <li><code>int * float -&gt; float</code></li>
+          <li><code>int / float -&gt; float</code></li>
         </ul>
       </li>
     </ul>
@@ -1057,7 +1061,7 @@ class FileLogger extends BaseLogger {
       <li><code>virtual</code> が付いたメソッドは、派生クラスで <code>override</code> 可能なメソッドである。</li>
       <li><code>virtual</code> メソッドは本体を持つ（抽象メソッドとは異なる）。</li>
       <li>派生クラス側でオーバーライドする場合、必ず <code>override</code> を付ける。</li>
-      <li><code>override</code> を付けたメソッドのシグネチャ（名前、引数、戻り値）は、基底クラスの抽象 / virtual メソッドと一致していなければならない。</li>
+      <li><code>override</code> を付けたメソッドのシグニチャ（名前、引数、戻り値）は、基底クラスの抽象 / virtual メソッドと一致していなければならない。</li>
       <li>基底クラスに対応する virtual / abstract メソッドが存在しないのに <code>override</code> を付けた場合はコンパイルエラー。</li>
     </ul>
 
@@ -1086,10 +1090,19 @@ fl.Log("Hello");      // 当然 FileLogger.Log が呼ばれる
 delete obj;  // equivalent to: obj = null (at VM level)
 </code></pre>
     <ul>
-      <li><code>delete obj;</code> は VM レベルでは <code>obj = null</code> と等価。</li>
+      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を解放する指示をするコマンド」である。</li>
+      <li>VM レベルでは <code>delete obj;</code> は <code>obj = null</code> と等価であり、実行後 <code>obj</code> の値は null となる。</li>
+      <li><code>delete</code> は参照変数に対する操作であるため、同一オブジェクトを参照している別の参照変数（例：<code>b</code>）には干渉しない。</li>
+      <li>オブジェクトの実際の解放（回収）は実行系が決定する。
+        <ul>
+          <li>他の箇所で参照が保持されている場合、オブジェクトは回収されない。</li>
+          <li>オブジェクトが到達不能になった後、実行系は任意の時点で回収してよい（回収時刻は未規定）。</li>
+        </ul>
+      </li>
       <li>ソースコード中で <code>obj = null;</code> と書くことはできない。</li>
       <li>参照型は内部的には null を取り得るが、型システムは null を追跡しない。</li>
-      <li>null 状態でのアクセスは <code>NullReferenceException</code> を引き起こす可能性がある。</li>
+      <li>null 状態でのアクセスは <code>NullPointerException</code> を引き起こす。</li>
+      <li><code>obj</code> がすでに null の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
     </ul>
 
     <hr>
@@ -1284,7 +1297,7 @@ finally {
     <h3>16.1 標準例外の概要</h3>
 <pre><code>Exception
 +- SystemException
-|  +- NullReferenceException
+|  +- NullPointerException
 |  +- IndexOutOfBoundsException
 |  +- OverflowException
 |  +- ZeroDivisionException
@@ -1527,11 +1540,11 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
       エラーが出た時点で以降のステップをスキップするイメージである。
     </p>
 <pre><code>入力
-  +-> [ Filter A ] -> [ Filter B ] -> [ Filter C ] -> 出力
+  +-&gt; [ Filter A ] -&gt; [ Filter B ] -&gt; [ Filter C ] -&gt; 出力
   |        |              |              |
-  |        +-> Error -----+--------------+----> エラー経路
+  |        +-&gt; Error -----+--------------+----&gt; エラー経路
   |
-  +-> （別の分岐やログ出力など）
+  +-&gt; （別の分岐やログ出力など）
 </code></pre>
     <p>
       Aloe におけるフィルタは、可能な限り副作用を限定し、
@@ -1790,3 +1803,4 @@ function main(args: string[]): int {
 </div>
 </body>
 </html>
+```
