@@ -4,8 +4,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="24">
-  <meta name="edit-date" content="2025-12-14T22:44:49+09:00">
+  <meta name="edit-version" content="25">
+  <meta name="edit-date" content="2025-12-15T00:18:34+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -126,7 +126,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 24)</div>
+    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 25)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -166,8 +166,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 24<br>
-      edit-date: 2025-12-14T22:44:49+09:00
+      edit-version: 25<br>
+      edit-date: 2025-12-15T00:18:34+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -331,7 +331,7 @@ yield
       <li>真偽値：<code>true</code>, <code>false</code></li>
       <li>文字列：<code>"Hello, World!"</code></li>
       <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
-      <li>null リテラル：<code>null</code>（比較用。変数の初期化や代入では使用不可）</li>
+      <li>null リテラル：<code>null</code>（比較用。代入・初期化には使用できない）</li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
       <li>セットリテラル：<code>{1, 2, 3}</code></li>
@@ -378,7 +378,7 @@ print(x);
       <li><code>float</code> - 浮動小数点数。</li>
       <li><code>decimal</code> - 高精度 10 進数。</li>
       <li><code>string</code> - 文字列（内部的には Unicode）。</li>
-      <li><code>null</code> - 「値が存在しない」ことを表す特別な型兼値（比較用リテラルとして定義される）。</li>
+      <li><code>null</code> - 「値が存在しない」ことを表す特別な型兼値。</li>
       <li><code>void</code> - 戻り値なし（メソッド戻り値専用）。</li>
     </ul>
     <p>
@@ -702,7 +702,7 @@ var fb  = new FizzBuzz();
       <li>変数の型は右辺の式から推論される。</li>
       <li><code>var x = 1;</code> は常に <code>int</code>。</li>
       <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
-      <li><code>var x = null;</code> はコンパイルエラー（null リテラルは初期化・代入に使用できない）。</li>
+      <li><code>var x = null;</code> はコンパイルエラー（null リテラルは代入・初期化に使用できない）。</li>
       <li><code>any</code> 型の式を右辺に置いた場合、推論結果の型も <code>any</code> になる。</li>
     </ul>
 
@@ -718,6 +718,7 @@ function main(args: string[]): int {
     return 0;
 }
 </code></pre>
+
     <h3>5.2 let（明示的な型）</h3>
 <pre><code>let i: int = 10;
 let f: float = 10.5;
@@ -732,7 +733,7 @@ let st : int{} = {1, 2, 3};
 let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
-      <li><code>let x: Foo = null;</code> のように null リテラルで初期化することはできない（コンパイルエラー）。</li>
+      <li><code>let x: Foo = null;</code> のような null 代入はコンパイルエラー（null リテラルは代入・初期化に使用できない）。</li>
     </ul>
 
     <h3>5.3 Constants（const）</h3>
@@ -1103,9 +1104,9 @@ delete obj;  // equivalent to: obj = null (at VM level)
           <li>オブジェクトが到達不能になった後、実行系は任意の時点で回収してよい（回収時刻は未規定）。</li>
         </ul>
       </li>
-      <li>ソースコード中で <code>obj = null;</code> と書くことはできない（コンパイルエラー）。</li>
-      <li><code>var x = null;</code> や <code>let x: Foo = null;</code> のように null リテラルで初期化・代入することもできない（コンパイルエラー）。</li>
-      <li>null リテラルは、主に <code>if (x == null) { ... }</code> のような比較式の記述のために定義される。</li>
+      <li>ソースコード中で <code>obj = null;</code> と書くことはできない。</li>
+      <li><strong>null リテラル <code>null</code> は、比較演算子 <code>==</code> / <code>!=</code> のオペランドとしてのみ使用できる。</strong></li>
+      <li><code>let x: Foo = null;</code> や <code>var x = null;</code> のような null 代入・初期化はコンパイルエラー。</li>
       <li>参照型は内部的には null を取り得るが、型システムは null を追跡しない。</li>
       <li>null 状態でのアクセスは <code>NullPointerException</code> を引き起こす。</li>
       <li><code>obj</code> がすでに null の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
@@ -1661,10 +1662,19 @@ users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
 }
 </code></pre>
     <ul>
-      <li><code>foreach (x in p)</code> は内部的に <code>p.hasNext()</code> を繰り返し呼び、
-          true の間だけ <code>p.next()</code> で次の要素を取得してループ本体を実行する。</li>
-      <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知して <code>hasNext()</code> が false になり、ループを終了する。</li>
-      <li>次の要素がない状態で <code>next()</code> を呼んだ場合は例外を投げる（例：<code>InvalidOperationException</code>）。</li>
+      <li><code>pipe&lt;T&gt;</code> は反復のために <code>hasNext()</code> と <code>next()</code> を提供する。</li>
+      <li><code>hasNext()</code> は次の要素が存在するかどうかを返し、ストリームを進めない。</li>
+      <li><code>next()</code> は次の要素を返し、ストリームを 1 つ進める。</li>
+      <li>次の要素が存在しない状態で <code>next()</code> を呼び出した場合、<code>EndOfStreamException</code> を投げる。</li>
+      <li><code>foreach (x in p)</code> は内部的に次の等価な形に展開される：</li>
+    </ul>
+<pre><code>while (p.hasNext()) {
+    let x = p.next();
+    // body
+}
+</code></pre>
+    <ul>
+      <li>書き込み側が <code>close()</code> を呼ぶと読み側は EOF を検知し、<code>hasNext()</code> が <code>false</code> を返すようになる。</li>
     </ul>
 
     <h3>18.6 map による要素変換（pipe 用）</h3>
