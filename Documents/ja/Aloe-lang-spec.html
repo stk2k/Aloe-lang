@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="27">
-  <meta name="edit-date" content="2025-12-17T23:02:36+09:00">
+  <meta name="edit-version" content="28">
+  <meta name="edit-date" content="2025-12-17T23:48:25+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -125,7 +125,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 27)</div>
+    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 28)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -165,8 +165,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 27<br>
-      edit-date: 2025-12-17T23:02:36+09:00
+      edit-version: 28<br>
+      edit-date: 2025-12-17T23:48:25+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -205,11 +205,11 @@
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
-      <li>参照変数は「有効 (valid)」または「無効 (invalid)」の状態を取り得る
+      <li>参照型の値は「有効 (valid) / 無効 (invalid)」という状態概念を持つ
         <ul>
-          <li>ソースコード中に「無効状態の代入」を直接書かない（<code>= invalid</code> 禁止）。</li>
-          <li><code>delete</code> による糖衣構文で無効化を表す。</li>
-          <li>有効性の判定には <code>is valid</code> / <code>is invalid</code> を用いる。</li>
+          <li><code>delete</code> は参照変数を無効状態 (invalid) にするための専用構文。</li>
+          <li><code>invalid</code> は比較・判定専用の特殊リテラルであり、代入・初期化（<code>x = invalid</code> 等）には使用できない。</li>
+          <li>有効性の判定は <code>is</code> 演算子で行う（例：<code>if (x is valid)</code>）。</li>
         </ul>
       </li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
@@ -280,8 +280,8 @@ import
 implements
 in
 interface
-invalid
 is
+invalid
 let
 main
 map
@@ -333,7 +333,7 @@ yield
       <li>真偽値：<code>true</code>, <code>false</code></li>
       <li>文字列：<code>"Hello, World!"</code></li>
       <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
-      <li>有効性リテラル：<code>valid</code>, <code>invalid</code>（参照の有効/無効を表す判定用の特殊リテラル。代入・初期化には使用できない）</li>
+      <li>有効性リテラル：<code>valid</code>, <code>invalid</code>（比較・判定用。代入・初期化には使用できない）</li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
       <li>セットリテラル：<code>{1, 2, 3}</code></li>
@@ -380,16 +380,13 @@ print(x);
       <li><code>float</code> - 浮動小数点数。</li>
       <li><code>decimal</code> - 高精度 10 進数。</li>
       <li><code>string</code> - 文字列（内部的には Unicode）。</li>
-      <li><code>byte</code> - 8ビット符号なし整数（0-255）。</li>
-      <li><code>char</code> - 文字（Unicode スカラ値相当、詳細は実装依存）。</li>
-      <li><code>void</code> - 戻り値なし（戻り値専用）。</li>
+      <li><code>byte</code> - 0-255 の範囲を持つ数値型。</li>
+      <li><code>char</code> - 1 文字（内部表現は実装依存）。</li>
+      <li><code>void</code> - 戻り値なし（メソッド戻り値専用）。</li>
     </ul>
     <p>
-      <code>any</code> 型を導入し、必要な箇所で任意の型の値を扱える。
-    </p>
-    <p>
-      参照の「有効/無効」は型ではなく<strong>状態</strong>として扱い、判定用の特殊リテラル
-      <code>valid</code> / <code>invalid</code> を導入する（9章参照）。
+      <code>any</code> 型を導入し、必要な箇所で任意の型の値を扱える。<br>
+      <code>valid</code> / <code>invalid</code> は型ではなく、比較・判定用の特殊リテラル（定数）である。
     </p>
 
     <h3>2.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
@@ -707,7 +704,7 @@ var fb  = new FizzBuzz();
       <li>変数の型は右辺の式から推論される。</li>
       <li><code>var x = 1;</code> は常に <code>int</code>。</li>
       <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
-      <li><code>var x = invalid;</code> はコンパイルエラー（<code>valid</code> / <code>invalid</code> は代入・初期化に使用できない）。</li>
+      <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
       <li><code>any</code> 型の式を右辺に置いた場合、推論結果の型も <code>any</code> になる。</li>
     </ul>
 
@@ -738,7 +735,7 @@ let st : int{} = {1, 2, 3};
 let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
-      <li><code>let x: Foo = invalid;</code> のような <code>invalid</code> 代入はコンパイルエラー（<code>valid</code> / <code>invalid</code> は代入・初期化に使用できない）。</li>
+      <li><code>let x: Foo = invalid;</code> のような invalid 代入・初期化はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
     </ul>
 
     <h3>5.3 Constants（const）</h3>
@@ -1097,11 +1094,11 @@ fl.Log("Hello");      // 当然 FileLogger.Log が呼ばれる
 
     <h2 id="ch8">8. delete &amp; invalid</h2>
 <pre><code>var obj = new FizzBuzz();
-delete obj;  // equivalent to: obj becomes invalid (at VM level)
+delete obj;  // makes obj invalid (at VM level)
 </code></pre>
     <ul>
-      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を無効化する指示をするコマンド」である。</li>
-      <li>VM レベルでは <code>delete obj;</code> は「その参照変数が <code>invalid</code> 状態になる」ことと等価である。</li>
+      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を無効状態 (invalid) にする指示をするコマンド」である。</li>
+      <li>VM レベルでは <code>delete obj;</code> は「<code>obj</code> が invalid 状態になる」ことと等価である。</li>
       <li><code>delete</code> は参照変数に対する操作であるため、同一オブジェクトを参照している別の参照変数（例：<code>b</code>）には干渉しない。</li>
       <li>オブジェクトの実際の解放（回収）は実行系が決定する。
         <ul>
@@ -1109,10 +1106,10 @@ delete obj;  // equivalent to: obj becomes invalid (at VM level)
           <li>オブジェクトが到達不能になった後、実行系は任意の時点で回収してよい（回収時刻は未規定）。</li>
         </ul>
       </li>
-      <li>ソースコード中で <code>obj = invalid;</code> と書くことはできない。</li>
-      <li><strong><code>valid</code> / <code>invalid</code> は、参照の有効性の判定にのみ使用できる特殊リテラルである。</strong></li>
-      <li>参照が <code>invalid</code> 状態でのメンバーアクセスは <code>NullPointerException</code> を引き起こす。</li>
-      <li><code>obj</code> がすでに <code>invalid</code> の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
+      <li>ソースコード中で <code>obj = invalid;</code> と書くことはできない（コンパイルエラー）。</li>
+      <li><strong><code>valid</code> / <code>invalid</code> は、比較・判定（主に <code>is</code>）のオペランドとしてのみ使用できる。</strong></li>
+      <li>invalid 状態でのアクセスは <code>InvalidObjectException</code> を引き起こす。</li>
+      <li><code>obj</code> がすでに invalid の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
     </ul>
 
     <hr>
@@ -1131,24 +1128,25 @@ if (obj is Trait_A) {
 }
 
 if (obj is valid) {
-    // true if obj is a valid reference
+    // true if obj is valid (not invalid)
 }
 
 if (obj is invalid) {
-    // true if obj is an invalid reference
+    // true if obj is invalid
 }
 </code></pre>
     <ul>
       <li><code>is</code> は実行時の型チェックを行う。</li>
       <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
       <li>インタフェースや trait に対しても使用できる（<code>obj is Trait_A</code> は、そのオブジェクトに <code>Trait_A</code> が適用されているかどうかを判定する）。</li>
-      <li><code>valid</code> / <code>invalid</code> に対する <code>is</code> は、参照の有効性の判定を行う（型チェックではない特別な分岐）。</li>
+      <li><code>obj is valid</code> / <code>obj is invalid</code> は参照の有効性判定である。</li>
       <li><strong><code>is</code> 演算子の左辺は、必ず「式（値）」でなければならない。</strong>
         <ul>
           <li>クラス名・構造体名・インタフェース名・trait 名そのものを左辺に書くことはできない。</li>
           <li><code>User is ILogger</code> や <code>Trait_A is IFoo</code> のような表記はコンパイルエラーとなる。</li>
         </ul>
       </li>
+      <li><strong><code>valid</code> / <code>invalid</code> を <code>is</code> 以外で使用すること（例：<code>x = invalid</code>, <code>invalid == x</code> 等）はコンパイルエラー。</strong></li>
       <li>trait に関しては、<code>obj is Trait_X</code> の形で「あるオブジェクトに trait が適用されているか」を問い合わせる用途のみを許可し、
           trait 自体がどのインタフェースを expects しているかを <code>is</code> で問い合わせることはできない（7.5 節の expects 句参照）。</li>
     </ul>
@@ -1316,7 +1314,7 @@ finally {
     <h3>16.1 標準例外の概要</h3>
 <pre><code>Exception
 +- SystemException
-|  +- NullPointerException
+|  +- InvalidObjectException
 |  +- IndexOutOfBoundsException
 |  +- OverflowException
 |  +- ZeroDivisionException
@@ -1333,11 +1331,24 @@ finally {
    +- IOException (general)
 </code></pre>
     <ul>
+      <li><code>InvalidObjectException</code> は invalid 参照へのアクセス（メンバー参照、呼び出し等）で投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
       <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
       <li><code>InvalidOperationException</code> は、不正な状態での操作（例：<code>Result</code> の状態と合わないプロパティアクセスなど）に用いる。</li>
       <li>その他の VM レベルの致命的エラーは実装依存。</li>
+    </ul>
+
+    <h3>16.2 コンパイルエラーと実行時例外の境界（要点）</h3>
+    <ul>
+      <li><code>invalid</code> の代入・初期化（<code>x = invalid</code> など）はコンパイルエラー。</li>
+      <li>invalid 参照へのアクセス（メンバー参照、呼び出し等）は実行時に <code>InvalidObjectException</code>。</li>
+      <li><code>Result</code> の不正アクセス（例：失敗状態なのに <code>Value</code> を読む等）は実行時に <code>InvalidOperationException</code>。
+        ただし、コンパイラが静的に不正を確定できる場合はコンパイルエラーとしてもよい（実装依存）。</li>
+      <li>曖昧な名前解決（同名候補が複数あり解決不能）は必ずコンパイルエラー。</li>
+      <li>テンプレ map の禁止事項（18.7 節参照）に違反するテンプレートは基本コンパイルエラー。</li>
+      <li>filter / producer / consumer の <code>bound</code> が <code>Result&lt;T&gt;</code> を返さない場合はコンパイルエラー。</li>
+      <li>通常の関数・メソッドは戻り値の型制約として <code>Result</code> を強制しない。失敗時に例外を投げるかどうかは、その関数・メソッドの仕様による。</li>
     </ul>
 
     <hr>
@@ -1480,11 +1491,6 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
       Aloe は <code>pipe&lt;T&gt;</code> と <code>filter(...)</code> を用いて、
       サーバ / CLI / Web アプリなどのストリーミング処理を構成する。
     </p>
-    <p class="note">
-      この章で導入する <code>Result&lt;T&gt;</code> の強制（成功/失敗の丸め）は、
-      フィルタ／プロデューサ／コンシューマーなどの<strong>パイプ内</strong>に限定する。<br>
-      通常の関数・メソッドは <code>Result</code> を返すことを強制しない（失敗時は例外を投げてよい。関数・メソッド仕様による）。
-    </p>
 
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
     <ul>
@@ -1508,7 +1514,9 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
     </p>
     <ul>
       <li><code>Result&lt;T&gt;</code> は「成功（Success = true）」または「失敗（Success = false）」のどちらかを表す、言語組み込みランタイムが提供する標準ライブラリ型。</li>
-      <li>フィルタやパイプ（プロデューサ／コンシューマー）は通常 <code>Result&lt;T&gt;</code> を返すことで、成功 / 失敗を明示的に表現する。</li>
+      <li>フィルタやパイプは通常 <code>Result&lt;T&gt;</code> を返すことで、成功 / 失敗を明示的に表現する。</li>
+      <li>ただし、<strong>Result に丸めることを要求するのは pipe（filter / producer / consumer）の内部のみ</strong>である。
+        通常の関数・メソッドは戻り値の型制約として Result を強制せず、失敗時は例外を投げてよい（その関数・メソッドの仕様による）。</li>
     </ul>
 
     <h4>18.2.1 Result&lt;T&gt; の型仕様</h4>
@@ -1617,14 +1625,15 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
       <li><code>bound(input, output)</code> は
           フィルタの実行本体であり、戻り値の型は <strong><code>Result&lt;T&gt;</code> もしくはその派生クラス</strong> でなければならない。
         <ul>
-          <li>これは、パイプ内のステージが ROP ベースの成功 / 失敗を表現できることを保証するための制約である。</li>
+          <li>これは、<code>async</code> 関数が <code>task</code> を返すことを要求されるのと同様に、
+              フィルタ（および producer / consumer）の <code>bound</code> が ROP ベースの成功 / 失敗を表現できることを保証するための制約である。</li>
           <li>それ以外のオブジェクト型やプリミティブ型を返そうとしたり、戻り値が <code>void</code> の場合はコンパイルエラーとする。</li>
         </ul>
       </li>
     </ul>
 
     <h4>18.3.2 フィルタオプション（filter オプション指定）</h4>
-<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeInvalids)
+<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
 </code></pre>
     <ul>
       <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
@@ -1633,10 +1642,10 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
           オプションクラスを指定した場合、そのフィルタをパイプライン上で使用するときには
           <code>JsonOptions.</code> の接頭辞を省略して列挙子名だけを書いてもよい：</li>
     </ul>
-<pre><code>filter(json&lt;User&gt;: PrettyPrint | IncludeInvalids)
+<pre><code>filter(json&lt;User&gt;: PrettyPrint | IncludeNulls)
 </code></pre>
     <p>
-      上記は <code>JsonOptions.PrettyPrint | JsonOptions.IncludeInvalids</code> と等価であり、
+      上記は <code>JsonOptions.PrettyPrint | JsonOptions.IncludeNulls</code> と等価であり、
       options に指定されたクラスに属する列挙子であることがコンパイラによって検証される。
     </p>
 
@@ -1742,6 +1751,7 @@ customers = users | map Customer {
           明示的に別経路で情報を渡すことを想定する（<code>base</code> の具体的な意味付けは、
           テンプレート map を利用するコンテキスト側の仕様に委ねられる）。</li>
       <li>結果は <code>Customer()</code> など、元のコレクションと同様のコレクション型になる。</li>
+      <li><strong>上記の禁止事項（要素アクセス、固定でない式の使用等）に違反するテンプレートは基本コンパイルエラー。</strong></li>
     </ul>
 
     <h3>18.8 close と EOF 伝播</h3>
