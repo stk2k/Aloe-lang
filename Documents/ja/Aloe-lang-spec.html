@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="29">
-  <meta name="edit-date" content="2025-12-18T00:07:36+09:00">
+  <meta name="edit-version" content="30">
+  <meta name="edit-date" content="2025-12-18T00:19:20+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -40,7 +40,12 @@
       letter-spacing: 0.06em;
       color: #9ca3af;
     }
-    .sidebar nav ul { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; }
+    .sidebar nav ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      font-size: 0.9rem;
+    }
     .sidebar nav li { margin: 0.15rem 0; }
     .sidebar a {
       color: inherit;
@@ -93,7 +98,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 29)</div>
+    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 30)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -106,7 +111,7 @@
         <li><a href="#ch5"><span class="chapter-index">5.</span>変数と定数 (Variables &amp; Constants)</a></li>
         <li><a href="#ch6"><span class="chapter-index">6.</span>フィールド (Fields)</a></li>
         <li><a href="#ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
-        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; valid/invalid</a></li>
+        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; invalid</a></li>
         <li><a href="#ch9"><span class="chapter-index">9.</span>is 演算子 (is Operator)</a></li>
         <li><a href="#ch10"><span class="chapter-index">10.</span>コレクション (Collections)</a></li>
         <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
@@ -133,8 +138,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 29<br>
-      edit-date: 2025-12-18T00:07:36+09:00
+      edit-version: 30<br>
+      edit-date: 2025-12-18T00:19:20+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -143,6 +148,8 @@
       その上で <strong>4.2 with-blocks</strong> に
       <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
       の拡張を追加しています。<br>
+      また、本版では <strong>null を仕様書から排除</strong>し、
+      <strong>valid / invalid</strong> を比較・判定用の特別なリテラルとして導入しています。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
 
@@ -173,10 +180,11 @@
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
-      <li>参照の「有効 / 無効」を <code>valid</code> / <code>invalid</code> で判定できる
+      <li><code>valid</code> / <code>invalid</code> による参照の有効性概念
         <ul>
-          <li>参照型は「無効（invalid）」状態を取り得るが、ソースコードで <code>x = invalid</code> のように代入することはできない。</li>
-          <li>参照の無効化は <code>delete</code> を用いる。</li>
+          <li>参照型は「有効」または「無効（invalid）」の状態を取り得る。</li>
+          <li>無効参照へのアクセスは実行時例外となる。</li>
+          <li>ソースコード上で <code>invalid</code> を値として代入することはできない（8章参照）。</li>
         </ul>
       </li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
@@ -300,7 +308,7 @@ yield
       <li>真偽値：<code>true</code>, <code>false</code></li>
       <li>文字列：<code>"Hello, World!"</code></li>
       <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
-      <li>有効性リテラル：<code>valid</code>, <code>invalid</code>（比較 / 判定専用。代入・初期化には使用できない）</li>
+      <li><code>valid</code>, <code>invalid</code>：参照の有効性を判定するための特別なリテラル（代入用途には使用できない）</li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
       <li>セットリテラル：<code>{1, 2, 3}</code></li>
@@ -347,13 +355,13 @@ print(x);
       <li><code>float</code> - 浮動小数点数。</li>
       <li><code>decimal</code> - 高精度 10 進数。</li>
       <li><code>string</code> - 文字列（内部的には Unicode）。</li>
-      <li><code>byte</code> - 0-255 の符号なし 8bit 値。</li>
-      <li><code>char</code> - 文字（Unicode の 1 コード単位を表す。内部表現は実装依存）。</li>
+      <li><code>byte</code> - 0-255 の符号なし 8 ビット整数。</li>
+      <li><code>char</code> - 1 文字（Unicode スカラー値を想定）。</li>
       <li><code>void</code> - 戻り値なし（メソッド戻り値専用）。</li>
     </ul>
     <p>
-      <code>any</code> 型を導入し、必要な箇所で任意の型の値を扱える。<br>
-      <code>valid</code> / <code>invalid</code> は型ではなく、参照の有効性を判定するための特別なリテラルである（代入・初期化には使用できない）。
+      <code>valid</code> / <code>invalid</code> は型ではなく、参照の有効性を表す比較・判定用の特別リテラルである（8章・9章参照）。<br>
+      <code>any</code> 型を導入し、必要な箇所で任意の型の値を扱える。
     </p>
 
     <h3>2.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
@@ -529,12 +537,13 @@ print(x);
       <li>C# の <code>using</code> スタイルのように、同じブロックに複数の <code>with</code> を並べられる：</li>
     </ul>
 <pre><code>with (user), (profile) {
-    .name = "Alice";  // resolved against both user and profile
+    .name = "Alice";
 }
 </code></pre>
     <ul>
-      <li>どのオブジェクトのメンバーに解決されるかの順序は実装依存。</li>
-      <li>ただし曖昧な場合（複数オブジェクトが同じメンバーを持つ）はコンパイルエラー。</li>
+      <li>複数ターゲットの <code>with</code> における <code>.Member</code> の解決は、<strong>左から順に探索</strong>し、<strong>最初に見つかった候補</strong>に解決される。</li>
+      <li>ただし、同一ブロック内で複数ターゲットが同名メンバー <code>Member</code> を持つ場合は、曖昧さを避けるため <strong>必ずコンパイルエラー</strong>とする。</li>
+      <li>曖昧解決は実装依存にしない（常にコンパイルエラー）。</li>
     </ul>
     <p>
       <code>with</code> はあくまで構文糖衣であり、意味的にはすべて
@@ -588,7 +597,7 @@ print(x);
       </li>
     </ul>
     <p>
-      なお、型ベース with でもローカル変数や外側スコープの変数が同名で存在すればそちらが優先される。
+      型ベース with でもローカル変数や外側スコープの変数が同名で存在すればそちらが優先される。
       列挙子や static メンバーを明示したいときは <code>TypeName.Member</code> または <code>.Member</code> / <code>_.Member</code> を用いる。
     </p>
 
@@ -610,12 +619,12 @@ class MathUtil {
 
 function main(args: string[]): int {
     with (AngleUtil) {
-        var rad = degToRad(90.0);  // AngleUtil.degToRad(90.0)
-        print(.Pi);                // AngleUtil.Pi
+        var rad = degToRad(90.0);
+        print(.Pi);
     }
 
     with (MathUtil) {
-        var m = max(10, 20);       // MathUtil.max(10, 20)
+        var m = max(10, 20);
         print(m);
     }
     return 0;
@@ -631,8 +640,8 @@ function main(args: string[]): int {
 
 function main(args: string[]): int {
     with (Color) {
-        var c1: Color = Red;   // Color.Red
-        var c2: Color = Blue;  // Color.Blue
+        var c1: Color = Red;
+        var c2: Color = Blue;
         print(c1);
         print(c2);
     }
@@ -643,12 +652,13 @@ function main(args: string[]): int {
       型ベース <code>with</code> も複数ターゲット構文に混在させられる：
     </p>
 <pre><code>with (user), (Color) {
-    .name = "Alice"; // user.name
-    var c: Color = Red; // Color.Red
+    .name = "Alice";
+    var c: Color = Red;
 }
 </code></pre>
     <p>
-      この場合も解決順は実装依存だが、曖昧であればコンパイルエラーとする。
+      この場合の <code>.Member</code> 解決も、左から順に探索して最初に見つかった候補に解決される。
+      ただし同名候補が複数存在する場合は必ずコンパイルエラーとする。
     </p>
 
     <hr>
@@ -676,7 +686,6 @@ var fb  = new FizzBuzz();
     </ul>
 
 <pre><code>function SomeFunc(): any {
-    // 例: 何らかの理由で戻り値の型が静的に固定できない場合に any を返す
     return 123;
 }
 
@@ -702,7 +711,7 @@ let st : int{} = {1, 2, 3};
 let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
-      <li><code>let x: Foo = invalid;</code> のような invalid 代入・初期化はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
+      <li><code>let x: Foo = invalid;</code> のような invalid 代入はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
     </ul>
 
     <h3>5.3 Constants（const）</h3>
@@ -726,11 +735,11 @@ const AppName: string = "Aloe VM";
     readonly field id: int;
 
     construct(id: int) {
-        this.id = id; // OK: inside the constructor
+        this.id = id;
     }
     method change(): void {
-        this.count = this.count + 1; // OK
-        // this.id = 2; // NG: readonly field cannot be changed outside constructor
+        this.count = this.count + 1;
+        // this.id = 2; // NG
     }
 }
 </code></pre>
@@ -808,8 +817,7 @@ struct NativePoint {
               <li><code>"Explicit"</code>: 各フィールドに <code>@FieldOffset</code> を指定して、バイトオフセットを明示する。</li>
             </ul>
           </li>
-          <li>構文上は、アノテーション名の後に <code>(...)</code> 付きで 1 つ以上の引数を取る形とするが、
-              現時点で仕様として定義するのは第 1 引数のレイアウト種別文字列のみとする。</li>
+          <li>現時点で仕様として定義するのは第 1 引数のレイアウト種別文字列のみとする。</li>
         </ul>
       </li>
       <li><code>@FieldOffset(n)</code>
@@ -817,13 +825,11 @@ struct NativePoint {
           <li>struct 内の <code>field</code> 宣言の直前にのみ付けられるアノテーション。</li>
           <li>引数 <code>n</code> は 0 以上の整数リテラルで、struct 先頭からのバイトオフセットを表す。</li>
           <li><code>@StructLayout("Explicit")</code> が付いた struct 内でのみ有効であり、それ以外のレイアウト種別で使用した場合はコンパイルエラー。</li>
-          <li>同じ struct 内で、フィールドのサイズや <code>@FieldOffset</code> の指定によってメモリ領域が重なった場合の扱いは実装依存だが、
-              多くの実装ではコンパイルエラーまたは警告とすることが推奨される。</li>
+          <li>同じ struct 内でメモリ領域が重なった場合の扱いは実装依存だが、多くの実装ではコンパイルエラーまたは警告とすることが推奨される。</li>
         </ul>
       </li>
-      <li>これらのアノテーションは、
-        <strong>VM / ランタイムのネイティブインターフェイスに対するヒント</strong> であり、
-        通常の Aloe コードにおける型システムの意味論（値コピー / 参照 / equality など）を変えるものではない。</li>
+      <li>これらのアノテーションは VM / ランタイムのネイティブインターフェイスに対するヒントであり、
+        通常の Aloe コードにおける型システムの意味論を変えるものではない。</li>
     </ul>
 
     <h4>7.2.1 汎用アノテーション機構（annotation 定義）</h4>
@@ -833,50 +839,22 @@ struct NativePoint {
       アノテーションは <code>annotation</code> 宣言で定義する。
     </p>
 <pre><code>annotation MyAnnotation {
-    text:   "アノテーションテキスト";         // 説明用文字列（任意）
-    target: TargetKind;                      // struct, class, method, function などを表す列挙型
-    params: map&lt;string/any&gt;;                // () 内に与えられるパラメータの論理表現
+    text:   "アノテーションテキスト";
+    target: TargetKind;
+    params: map&lt;string/any&gt;;
 
     build:  function (ctx: AnnotationBuildContext): void {
         // コンパイラから呼び出されるフック関数（擬似シグネチャ例）
-        // ctx から付与先や params などの情報を取得して検証・変換などを行う。
     }
 }
 </code></pre>
     <ul>
-      <li><code>annotation</code> 宣言は、アノテーションの「メタ定義」を行うための専用構文であり、
-          通常の <code>class</code> / <code>struct</code> とは別枠の宣言とする。</li>
-      <li><code>text</code> は人間向けの説明文であり、エディタやドキュメント生成ツールなどが利用してもよい。</li>
-      <li><code>target</code> は、このアノテーションを付与できる対象種別（struct, class, method, function など）を表す列挙型（またはそれに準ずる型）とする。</li>
-      <li><code>params</code> は、アノテーションに与えられた引数の論理表現を表す。
-        <ul>
-          <li>配列 / リスト / セット / マップなど、複合的な値を含みうる。</li>
-        </ul>
-      </li>
-      <li><code>build</code> はコンパイラから呼び出されるフック関数であり、
-          付与先の情報や <code>params</code> をもとに検証や補助的なコード生成などを行うことができる。
-          具体的な引数型や戻り値はコンパイラ実装側の詳細に委ねられる。</li>
+      <li><code>annotation</code> 宣言は、アノテーションのメタ定義を行うための専用構文とする。</li>
+      <li><code>text</code> は説明用文字列（任意）。</li>
+      <li><code>target</code> は付与できる対象種別を表す。</li>
+      <li><code>params</code> は引数の論理表現。</li>
+      <li><code>build</code> はコンパイラから呼び出されるフック関数。</li>
     </ul>
-    <p>
-      実際のアノテーション使用時には、次のような構文でパラメータを指定する。
-    </p>
-<pre><code>@MyAnnotation(key1 = value1, key2 = value2, ...)
-struct Example {
-    // ...
-}
-</code></pre>
-    <p>
-      このとき、アノテーション定義側から見た <code>params</code> には、次のようなマップとして渡されるものとする。
-    </p>
-<pre><code>params = { key1: value1, key2: value2, ... }
-</code></pre>
-    <p>
-      配列 / リスト / セット / マップリテラルを引数に取る場合も同様に、
-      それらの構造が <code>params</code> の値としてそのまま渡される。
-      組み込みアノテーション <code>@StructLayout</code> や <code>@FieldOffset</code> も、
-      この汎用アノテーション機構を用いて実装された「標準アノテーション」とみなしてよい。
-      新たに必要なアノテーションが出てきた場合は、この機構を用いて仕様書に都度追記していく。
-    </p>
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
@@ -888,7 +866,6 @@ class Derived extends Base {
 }
 
 sealed class FinalDerived extends Base {
-    // cannot be extended further
 }
 </code></pre>
 
@@ -918,31 +895,25 @@ class ConsoleLogger implements ILogger {
 
     <h4>with による trait の適用</h4>
 <pre><code>var obj = new SomeClass() with Trait_A;
-obj.hello(); // Trait_A から取り込まれたメソッド（競合がなければ）
+obj.hello();
 </code></pre>
 
     <h4>非破壊的な追加 / 削除（+ / -）</h4>
-<pre><code>var obj2 = obj + Trait_A;      // obj はそのまま; obj2 に Trait_A が付与される
-var obj3 = obj2 - Trait_A;     // obj3 は obj2 から Trait_A を除いたもの
+<pre><code>var obj2 = obj + Trait_A;
+var obj3 = obj2 - Trait_A;
 </code></pre>
 
     <h4>as によるエイリアス</h4>
 <pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.hello(); // OK
-
-// obj2.hello(); // NG: エイリアスのみ; メンバーはフラット化されない
+obj2.a.hello();
 </code></pre>
 
     <h4>Trait conflicts（競合）</h4>
     <ul>
       <li>複数 trait が同名フィールド / メソッドを定義する場合、右側に記述した trait が左側の定義を上書きする。</li>
-      <li>クラス本体のメンバーと trait メンバーが同名の場合も同様に、
-          最後に適用された（右側に書かれた） trait のメンバーで上書きされるとみなす。</li>
-      <li>既に trait によって上書きされたメンバーに対して、さらに別の trait を <code>+</code> した場合も、
-          その適用順に従って右側の trait が最終的な定義を提供する。</li>
-      <li>上書きを避けたい場合は、<code>as a</code> のようなエイリアスを用いて、
-          クラス本体のメンバー名と競合しない別名としてアクセスする。</li>
-      <li><code>as a</code> などのエイリアス付き適用は衝突判定の対象外（エイリアス名の下に別の名前空間がぶら下がる）とする。</li>
+      <li>クラス本体のメンバーと trait メンバーが同名の場合も同様に、最後に適用された trait のメンバーで上書きされるとみなす。</li>
+      <li>上書きを避けたい場合は <code>as a</code> のようなエイリアスを用いる。</li>
+      <li>エイリアス付き適用は衝突判定の対象外とする。</li>
     </ul>
 
     <h4>trait の expects 句</h4>
@@ -952,129 +923,28 @@ obj2.a.hello(); // OK
 
 trait HasIdFormatting expects IHasId {
     method PrintId(): void {
-        // expects で宣言された interface のメンバーを前提に書ける
         print("ID = " + this.GetId());
     }
-}
-
-class User implements IHasId {
-    field Id: int;
-
-    method GetId(): int { return this.Id; }
-}
-
-function main(args: string[]): int {
-    var u = new User() with HasIdFormatting;   // OK: User は IHasId を実装している
-
-    var x = new Object();                      // 仮の型
-    // var x2 = x with HasIdFormatting;       // NG: x が IHasId を実装していないためコンパイルエラー
-
-    u.PrintId();
-    return 0;
 }
 </code></pre>
     <ul>
       <li><code>trait X expects IA, IB, ... { ... }</code> のように、expects 句で 1 個以上のインタフェース型を指定できる。</li>
-      <li><code>expects</code> で指定された各インタフェースは、
-          <code>with Trait_X</code> で trait を適用されるオブジェクトがすべて実装していなければならない。
-        <ul>
-          <li>この条件を満たさないオブジェクトに対して <code>with Trait_X</code> を適用しようとした場合、コンパイルエラー。</li>
-        </ul>
-      </li>
-      <li>trait 本体の中では、expects で指定されたインタフェースのメソッドやプロパティが利用できる前提でコードを書いてよい。</li>
-      <li>expects 句は trait とオブジェクトとの「静的な適用条件」を表すものであり、
-          実行時に <code>X is IA</code> のような形で問い合わせる対象にはならない（<code>is</code> 演算子の左辺はオブジェクト式に限られる。9 章参照）。</li>
-    </ul>
-
-    <h3>7.6 abstract / virtual / override</h3>
-    <p>
-      継承階層における多態性を表現するために、<code>abstract</code> / <code>virtual</code> /
-      <code>override</code> の 3 つのキーワードを用いる。
-    </p>
-
-    <h4>abstract class / abstract method</h4>
-<pre><code>abstract class Animal {
-    method SayName(): void {
-        print("Unknown");
-    }
-
-    abstract method Speak(): void; // 本体を持たない抽象メソッド
-}
-</code></pre>
-    <ul>
-      <li><code>abstract</code> が class の前に付いた場合、そのクラスは抽象クラスとなる。</li>
-      <li>抽象クラスは直接インスタンス化できない（<code>new Animal()</code> はコンパイルエラー）。</li>
-      <li><code>abstract method</code> は本体（メソッドブロック）を持たず、宣言のみを行う。</li>
-      <li>抽象メソッドを持つクラスは必ず <code>abstract class</code> でなければならない。</li>
-    </ul>
-
-<pre><code>class Dog extends Animal {
-    override method Speak(): void {
-        print("Bowwow");
-    }
-}
-</code></pre>
-    <ul>
-      <li>抽象メソッドは、具象クラス（非 abstract クラス）側で <code>override</code> によって必ず実装しなければならない。</li>
-    </ul>
-
-    <h4>virtual method と override</h4>
-<pre><code>class BaseLogger {
-    virtual method Log(message: string): void {
-        print("[Base] " + message);
-    }
-}
-
-class FileLogger extends BaseLogger {
-    override method Log(message: string): void {
-        print("[File] " + message);
-    }
-}
-</code></pre>
-    <ul>
-      <li><code>virtual</code> が付いたメソッドは、派生クラスで <code>override</code> 可能なメソッドである。</li>
-      <li><code>virtual</code> メソッドは本体を持つ（抽象メソッドとは異なる）。</li>
-      <li>派生クラス側でオーバーライドする場合、必ず <code>override</code> を付ける。</li>
-      <li><code>override</code> を付けたメソッドのシグニチャ（名前、引数、戻り値）は、基底クラスの抽象 / virtual メソッドと一致していなければならない。</li>
-      <li>基底クラスに対応する virtual / abstract メソッドが存在しないのに <code>override</code> を付けた場合はコンパイルエラー。</li>
-    </ul>
-
-    <h4>呼び出しの挙動と <code>base</code> キーワード</h4>
-<pre><code>BaseLogger logger = new FileLogger();
-logger.Log("Hello");  // 実行時型に応じて FileLogger.Log が呼ばれる（仮想呼び出し）
-
-FileLogger fl = new FileLogger();
-fl.Log("Hello");      // 当然 FileLogger.Log が呼ばれる
-</code></pre>
-    <ul>
-      <li>virtual / override メソッドは、変数の静的型ではなく実行時型に基づいて解決される（仮想メソッド呼び出し）。</li>
-      <li>基底クラス側の実装を呼び出したい場合は <code>base.Log(...)</code> のような構文を用いる。
-        <ul>
-          <li><code>base</code> は、インスタンスメソッドの本体内からのみ使用可能であり、
-              そのメソッドを宣言しているクラスの直接の基底クラスを指す。</li>
-          <li><code>base</code> は静的メソッドやトップレベル関数からは使用できない。</li>
-        </ul>
-      </li>
+      <li>expects で指定された各インタフェースは、trait を適用されるオブジェクトがすべて実装していなければならない。満たさない場合はコンパイルエラー。</li>
+      <li><code>is</code> 演算子の左辺は必ず式（値）でなければならない（9章参照）。</li>
     </ul>
 
     <hr>
 
-    <h2 id="ch8">8. delete &amp; valid/invalid</h2>
+    <h2 id="ch8">8. delete &amp; invalid</h2>
 <pre><code>var obj = new FizzBuzz();
-delete obj;  // makes obj invalid (at VM level)
+delete obj;  // obj becomes invalid (at VM level)
 </code></pre>
     <ul>
-      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を無効（invalid）状態にする指示をするコマンド」である。</li>
-      <li>VM レベルでは <code>delete obj;</code> 実行後、<code>obj</code> は invalid 状態となる。</li>
-      <li><code>delete</code> は参照変数に対する操作であるため、同一オブジェクトを参照している別の参照変数（例：<code>b</code>）には干渉しない。</li>
-      <li>オブジェクトの実際の解放（回収）は実行系が決定する。
-        <ul>
-          <li>他の箇所で参照が保持されている場合、オブジェクトは回収されない。</li>
-          <li>オブジェクトが到達不能になった後、実行系は任意の時点で回収してよい（回収時刻は未規定）。</li>
-        </ul>
-      </li>
-      <li>ソースコード中で <code>obj = invalid;</code> と書くことはできない（コンパイルエラー）。</li>
-      <li><strong><code>valid</code> / <code>invalid</code> は、<code>is</code> 演算子（9章）による判定にのみ使用できる。</strong></li>
+      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を無効（invalid）状態にする」コマンドである。</li>
+      <li>同一オブジェクトを参照している別の参照変数には干渉しない。</li>
+      <li>オブジェクトの実際の回収は実行系が決定する（回収時刻は未規定）。</li>
+      <li>ソースコード中で <code>obj = invalid;</code> のように <code>invalid</code> を値として代入することはできない（コンパイルエラー）。</li>
+      <li><strong><code>invalid</code> は比較・判定のためにのみ使用できる。</strong>（9章参照）</li>
       <li>invalid 状態でのメンバーアクセスは <code>InvalidReferenceException</code> を引き起こす。</li>
       <li><code>obj</code> がすでに invalid の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
     </ul>
@@ -1083,38 +953,31 @@ delete obj;  // makes obj invalid (at VM level)
 
     <h2 id="ch9">9. is Operator（is 演算子）</h2>
 <pre><code>if (obj is FizzBuzz) {
-    // true if runtime type is FizzBuzz or a subclass
 }
 
 if (obj is ILogger) {
-    // true if obj implements ILogger
 }
 
 if (obj is Trait_A) {
-    // true if obj has Trait_A applied (with / +)
-}
-
-if (obj is valid) {
-    // true if obj is in valid state
-}
-
-if (obj is invalid) {
-    // true if obj is invalid
 }
 </code></pre>
     <ul>
       <li><code>is</code> は実行時の型チェックを行う。</li>
-      <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
-      <li>インタフェースや trait に対しても使用できる（<code>obj is Trait_A</code> は、そのオブジェクトに <code>Trait_A</code> が適用されているかどうかを判定する）。</li>
-      <li><code>valid</code> / <code>invalid</code> は「参照の有効性チェック」を表す特別な右辺として扱う。</li>
-      <li><strong><code>is</code> 演算子の左辺は、必ず「式（値）」でなければならない。</strong>
-        <ul>
-          <li>クラス名・構造体名・インタフェース名・trait 名そのものを左辺に書くことはできない。</li>
-          <li><code>User is ILogger</code> や <code>Trait_A is IFoo</code> のような表記はコンパイルエラーとなる。</li>
-        </ul>
-      </li>
-      <li>trait に関しては、<code>obj is Trait_X</code> の形で「あるオブジェクトに trait が適用されているか」を問い合わせる用途のみを許可し、
-          trait 自体がどのインタフェースを expects しているかを <code>is</code> で問い合わせることはできない（7.5 節の expects 句参照）。</li>
+      <li>継承関係を考慮する。</li>
+      <li>インタフェースや trait に対しても使用できる。</li>
+      <li><strong><code>is</code> 演算子の左辺は必ず式（値）でなければならない。</strong></li>
+      <li>参照の有効性判定として、次をサポートする：</li>
+    </ul>
+<pre><code>if (obj is valid) {
+}
+
+if (obj is invalid) {
+}
+</code></pre>
+    <ul>
+      <li><code>obj is valid</code> は obj が有効参照であるとき true。</li>
+      <li><code>obj is invalid</code> は obj が無効参照であるとき true。</li>
+      <li><code>valid</code> / <code>invalid</code> は代入値としては使用できない（8章参照）。</li>
     </ul>
 
     <hr>
@@ -1137,7 +1000,7 @@ var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
 </code></pre>
 
     <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
-<pre><code>var mp: map&lt;int&gt; = ["key1": 10, "key2": 20];          // map&lt;int&gt; は map&lt;string/int&gt; のエイリアス
+<pre><code>var mp: map&lt;int&gt; = ["key1": 10, "key2": 20];
 var mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
 var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
 </code></pre>
@@ -1155,8 +1018,8 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 </code></pre>
     <ul>
       <li>内部表現は常に int32。</li>
-      <li><code>enum&lt;byte&gt;</code>, <code>enum&lt;string&gt;</code> のような基礎型の変更は許可されない。</li>
-      <li>enum 型も型ベース with の対象となり、<code>with (Color) { Red; }</code> などで列挙子に短縮アクセスできる。</li>
+      <li>基礎型の変更は許可されない。</li>
+      <li>enum 型も型ベース with の対象となる。</li>
     </ul>
 
     <h3>11.2 bitfield enum</h3>
@@ -1171,15 +1034,14 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 <pre><code>bitfield enum LogFlags {
     None : b(0),
     Info : b(3),
-    Warn,            // highest b(n) so far is 3; Warn becomes b(4) = 1 &lt;&lt; 4
+    Warn,
 }
 </code></pre>
     <ul>
       <li><code>b(n)</code> はビット n（<code>1 &lt;&lt; n</code>）を表す。</li>
-      <li><code>Name : b(n)</code> でその列挙子にビット n を割り当てる。</li>
       <li><code>bitfield enum</code>で使用可能なビットは最大 32（n は 0-31）。</li>
       <li>同一ビットを共有する列挙子があっても、コンパイラは警告にとどめ、エラーにはしない。</li>
-      <li>基礎型は常に int32 であり、<code>bitfield enum&lt;byte&gt;</code> などはコンパイルエラー。</li>
+      <li>基礎型は常に int32。</li>
     </ul>
 
     <hr>
@@ -1188,14 +1050,13 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 <pre><code>function main(args: string[]): int {
     var fb = new FizzBuzz();
     fb.run();
-    return 0; // プロセスの終了コード
+    return 0;
 }
 </code></pre>
     <ul>
       <li>プログラムのエントリポイント。</li>
       <li><code>args</code> はコマンドライン引数。</li>
-      <li><code>main</code> ブロックは必ず <code>function main(args: string[]): int</code> の形で宣言し、
-          戻り値は <code>int</code> 型の <code>return</code> 文で指定する。</li>
+      <li>main ブロックは必ず <code>function main(args: string[]): int</code> の形で宣言する。</li>
       <li>main ブロック内の特別な一時変数 <code>_</code> の仕様は存在しない（通常の一時変数のみ）。</li>
     </ul>
 
@@ -1204,20 +1065,20 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <h2 id="ch13">13. Temp Variable <code>_</code>（一時変数）</h2>
 <pre><code>function main(args: string[]): int {
     var x = 10;
-    var _ = x + 5;   // ここでは通常のローカル変数として扱われる
+    var _ = x + 5;
     return 0;
 }
 
 method foo(): void {
     var x = 10;
-    _ = x + 5;   // このブロックにおける最初の代入の型が _ の型になる
+    _ = x + 5;
 }
 </code></pre>
     <ul>
       <li><code>_</code> は任意のブロックで宣言なしに使用できる特別な一時変数として扱われる。</li>
-      <li>ただし main では特別な意味は持たず、通常の変数と同様に扱われる。</li>
+      <li>main では通常のローカル変数として扱われる。</li>
       <li>main 以外のブロックでは、そのブロックで最初に代入された式の型が <code>_</code> の型になる。</li>
-      <li>with ブロック内では、追加で「現在の with 対象」を指す意味を持つ（4.2 参照）。</li>
+      <li>with ブロック内では「現在の with 対象」を指す意味を持つ（4.2参照）。</li>
     </ul>
 
     <hr>
@@ -1226,8 +1087,8 @@ method foo(): void {
 <pre><code>var a = 10;
 var b = 20;
 swap (a, b);
-print(a); // 20
-print(b); // 10
+print(a);
+print(b);
 </code></pre>
     <ul>
       <li><code>swap (x, y);</code> は x と y の値（または参照）を入れ替える。</li>
@@ -1297,20 +1158,12 @@ finally {
    +- IOException (general)
 </code></pre>
     <ul>
-      <li><code>InvalidReferenceException</code> は invalid 参照のアクセスで投げる。</li>
+      <li><code>InvalidReferenceException</code> は invalid 参照へのアクセスで投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
       <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
-      <li><code>InvalidOperationException</code> は、不正な状態での操作（例：<code>Result</code> の状態と合わないプロパティアクセスなど）に用いる。</li>
+      <li><code>InvalidOperationException</code> は不正な状態での操作に用いる（例：Result の状態と合わないプロパティアクセスなど）。</li>
       <li>その他の VM レベルの致命的エラーは実装依存。</li>
-    </ul>
-
-    <h3>16.2 コンパイルエラーと実行時例外の原則（診断の優先順位）</h3>
-    <ul>
-      <li>原則：コンパイラが「必ず不正」と静的に確定できる場合はコンパイルエラーとする。確定できない場合は実行時チェックにより例外とする。</li>
-      <li>この原則は、特に <code>Result&lt;T&gt;</code> の不正アクセスに適用される（18.2 参照）。</li>
-      <li>コンパイラが安全性を静的に確定できる場合、実行時チェックを省略してよい（最適化）。</li>
-      <li>安全性が確定できない場合、実行時に状態検証を行い、不正なら例外を投げる。</li>
     </ul>
 
     <hr>
@@ -1329,120 +1182,68 @@ finally {
     </p>
 
     <h3>17.2 ファイル構造の制約</h3>
-    <p>
-      1 つのモジュール（ソースファイル）の構造は、次の形に限定される。
-    </p>
 <pre><code>import Foo.Bar;
 import Aloe.Core.Logging;
 import Aloe.Json.*;
 import MyCompany.Project.Module;
 
 namespace My.App {
-    // class / struct / enum / bitfield enum / trait / function などの宣言だけ
+    // declarations only
 }
 </code></pre>
     <ul>
       <li><code>import</code> はファイルの先頭にのみ書ける。</li>
-      <li><code>import</code> より前に、他のコード（宣言や文）を書いてはならない。</li>
-      <li><code>import</code> は複数行並べてよい。</li>
       <li><code>namespace</code> は、すべての <code>import</code> の後に 1 回だけ現れなければならない。</li>
-      <li><code>namespace</code> の外側には、<code>import</code> と <code>namespace</code> 以外の要素を書いてはならない。</li>
-      <li>トップレベルに実行文（<code>print(...);</code> など）を書くことは禁止であり、
-          実行コードは必ず <code>main</code> や他の関数 / メソッド内部に置く。</li>
+      <li>トップレベルに実行文を書くことは禁止。</li>
     </ul>
 
     <h3>17.3 namespace のルール</h3>
     <ul>
-      <li>1 モジュールにつき、<strong><code>namespace</code> 文はちょうど 1 回だけ</strong> 許可される。</li>
-      <li>構文は
-<pre><code>namespace My.App {
-    // 宣言
-}
-</code></pre>
-        のようにフルパス 1 段のみとし、<code>namespace A { namespace B { ... } }</code> のような
-        <strong>namespace のネスト構文は禁止</strong>とする。
-      </li>
-      <li>namespace ブロックの中に、さらに <code>namespace</code> 文を書くことはできない。</li>
-      <li>namespace ブロック内に書けるのは、
-        <ul>
-          <li><code>class</code>, <code>struct</code>, <code>enum</code>, <code>bitfield enum</code>, <code>trait</code>, <code>function</code> などの宣言のみ。</li>
-        </ul>
-        トップレベルの実行文は書けない。
-      </li>
-      <li>namespace ブロックの内側から <code>import</code> を書くことはできない。</li>
-      <li>同じ namespace 名を持つ宣言が複数のモジュールにまたがって存在する場合、
-          それらは 1 つの論理的な namespace にマージされる。
-          ただし、それらが属するモジュールのビルド単位やパッケージとしての扱いは別途ビルド仕様に委ねられる。</li>
+      <li>1 モジュールにつき <code>namespace</code> 文はちょうど 1 回だけ許可される。</li>
+      <li><strong>namespace のネスト構文は禁止</strong>とする。</li>
+      <li>同じ namespace 名を持つ宣言が複数モジュールに存在する場合、論理的にマージされる。</li>
     </ul>
 
     <h3>17.4 import のルール</h3>
     <h4>17.4.1 文法と制限</h4>
     <ul>
       <li><code>import</code> はファイル先頭にのみ書ける。</li>
-      <li>namespace、クラス、メソッド、その他のブロックの内部に <code>import</code> を書くことはできない。</li>
-      <li>サポートされる構文は次の通り。
-<pre><code>import Aloe.Core.Logging;   // 単一 namespace / 型のインポート
-import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下の公開シンボル）
-</code></pre>
-      </li>
-      <li><strong>相対 import はサポートしない。</strong>
-        <ul>
-          <li><code>import ./util.Json;</code> や <code>import ../common.*;</code> のような表記はコンパイルエラーとする。</li>
-        </ul>
-      </li>
-      <li>import はすべて「絶対指定」（ルート namespace からのフルパス）でなければならない。</li>
+      <li><strong>相対 import はサポートしない。</strong></li>
+      <li>import はすべて絶対指定でなければならない。</li>
     </ul>
 
     <h4>17.4.2 ワイルドカード import の挙動</h4>
     <ul>
-      <li><code>import Foo.*;</code> は、<code>Foo</code> namespace 直下の公開シンボル（型・関数など）をまとめて導入する。</li>
-      <li>サブ namespace（<code>Foo.Bar</code> など）をどこまで自動的に含めるかは、
-          将来的にモジュール仕様で詳細化する余地を残すが、少なくとも <code>Foo</code> 直下の型・関数は導入されるものとする。</li>
-      <li>ワイルドカード import によって同名シンボルが複数の namespace から導入され、
-          解決が曖昧になる場合はコンパイルエラーとし、プログラマに完全修飾名の使用を要求する。</li>
+      <li><code>import Foo.*;</code> は <code>Foo</code> namespace 直下の公開シンボルを導入する。</li>
+      <li>同名シンボルが複数導入され解決が曖昧になる場合はコンパイルエラー。</li>
     </ul>
 
     <h3>17.5 名前解決の優先順位（概要）</h3>
     <p>
       ある識別子 <code>X</code> を解決するときの大まかな優先順位は次の通りとする。
+      これは仕様として固定され、実装依存にしない。
     </p>
     <ol>
-      <li>ローカルスコープ（メソッドのローカル変数・パラメータ、そのブロック内の宣言）</li>
+      <li>ローカルスコープ</li>
       <li>現在のクラス / struct / trait / function 自身のメンバー</li>
-      <li>現在の namespace 内の宣言（同じ namespace を共有する他モジュールを含む）</li>
-      <li><code>import</code> された namespace 達の公開メンバー
-        <ul>
-          <li><code>import Foo.Bar;</code> によって、<code>Foo.Bar</code> 直下の公開シンボルが導入される。</li>
-        </ul>
-      </li>
+      <li>現在の namespace 内の宣言</li>
+      <li><code>import</code> された namespace 達の公開メンバー</li>
     </ol>
     <p>
-      この優先順位で複数の候補が見つかり、どれを指しているかが曖昧になる場合はコンパイルエラーとする。
-      その場合は、完全修飾名（例：<code>Foo.Bar.TypeName</code>）で明示的に指定する必要がある。
+      この優先順位で複数の候補が見つかり、どれを指しているかが曖昧になる場合は <strong>必ずコンパイルエラー</strong>とする。
     </p>
 
     <h3>17.6 可視性と公開範囲</h3>
     <ul>
-      <li><code>public</code> な型・メンバーは、他の namespace / モジュールから <code>import</code> を通じて参照できる。</li>
-      <li><code>private</code> な型・メンバーは、同一モジュール内でのみ参照できる。
-          （より細かい「同一 namespace 内だけ」などの制御が必要になった場合は、
-           別途 <code>internal</code> のような修飾子を導入する余地を残す。）</li>
-      <li><code>protected</code> なメンバーは、継承関係にあるクラス / struct から参照できる。
-          そのモジュール境界をまたいだ挙動は VM / ランタイムよりも「言語仕様」に属するが、
-          詳細なアクセス制御は今後のバージョンで拡張されうる。</li>
+      <li><code>public</code> は他の namespace / モジュールから参照できる。</li>
+      <li><code>private</code> は同一モジュール内でのみ参照できる。</li>
+      <li><code>protected</code> は継承関係にある型から参照できる。</li>
     </ul>
 
     <h3>17.7 循環 import の扱い</h3>
     <ul>
-      <li>モジュール同士の <code>import</code> が循環していても、それ自体は構文的にも意味的にも禁止しない。</li>
-      <li>コンパイラは、すべてのモジュールから宣言情報（型・関数のシグネチャなど）を先に収集し、
-          その後で型チェックや struct のレイアウト決定を行うモデルを想定する。</li>
-      <li>したがって、通常の class / interface / trait どうしの相互参照は問題にならない。</li>
-      <li>一方で、struct のフィールドが互いを値型として再帰的に含み合うなど、
-          「定義そのものが矛盾している」場合は、import グラフとは無関係に
-          通常の型エラー（例：<q>この struct のサイズを決定できない</q>）としてコンパイルエラーになる。</li>
-      <li>言い換えると、<strong>循環 import の有無を特別扱いするのではなく、
-          あくまで通常の型システムのルールに基づいて正当性を判定する。</strong></li>
+      <li>循環 import 自体は禁止しない。</li>
+      <li>型の矛盾（例：struct の再帰値包含など）は通常の型エラーとしてコンパイルエラー。</li>
     </ul>
 
     <hr>
@@ -1457,8 +1258,6 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
     <ul>
       <li><code>pipe&lt;T&gt;</code> は T 型要素のストリーム。</li>
-      <li><code>pipe&lt;byte&gt;</code> ... 標準入力やソケットなどのバイト列。</li>
-      <li><code>pipe&lt;string&gt;</code> ... 文字列ストリーム。</li>
       <li>pipe は共有メモリではなく値コピーを前提とする。</li>
     </ul>
 
@@ -1475,73 +1274,39 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
       <strong>Result&lt;T&gt;</strong> 型と <strong>Railway Oriented Programming（ROP）</strong> の考え方で扱う。
     </p>
     <ul>
-      <li><code>Result&lt;T&gt;</code> は「成功（Success = true）」または「失敗（Success = false）」のどちらかを表す、言語組み込みランタイムが提供する標準ライブラリ型。</li>
-      <li>フィルタやパイプは通常 <code>Result&lt;T&gt;</code> を返すことで、成功 / 失敗を明示的に表現する。</li>
-      <li>ただし、Result によるエラー表現を必須とするのは pipe（filter / producer / consumer）の <code>bound</code> のみであり、通常の関数・メソッドは Result を強制しない。</li>
+      <li><code>Result&lt;T&gt;</code> は成功（Success = true）または失敗（Success = false）を表す標準ライブラリ型。</li>
+      <li><strong>Result に丸める（Result を強制する）のは、パイプ（filter / producer / consumer）の中のみ</strong>とする。</li>
+      <li>通常の関数・メソッドは戻り値型を自由に選べる（Result 強制なし）。失敗時の扱い（例外を投げる等）はその関数仕様による。</li>
     </ul>
 
     <h4>18.2.1 Result&lt;T&gt; の型仕様</h4>
 <pre><code>class Result&lt;T&gt; {
-    // 状態
-    // Success == true のとき: Value が有効
-    // Success == false のとき: ErrorMessage が有効
     field Success: bool;
     field Value: T;
     field ErrorMessage: string;
 
-    // ファクトリメソッド（標準ライブラリの static メソッド）
     static method Ok(value: T): Result&lt;T&gt;;
     static method Error(message: string): Result&lt;T&gt;;
 }
 </code></pre>
     <ul>
-      <li><code>Success</code> が <code>true</code> の場合：
+      <li><code>Success</code> が <code>true</code> の場合：<code>Value</code> が有効。</li>
+      <li><code>Success</code> が <code>false</code> の場合：<code>ErrorMessage</code> が有効であり、<code>Value</code> の読み出しは不正。</li>
+      <li><strong>原則（A）：Result の不正アクセスは「静的に確定できる場合はコンパイルエラー、確定できない場合は実行時例外」</strong>とする。
         <ul>
-          <li><code>Value</code> に有効な値が格納されている。</li>
-          <li><code>ErrorMessage</code> は空文字列や実装依存の値だが、読み出してもよい。</li>
+          <li>例：<code>if (r.Success == false) { r.Value; }</code> のように不正が静的に確定する場合はコンパイルエラーとしてよい。</li>
+          <li>不正かどうかが静的に確定できない場合は、実行時に <code>InvalidOperationException</code> を投げる。</li>
         </ul>
       </li>
-      <li><code>Success</code> が <code>false</code> の場合：
-        <ul>
-          <li><code>ErrorMessage</code> にエラーメッセージ（またはその一部）が格納されている。</li>
-          <li><code>Value</code> は「存在しない値」とみなされ、読み出しは不正な操作である。</li>
-        </ul>
-      </li>
-      <li><strong>Result の不正アクセス（状態と矛盾するプロパティアクセス）についての原則：</strong>
-        <ul>
-          <li>コンパイラが不正を静的に確定できる場合（例：<code>Success == false</code> が確定している分岐内で <code>Value</code> を読む等）はコンパイルエラーとする。</li>
-          <li>静的に確定できない場合は実行時チェックを行い、不正なら <code>InvalidOperationException</code> を投げる。</li>
-          <li>静的に安全と確定できる場合は、実行時チェックを省略してよい（最適化）。</li>
-        </ul>
-      </li>
-      <li><code>Result&lt;void&gt;</code> については、値を持たない成功を表現するために
-          <code>Result&lt;void&gt;.Ok()</code>（引数なし）を特別に許可する：
-        <ul>
-          <li>この場合も <code>Success == true</code> となり、<code>ErrorMessage</code> は通常空を意味する。</li>
-          <li><code>Result&lt;void&gt;</code> に対して <code>Value</code> を読み出そうとした場合は常に不正であり、
-              <code>InvalidOperationException</code> を投げる。</li>
-        </ul>
-      </li>
+      <li><code>Result&lt;void&gt;</code> は値を持たない成功を表現するために <code>Result&lt;void&gt;.Ok()</code>（引数なし）を特別に許可する。</li>
+      <li><code>Result&lt;void&gt;</code> に対して <code>Value</code> を読み出そうとした場合は常に不正であり、<code>InvalidOperationException</code> を投げる（静的に確定できる場合はコンパイルエラーとしてよい）。</li>
     </ul>
-    <p>
-      <code>Ok</code> / <code>Error</code> は言語構文としての特別扱いではなく、
-      あくまで <code>Result&lt;T&gt;</code> クラスが提供する通常の static メソッドである。
-      ただし、パイプラインやフィルタと組み合わせたときに扱いやすくするため、
-      標準ライブラリの一部として特別に定義されている。
-    </p>
 
     <h4>18.2.2 ROP（Railway Oriented Programming）のイメージ</h4>
-    <p>
-      ROP は「成功の線路」と「失敗の線路」が並走し、
-      各ステップ（フィルタ）が <code>Result&lt;T&gt;</code> を返すことで、
-      エラーが出た時点で以降のステップをスキップするイメージである。
-    </p>
 <pre><code>入力
   +-&gt; [ Filter A ] -&gt; [ Filter B ] -&gt; [ Filter C ] -&gt; 出力
   |        |              |              |
   |        +-&gt; Error -----+--------------+----&gt; エラー経路
-  |
-  +-&gt; （別の分岐やログ出力など）
 </code></pre>
 
     <h3>18.3 filter(...) の基本と定義</h3>
@@ -1552,18 +1317,13 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
     in:  pipe&lt;string&gt;;
     out: pipe&lt;string&gt;;
 
-    // オプション用の型（任意）
     options: LineSplitOptions;
 
-    // フィールド定義（任意だが、副作用の観点からは最小限を推奨）
     field _buffer: string = "";
 
-    // コンストラクタ（任意）
     constructor(opts: LineSplitOptions) {
-        // options で受け取った値に応じて初期化などを行う
     }
 
-    // 入力パイプから出力パイプへ処理を流す本体
     bound(input, output): Result&lt;void&gt; {
         foreach (chunk in input) {
             let lines = chunk.split("\n");
@@ -1572,23 +1332,13 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
             }
         }
         output.close();
-        return Result&lt;void&gt;.Ok(); // 処理が成功したことを示す
+        return Result&lt;void&gt;.Ok();
     }
 }
 </code></pre>
     <ul>
-      <li><code>in</code> / <code>out</code> で入力・出力パイプの型を指定する。</li>
-      <li><code>options</code> で、このフィルタに紐づくオプションクラス（通常は <code>bitfield enum</code> 等）を指定できる。</li>
-      <li><code>field</code> でフィルタ内部の状態を保持することも可能だが、
-          ROP 的な観点からは「同じ入力に対して同じ出力」を返すことが望ましいため、
-          副作用を持つフィールドは最小限にとどめることが推奨される。</li>
-      <li><code>constructor</code> は任意で定義でき、オプション値や外部パラメータを受け取って初期化を行う。</li>
-      <li><code>bound(input, output)</code> は
-          フィルタの実行本体であり、戻り値の型は <strong><code>Result&lt;T&gt;</code> もしくはその派生クラス</strong> でなければならない。
-        <ul>
-          <li>違反はコンパイルエラーとする。</li>
-        </ul>
-      </li>
+      <li><code>bound(input, output)</code> はフィルタの実行本体であり、戻り値の型は <strong><code>Result&lt;T&gt;</code> もしくはその派生クラス</strong> でなければならない。</li>
+      <li>これに違反した場合（戻り値が Result でない、または <code>void</code> の場合）は <strong>コンパイルエラー</strong>とする。</li>
     </ul>
 
     <h4>18.3.2 フィルタオプション（filter オプション指定）</h4>
@@ -1597,16 +1347,8 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
     <ul>
       <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
       <li>各フィルタは自前のオプション型（bitfield enum 等）を持つ。</li>
-      <li><code>filter</code> 定義内で <code>options: JsonOptions;</code> のように
-          オプションクラスを指定した場合、そのフィルタをパイプライン上で使用するときには
-          <code>JsonOptions.</code> の接頭辞を省略して列挙子名だけを書いてもよい：</li>
+      <li>options に指定された型に属する列挙子であることがコンパイラによって検証される。</li>
     </ul>
-<pre><code>filter(json&lt;User&gt;: PrettyPrint | IncludeInvalids)
-</code></pre>
-    <p>
-      上記は <code>JsonOptions.PrettyPrint | JsonOptions.IncludeInvalids</code> と等価であり、
-      options に指定されたクラスに属する列挙子であることがコンパイラによって検証される。
-    </p>
 
     <h3>18.4 パイプライン文と <code>|</code> / パイプ with 演算子 <span class="operator">|&gt;</span></h3>
 <pre><code>stdin
@@ -1617,44 +1359,104 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
     <ul>
       <li><code>A | B | C;</code> で A の出力が B へ、B の出力が C へ接続される。</li>
       <li>型チェックにより各ステージの入出力型整合性を確認。</li>
-      <li>パイプライン文そのものは値を返さない（副作用として接続を張るだけ）。</li>
+      <li>パイプライン文そのものは値を返さない。</li>
     </ul>
 
     <h4>18.4.1 パイプ with 演算子 <span class="operator">|&gt;</span>（フィルタ条件ショートカット）</h4>
-    <p>
-      演算子 <span class="operator">|&gt;</span> は、<code>filter(if)</code> を用いた条件付きフィルタリングの
-      ショートカットとして定義される。
-    </p>
-<pre><code>// フル構文
-users
+<pre><code>users
     | filter(if : .Age &gt;= 20 and .Gender == Gender.Male);
 
-// ショートカット構文（同義）
 users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
+</code></pre>
+    <ul>
+      <li><span class="operator">|&gt;</span> は内部的には <code>filter(if : ...)</code> に展開される。</li>
+    </ul>
+
+    <h3>18.5 foreach と pipe</h3>
+<pre><code>foreach (line in lines) {
+    print("Input: " + line);
+}
+</code></pre>
+    <ul>
+      <li><code>pipe&lt;T&gt;</code> は <code>hasNext()</code> と <code>next()</code> を提供する。</li>
+      <li>次の要素が存在しない状態で <code>next()</code> を呼び出した場合、<code>EndOfStreamException</code> を投げる。</li>
+      <li><code>foreach (x in p)</code> は内部的に次の形に展開される：</li>
+    </ul>
+<pre><code>while (p.hasNext()) {
+    let x = p.next();
+    // body
+}
+</code></pre>
+
+    <h3>18.6 map による要素変換（pipe 用）</h3>
+<pre><code>function toName(u: User): string {
+    return u.Name;
+}
+
+names = users | map(toName);
 </code></pre>
 
     <h3>18.7 コレクションに対するテンプレート map</h3>
-    <p>
-      コレクション（例：<code>User()</code> や <code>User{}</code>）に対して、
-      テンプレート構文を用いる <code>map</code> も利用できる。
-    </p>
-<pre><code>// User() コレクションから Customer() コレクションを生成する例
-customers = users | map Customer {
-    Name    = "FixedName";           // 固定値
-    Created = now();                 // 固定関数呼び出し
-    BaseUrl = base.ApiEndpoint;      // base による外部設定参照（例）
+<pre><code>customers = users | map Customer {
+    Name    = "FixedName";
+    Created = now();
+    BaseUrl = base.ApiEndpoint;
 };
 </code></pre>
     <ul>
-      <li><code>users | map Customer { ... }</code> のように記述すると、
-          各要素ごとに <code>Customer</code> 型のインスタンスを新たに生成し、
-          ブロック内のフィールド代入を用いてマッピングするテンプレートとみなされる。</li>
-      <li>テンプレート内では、<strong>「固定値」または「固定関数呼び出し」</strong> のみで
-          <code>Customer</code> の各フィールドを構成することができる。</li>
-      <li>テンプレート内からコレクションの個々の要素には直接アクセスできない。
-          すなわち、要素を参照するような <code>u.Name</code> などの記法は許可されない（違反はコンパイルエラー）。</li>
-      <li>テンプレ map の禁止事項は、基本コンパイルエラーとして扱う。</li>
+      <li>テンプレート内では「固定値」または「固定関数呼び出し」のみでフィールドを構成できる。</li>
+      <li>テンプレート内からコレクションの個々の要素には直接アクセスできない。</li>
+      <li><strong>テンプレ map の禁止事項に違反した場合は基本的にコンパイルエラー</strong>とする。</li>
     </ul>
+
+    <h3>18.8 close と EOF 伝播</h3>
+    <ul>
+      <li><code>p.close()</code> 後の <code>write()</code> は無効（エラーになり得る）。</li>
+      <li>フィルタは入力 EOF を検知したら出力側も <code>close()</code> すべき。</li>
+    </ul>
+
+    <h3>18.9 pipe を使った並行モデル</h3>
+    <ul>
+      <li>タスク同士の主な通信手段は <code>pipe&lt;T&gt;</code>。</li>
+      <li>shared-nothing モデルを前提とする。</li>
+    </ul>
+
+    <h3>18.10 match によるパイプ分岐（Result&lt;T&gt; の分岐）</h3>
+<pre><code>stdin
+    | filter(parseUser)
+    | match {
+        case Ok(u):
+            | filter(saveUser)
+            | filter(logSuccess);
+        case Error(e):
+            | filter(logError);
+        default:
+            break;
+    };
+</code></pre>
+
+    <h3>18.11 例：簡単な REST 風パイプライン</h3>
+<pre><code>class User {
+    field id: int;
+    field name: string;
+}
+
+function main(args: string[]): int {
+    let users: pipe&lt;User&gt; = pipe&lt;User&gt;.create();
+
+    stdin
+        | filter(utf8)
+        | filter(json&lt;User&gt;)
+        | users;
+
+    if (users.hasNext()) {
+        let u: User = users.next();
+        print("User: " + u.name);
+    }
+
+    return 0;
+}
+</code></pre>
 
     <hr>
 
