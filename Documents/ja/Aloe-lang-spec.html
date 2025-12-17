@@ -1,11 +1,10 @@
-```html
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="25">
-  <meta name="edit-date" content="2025-12-15T00:18:34+09:00">
+  <meta name="edit-version" content="26">
+  <meta name="edit-date" content="2025-12-17T18:36:50+09:00">
   <style>
     :root {
       color-scheme: light dark;
@@ -126,7 +125,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 25)</div>
+    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 26)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -139,7 +138,7 @@
         <li><a href="#ch5"><span class="chapter-index">5.</span>変数と定数 (Variables &amp; Constants)</a></li>
         <li><a href="#ch6"><span class="chapter-index">6.</span>フィールド (Fields)</a></li>
         <li><a href="#ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
-        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; null</a></li>
+        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; validity</a></li>
         <li><a href="#ch9"><span class="chapter-index">9.</span>is 演算子 (is Operator)</a></li>
         <li><a href="#ch10"><span class="chapter-index">10.</span>コレクション (Collections)</a></li>
         <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
@@ -166,8 +165,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 25<br>
-      edit-date: 2025-12-15T00:18:34+09:00
+      edit-version: 26<br>
+      edit-date: 2025-12-17T18:36:50+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -206,9 +205,10 @@
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
-      <li><code>= null</code> をソースコード中に直接書かない
+      <li>参照変数の無効化は <code>delete</code> と <code>valid</code> / <code>invalid</code> の概念で扱う
         <ul>
-          <li>参照型は内部的には null を取り得るが、<code>delete</code> による糖衣構文で扱う。</li>
+          <li>ソースコード中で <code>= invalid</code> を直接書かない。</li>
+          <li>無効化は <code>delete</code> による糖衣構文で扱う。</li>
         </ul>
       </li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
@@ -257,6 +257,7 @@ bitfield
 break
 case
 catch
+char
 class
 const
 construct
@@ -279,6 +280,7 @@ import
 implements
 in
 interface
+invalid
 is
 let
 main
@@ -287,7 +289,6 @@ match
 method
 namespace
 new
-null
 options
 or
 override
@@ -310,6 +311,7 @@ throws
 trait
 true
 try
+valid
 var
 virtual
 void
@@ -329,9 +331,9 @@ yield
       <li>浮動小数点リテラル：<code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
       <li>10進リテラル：<code>10.12345678901234567890:d</code> など</li>
       <li>真偽値：<code>true</code>, <code>false</code></li>
+      <li>有効性リテラル：<code>valid</code>, <code>invalid</code>（比較・判定用の特別な定数）</li>
       <li>文字列：<code>"Hello, World!"</code></li>
       <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
-      <li>null リテラル：<code>null</code>（比較用。代入・初期化には使用できない）</li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
       <li>セットリテラル：<code>{1, 2, 3}</code></li>
@@ -378,13 +380,14 @@ print(x);
       <li><code>float</code> - 浮動小数点数。</li>
       <li><code>decimal</code> - 高精度 10 進数。</li>
       <li><code>string</code> - 文字列（内部的には Unicode）。</li>
-      <li><code>null</code> - 「値が存在しない」ことを表す特別な型兼値。</li>
+      <li><code>byte</code> - 0-255 の符号なし 8bit 整数。</li>
+      <li><code>char</code> - 文字（内部表現は実装依存だが、言語上は 1 文字）。</li>
       <li><code>void</code> - 戻り値なし（メソッド戻り値専用）。</li>
     </ul>
     <p>
       <code>any</code> 型を導入し、必要な箇所で任意の型の値を扱える。<br>
-      <code>char</code> や <code>byte</code> は言語としてはサポートされるが、プリミティブ型のカテゴリからは外し、
-      数値と変換の章（3 章）で別途扱う値型とする。
+      また <code>valid</code> / <code>invalid</code> はプリミティブ型ではなく、
+      比較・判定用の特殊な定数（特別なリテラル）として扱う（8 章・9 章参照）。
     </p>
 
     <h3>2.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
@@ -702,7 +705,7 @@ var fb  = new FizzBuzz();
       <li>変数の型は右辺の式から推論される。</li>
       <li><code>var x = 1;</code> は常に <code>int</code>。</li>
       <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
-      <li><code>var x = null;</code> はコンパイルエラー（null リテラルは代入・初期化に使用できない）。</li>
+      <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
       <li><code>any</code> 型の式を右辺に置いた場合、推論結果の型も <code>any</code> になる。</li>
     </ul>
 
@@ -733,7 +736,7 @@ let st : int{} = {1, 2, 3};
 let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
-      <li><code>let x: Foo = null;</code> のような null 代入はコンパイルエラー（null リテラルは代入・初期化に使用できない）。</li>
+      <li><code>let x: Foo = invalid;</code> のような <code>invalid</code> 代入・初期化はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
     </ul>
 
     <h3>5.3 Constants（const）</h3>
@@ -1090,13 +1093,13 @@ fl.Log("Hello");      // 当然 FileLogger.Log が呼ばれる
 
     <hr>
 
-    <h2 id="ch8">8. delete &amp; null</h2>
+    <h2 id="ch8">8. delete &amp; validity</h2>
 <pre><code>var obj = new FizzBuzz();
-delete obj;  // equivalent to: obj = null (at VM level)
+delete obj;  // equivalent to: obj becomes invalid (at VM level)
 </code></pre>
     <ul>
-      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を解放する指示をするコマンド」である。</li>
-      <li>VM レベルでは <code>delete obj;</code> は <code>obj = null</code> と等価であり、実行後 <code>obj</code> の値は null となる。</li>
+      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を無効化する指示をするコマンド」である。</li>
+      <li>VM レベルでは <code>delete obj;</code> は <code>obj</code> を <code>invalid</code> 状態にする操作と等価である。</li>
       <li><code>delete</code> は参照変数に対する操作であるため、同一オブジェクトを参照している別の参照変数（例：<code>b</code>）には干渉しない。</li>
       <li>オブジェクトの実際の解放（回収）は実行系が決定する。
         <ul>
@@ -1104,12 +1107,11 @@ delete obj;  // equivalent to: obj = null (at VM level)
           <li>オブジェクトが到達不能になった後、実行系は任意の時点で回収してよい（回収時刻は未規定）。</li>
         </ul>
       </li>
-      <li>ソースコード中で <code>obj = null;</code> と書くことはできない。</li>
-      <li><strong>null リテラル <code>null</code> は、比較演算子 <code>==</code> / <code>!=</code> のオペランドとしてのみ使用できる。</strong></li>
-      <li><code>let x: Foo = null;</code> や <code>var x = null;</code> のような null 代入・初期化はコンパイルエラー。</li>
-      <li>参照型は内部的には null を取り得るが、型システムは null を追跡しない。</li>
-      <li>null 状態でのアクセスは <code>NullPointerException</code> を引き起こす。</li>
-      <li><code>obj</code> がすでに null の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
+      <li>ソースコード中で <code>obj = invalid;</code> と書くことはできない。</li>
+      <li><strong><code>valid</code> / <code>invalid</code> は比較・判定用の特殊な定数（特別なリテラル）である。</strong></li>
+      <li>有効性の判定は <code>is</code> 演算子で行う（9 章参照）。</li>
+      <li>無効状態でのアクセスは <code>InvalidReferenceException</code> を引き起こす。</li>
+      <li><code>obj</code> がすでに <code>invalid</code> の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
     </ul>
 
     <hr>
@@ -1126,6 +1128,14 @@ if (obj is ILogger) {
 if (obj is Trait_A) {
     // true if obj has Trait_A applied (with / +)
 }
+
+if (obj is valid) {
+    // true if obj is in valid state
+}
+
+if (obj is invalid) {
+    // true if obj is in invalid state
+}
 </code></pre>
     <ul>
       <li><code>is</code> は実行時の型チェックを行う。</li>
@@ -1137,6 +1147,7 @@ if (obj is Trait_A) {
           <li><code>User is ILogger</code> や <code>Trait_A is IFoo</code> のような表記はコンパイルエラーとなる。</li>
         </ul>
       </li>
+      <li><code>obj is valid</code> / <code>obj is invalid</code> は、参照変数の有効性判定に用いる。</li>
       <li>trait に関しては、<code>obj is Trait_X</code> の形で「あるオブジェクトに trait が適用されているか」を問い合わせる用途のみを許可し、
           trait 自体がどのインタフェースを expects しているかを <code>is</code> で問い合わせることはできない（7.5 節の expects 句参照）。</li>
     </ul>
@@ -1304,7 +1315,7 @@ finally {
     <h3>16.1 標準例外の概要</h3>
 <pre><code>Exception
 +- SystemException
-|  +- NullPointerException
+|  +- InvalidReferenceException
 |  +- IndexOutOfBoundsException
 |  +- OverflowException
 |  +- ZeroDivisionException
@@ -1312,7 +1323,7 @@ finally {
 |  +- NotImplementedException
 |  +- TimeoutException
 |  +- ArgumentException
-|  |  +- ArgumentNullException
+|  |  +- ArgumentInvalidException
 |  |  +- ArgumentOutOfRangeException
 |  +- FormatException
 +- IOException
@@ -1608,7 +1619,7 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
     </ul>
 
     <h4>18.3.2 フィルタオプション（filter オプション指定）</h4>
-<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
+<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeInvalids)
 </code></pre>
     <ul>
       <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
@@ -1617,10 +1628,10 @@ import Aloe.Json.*;         // ワイルドカード import（Aloe.Json 直下�
           オプションクラスを指定した場合、そのフィルタをパイプライン上で使用するときには
           <code>JsonOptions.</code> の接頭辞を省略して列挙子名だけを書いてもよい：</li>
     </ul>
-<pre><code>filter(json&lt;User&gt;: PrettyPrint | IncludeNulls)
+<pre><code>filter(json&lt;User&gt;: PrettyPrint | IncludeInvalids)
 </code></pre>
     <p>
-      上記は <code>JsonOptions.PrettyPrint | JsonOptions.IncludeNulls</code> と等価であり、
+      上記は <code>JsonOptions.PrettyPrint | JsonOptions.IncludeInvalids</code> と等価であり、
       options に指定されたクラスに属する列挙子であることがコンパイラによって検証される。
     </p>
 
@@ -1821,4 +1832,3 @@ function main(args: string[]): int {
 </div>
 </body>
 </html>
-```
