@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="31">
-  <meta name="edit-date" content="2025-12-18T00:36:44+09:00">
+  <meta name="edit-version" content="32">
+  <meta name="edit-date" content="2025-12-18T00:47:44+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -28,11 +28,7 @@
       overflow-y: auto;
     }
     .sidebar h1 { font-size: 1.1rem; margin: 0 0 0.4rem; }
-    .sidebar .subtitle {
-      font-size: 0.8rem;
-      color: #9ca3af;
-      margin-bottom: 1.4rem;
-    }
+    .sidebar .subtitle { font-size: 0.8rem; color: #9ca3af; margin-bottom: 1.4rem; }
     .sidebar h2 {
       font-size: 0.85rem;
       margin: 1.2rem 0 0.4rem;
@@ -40,12 +36,7 @@
       letter-spacing: 0.06em;
       color: #9ca3af;
     }
-    .sidebar nav ul {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      font-size: 0.9rem;
-    }
+    .sidebar nav ul { list-style: none; padding: 0; margin: 0; font-size: 0.9rem; }
     .sidebar nav li { margin: 0.15rem 0; }
     .sidebar a {
       color: inherit;
@@ -73,8 +64,7 @@
     h1, h2, h3, h4, h5 { margin-top: 1.6em; color: #111827; }
     h1 { margin-top: 0; }
     pre, code {
-      font-family: "JetBrains Mono", "Cascadia Code", Consolas,
-                   "Ricty Diminished", monospace;
+      font-family: "JetBrains Mono", "Cascadia Code", Consolas, "Ricty Diminished", monospace;
       font-size: 0.9rem;
     }
     pre {
@@ -85,15 +75,10 @@
       border: 1px solid #e5e7eb;
     }
     ul, ol { padding-left: 1.4em; }
-    hr {
-      margin: 2.2rem 0;
-      border: none;
-      border-top: 1px solid #e5e7eb;
-    }
+    hr { margin: 2.2rem 0; border: none; border-top: 1px solid #e5e7eb; }
     .note { font-size: 0.9rem; color: #4b5563; }
     .operator {
-      font-family: "JetBrains Mono", "Cascadia Code", Consolas,
-                   "Ricty Diminished", monospace;
+      font-family: "JetBrains Mono", "Cascadia Code", Consolas, "Ricty Diminished", monospace;
     }
   </style>
 </head>
@@ -103,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + with 拡張 (edit-version 31)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 32)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -116,12 +101,12 @@
         <li><a href="#ch5"><span class="chapter-index">5.</span>変数と定数 (Variables &amp; Constants)</a></li>
         <li><a href="#ch6"><span class="chapter-index">6.</span>フィールド (Fields)</a></li>
         <li><a href="#ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
-        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; valid/invalid</a></li>
+        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; invalid</a></li>
         <li><a href="#ch9"><span class="chapter-index">9.</span>is 演算子 (is Operator)</a></li>
         <li><a href="#ch10"><span class="chapter-index">10.</span>コレクション (Collections)</a></li>
         <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
         <li><a href="#ch12"><span class="chapter-index">12.</span>main ブロック (main Block)</a></li>
-        <li><a href="#ch13"><span class="chapter-index">13.</span>識別子 <code>_</code> について</a></li>
+        <li><a href="#ch13"><span class="chapter-index">13.</span>識別子 <code>_</code> (Underscore)</a></li>
         <li><a href="#ch14"><span class="chapter-index">14.</span>swap キーワード</a></li>
         <li><a href="#ch15"><span class="chapter-index">15.</span>演算子 (Operators)</a></li>
         <li><a href="#ch16"><span class="chapter-index">16.</span>例外 (Exceptions)</a></li>
@@ -135,8 +120,7 @@
       <ul>
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
         <li><a href="#with-type">4.2.1 型名対象 with 拡張</a></li>
-        <li><a href="#valid-invalid">8.1 valid / invalid</a></li>
-        <li><a href="#result-access-principle">18.2.3 Result の不正アクセス原則</a></li>
+        <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
       </ul>
     </nav>
   </aside>
@@ -145,17 +129,18 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 31<br>
-      edit-date: 2025-12-18T00:36:44+09:00
+      edit-version: 32<br>
+      edit-date: 2025-12-18T00:47:44+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
       <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>
       をベースにした日本語ドラフトです。<br>
-      その上で <strong>4.2 with-blocks</strong> に
+      その上で、参照の無効状態を <strong>valid / invalid</strong> によって扱う「有効性モデル」を導入し、
+      <strong>null を仕様書から排除</strong>しています。<br>
+      また <strong>4.2 with-blocks</strong> に
       <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
-      の拡張を追加しています。<br>
-      さらに、参照の無効状態を <strong>valid/invalid</strong> として扱い、仕様書から <strong>null を排除</strong>しています。<br>
+      の拡張を含みます。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
 
@@ -186,11 +171,10 @@
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
-      <li>参照の無効状態を <code>invalid</code> として扱う
+      <li>参照の無効状態（<code>invalid</code>）を言語レベルのモデルとして導入する
         <ul>
-          <li>参照型は「有効（valid）」「無効（invalid）」の状態を取り得る。</li>
-          <li>ソースコード中に null は存在しない（仕様として排除）。</li>
-          <li>無効化は <code>delete</code> による糖衣構文で扱う（8章参照）。</li>
+          <li><code>delete</code> は「参照を無効化する命令」であり、無効化後の参照アクセスは例外となる。</li>
+          <li><code>invalid</code> は代入や初期化に使えない（有効性チェック用途のみ）。</li>
         </ul>
       </li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
@@ -225,7 +209,7 @@
       <li>先頭文字は英字または <code>_</code> でなければならない。</li>
       <li>大文字小文字は区別される。</li>
       <li>キーワードと同じ綴りは使用できない。</li>
-      <li><code>_</code> で始まる識別子は「プライベート」扱い（外部からは参照しない慣習）。</li>
+      <li><code>_</code> は通常の識別子として使用できる（特別扱いしない）。</li>
       <li>ユニコード文字も使用できる（空白や区切り記号などは除外）。</li>
     </ul>
 
@@ -304,7 +288,7 @@ yield
       <li><code>package</code> は使わず、<code>namespace</code> を使用する。</li>
       <li><code>final</code> は廃止され、拡張禁止には <code>sealed</code> を用いる。</li>
       <li><code>instanceof</code> は廃止され、型チェックには <code>is</code> を用いる。</li>
-      <li><code>valid</code> / <code>invalid</code> は参照の有効性判定専用の特別なリテラル（8章、9章参照）。</li>
+      <li><code>null</code> は仕様書から排除する。</li>
     </ul>
 
     <h3>1.4 Literals（リテラル）</h3>
@@ -313,9 +297,9 @@ yield
       <li>浮動小数点リテラル：<code>10.5</code>, <code>0.0</code>, <code>-3.14</code></li>
       <li>10進リテラル：<code>10.12345678901234567890:d</code> など</li>
       <li>真偽値：<code>true</code>, <code>false</code></li>
-      <li>参照有効性：<code>valid</code>, <code>invalid</code>（代入には使えない。判定専用）</li>
       <li>文字列：<code>"Hello, World!"</code></li>
       <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
+      <li>参照有効性：<code>valid</code>, <code>invalid</code>（有効性チェック専用。代入・初期化には使用できない）</li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
       <li>セットリテラル：<code>{1, 2, 3}</code></li>
@@ -363,13 +347,13 @@ print(x);
       <li><code>decimal</code> - 高精度 10 進数。</li>
       <li><code>string</code> - 文字列（内部的には Unicode）。</li>
       <li><code>byte</code> - 0-255 の符号なし整数。</li>
-      <li><code>char</code> - 1 文字（Unicode スカラ値の一部を表す。詳細は実装依存）。</li>
+      <li><code>char</code> - 1 文字。</li>
       <li><code>void</code> - 戻り値なし（戻り値専用）。</li>
     </ul>
     <p>
-      <code>any</code> 型を導入し、必要な箇所で任意の型の値を扱える。<br>
-      参照の有効性判定には <code>valid</code> / <code>invalid</code> を用いる（8章、9章参照）。<br>
-      仕様として null は存在しない。
+      <code>valid</code> / <code>invalid</code> は型ではなく、
+      <strong>参照の有効性を判定するための特殊定数（リテラル）</strong>である。<br>
+      仕様書から <code>null</code> は排除し、参照の無効状態は <code>invalid</code> で表現する。
     </p>
 
     <h3>2.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
@@ -385,7 +369,7 @@ print(x);
       <li>パイプ：<code>pipe&lt;T&gt;</code>（18章参照）</li>
       <li>結果型：<code>Result&lt;T&gt;</code>（18章参照）</li>
     </ul>
-    <p><code>any</code> は任意の型の値を扱うための特別な型であり、必要な箇所で利用できる。</p>
+    <p><code>any</code> 型を導入し、必要な箇所で任意の型の値を扱える。</p>
 
     <h3>2.3 Value types / reference types（値型 / 参照型）</h3>
     <ul>
@@ -486,9 +470,7 @@ print(x);
 
     <h2 id="ch4">4. Blocks &amp; Scope（ブロックとスコープ）</h2>
 
-    <p>
-      ブロックは <code>{</code> と <code>}</code> で区切られ、各ブロックが新しいスコープを導入する。
-    </p>
+    <p>ブロックは <code>{</code> と <code>}</code> で区切られ、各ブロックが新しいスコープを導入する。</p>
     <ul>
       <li><code>main</code> ブロック</li>
       <li>クラス定義ブロック</li>
@@ -509,8 +491,7 @@ print(x);
     <ul>
       <li>Aloe は静的（レキシカル）スコープ。</li>
       <li>内側ブロックで同名変数を宣言すると、外側の変数をシャドウする。</li>
-      <li>フィールド名とローカル変数名がぶつかった場合、ローカル変数が優先される。
-        フィールドは <code>this.</code> で参照する。</li>
+      <li>フィールド名とローカル変数名がぶつかった場合、ローカル変数が優先される。フィールドは <code>this.</code> で参照する。</li>
     </ul>
 
     <h3 id="with-blocks">4.2 with-blocks（メンバー省略記法）</h3>
@@ -528,29 +509,29 @@ print(x);
       <li><code>with (expr) { ... }</code> ブロック内では：
         <ul>
           <li><code>.Member</code> は <code>(expr).Member</code> の省略形。</li>
-          <li><code>expr</code> はブロックの先頭で 1 度だけ評価され、内部一時変数に保持される。</li>
+          <li><code>expr</code> はブロックの先頭で 1 度だけ評価され、内部で保持される（再評価しない）。</li>
         </ul>
       </li>
+      <li><strong><code>_</code> は特別扱いしない。</strong> with 対象を表す暗黙変数は存在しない。</li>
       <li>ネストした <code>with</code> ブロック：
         <ul>
-          <li>内側の <code>with</code> が <code>.</code> の解決対象をシャドウする。</li>
+          <li>内側の <code>with</code> が <code>.</code> の解決対象となる。</li>
           <li>外側オブジェクトへは通常の変数名でアクセスできる。</li>
         </ul>
       </li>
       <li>C# の <code>using</code> スタイルのように、同じブロックに複数の <code>with</code> を並べられる：</li>
     </ul>
 <pre><code>with (user), (profile) {
-    .name = "Alice";
+    .name = "Alice";  // resolved against user, then profile
 }
 </code></pre>
     <ul>
-      <li><strong>解決順序は「左から右」</strong>とする。</li>
-      <li><code>.Member</code> は、左の対象から順に探索して最初に見つかったものに解決される。</li>
-      <li>同じ <code>.Member</code> が複数対象に存在して解決が曖昧になる場合は、<strong>必ずコンパイルエラー</strong>。</li>
+      <li>解決順序は <strong>左から右</strong> とする。</li>
+      <li>左から探索して最初に見つかったメンバーに解決する。</li>
+      <li>ただし同名メンバーが複数ターゲットに存在し、解決が曖昧になる場合は <strong>コンパイルエラー</strong>。</li>
     </ul>
     <p>
-      <code>with</code> はあくまで構文糖衣であり、意味的にはすべて
-      明示的な <code>obj.member</code> 呼び出しに書き換えた上で
+      <code>with</code> は構文糖衣であり、意味的にはすべて明示的な <code>obj.member</code> 呼び出しに書き換えた上で
       型チェック・コード生成を行うことができる。
     </p>
 
@@ -580,20 +561,12 @@ print(x);
       <li>ブロック内では：
         <ul>
           <li><code>.Member</code> は <code>TypeName.Member</code> の省略形。</li>
-          <li>対象となる <code>Member</code> は
-            <ul>
-              <li>static フィールド</li>
-              <li>static メソッド</li>
-              <li>enum / bitfield enum の列挙子</li>
-            </ul>
-          </li>
           <li>型ベース with 内でインスタンスメンバーにアクセスすることはコンパイルエラー。</li>
         </ul>
       </li>
     </ul>
     <p>
-      型ベース with も複数ターゲット構文に混在させられる。
-      この場合も解決順序は左から右であり、曖昧であればコンパイルエラーとする。
+      型ベース with も複数ターゲット構文に混在させられる。解決順序は左から右であり、曖昧ならコンパイルエラーとする。
     </p>
 
     <hr>
@@ -616,7 +589,7 @@ var fb  = new FizzBuzz();
       <li>変数の型は右辺の式から推論される。</li>
       <li><code>var x = 1;</code> は常に <code>int</code>。</li>
       <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
-      <li><code>valid</code> / <code>invalid</code> は代入・初期化に使用できない（コンパイルエラー）。</li>
+      <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
       <li><code>any</code> 型の式を右辺に置いた場合、推論結果の型も <code>any</code> になる。</li>
     </ul>
 
@@ -646,7 +619,20 @@ let st : int{} = {1, 2, 3};
 let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
-      <li><code>let x: Foo = invalid;</code> のような無効値代入・初期化はコンパイルエラー（8章参照）。</li>
+      <li><code>let x: Foo = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
+    </ul>
+
+    <h3>5.2.1 未初期化参照（uninitialized）</h3>
+    <p>
+      参照型変数は、初期化を省略した宣言を許可する。
+      この場合、その参照は <strong>invalid 状態</strong>として扱われる（未初期化と invalid は区別しない）。
+    </p>
+<pre><code>var obj: Foo;        // OK（参照型の未初期化宣言）
+obj.Value;           // 実行時例外（InvalidReferenceException）
+</code></pre>
+    <ul>
+      <li>初期化を省略した参照型変数は、実行時に <strong>invalid</strong> とみなされる。</li>
+      <li>無効参照（invalid）へのメンバーアクセスは <strong>InvalidReferenceException</strong> を投げる。</li>
     </ul>
 
     <h3>5.3 Constants（const）</h3>
@@ -674,7 +660,6 @@ const AppName: string = "Aloe VM";
     }
     method change(): void {
         this.count = this.count + 1;
-        // this.id = 2; // NG
     }
 }
 </code></pre>
@@ -729,31 +714,7 @@ const AppName: string = "Aloe VM";
     </ul>
 
     <h4>Struct layout annotations: @StructLayout / @FieldOffset</h4>
-    <p>
-      ネイティブコードとの相互運用などで、struct のメモリレイアウトを制御したい場合のために、
-      struct には限定的なアノテーション <code>@StructLayout</code> / <code>@FieldOffset</code> を付与できる。
-    </p>
-<pre><code>@StructLayout("Explicit")
-struct NativePoint {
-    @FieldOffset(0) field X: int;
-    @FieldOffset(4) field Y: int;
-}
-</code></pre>
-
-    <h4>7.2.1 汎用アノテーション機構（annotation 定義）</h4>
-    <p>
-      Aloe では、組み込みアノテーションに加えて、ユーザが独自のアノテーションを定義・利用できる。
-      アノテーションは <code>annotation</code> 宣言で定義する。
-    </p>
-<pre><code>annotation MyAnnotation {
-    text:   "アノテーションテキスト";
-    target: TargetKind;
-    params: map&lt;string/any&gt;;
-
-    build:  function (ctx: AnnotationBuildContext): void {
-    }
-}
-</code></pre>
+    <p>（略：本節は原文に準拠）</p>
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
@@ -788,73 +749,42 @@ class ConsoleLogger implements ILogger {
 }
 </code></pre>
 
-    <h4>with による trait の適用</h4>
-<pre><code>var obj = new SomeClass() with Trait_A;
-obj.hello();
-</code></pre>
-
-    <h4>非破壊的な追加 / 削除（+ / -）</h4>
-<pre><code>var obj2 = obj + Trait_A;
-var obj3 = obj2 - Trait_A;
-</code></pre>
-
-    <h4>as によるエイリアス</h4>
-<pre><code>var obj2 = obj + Trait_A as a;
-obj2.a.hello();
-</code></pre>
-
-    <h4>Trait conflicts（競合）</h4>
-    <ul>
-      <li>複数 trait が同名フィールド / メソッドを定義する場合、右側に記述した trait が左側の定義を上書きする。</li>
-      <li>上書きを避けたい場合は、<code>as a</code> のようなエイリアスを用いて競合しない別名としてアクセスする。</li>
-    </ul>
-
-    <h4>trait の expects 句</h4>
-<pre><code>interface IHasId {
-    method GetId(): int;
-}
-
-trait HasIdFormatting expects IHasId {
-    method PrintId(): void {
-        print("ID = " + this.GetId());
-    }
-}
-</code></pre>
+    <p>（trait の詳細は原文に準拠）</p>
 
     <hr>
 
-    <h2 id="ch8">8. delete &amp; valid/invalid</h2>
+    <h2 id="ch8">8. delete &amp; invalid</h2>
 
-    <h3 id="valid-invalid">8.1 valid / invalid（参照の有効状態）</h3>
+    <h3 id="validity-model">8.1 参照の有効性モデル（valid / invalid）</h3>
     <p>
-      Aloe の参照型は「有効（valid）」「無効（invalid）」の状態を取り得る。<br>
-      仕様として null は存在しない。
+      Aloe では、参照が「有効（valid）」か「無効（invalid）」かという状態をモデル化する。<br>
+      <code>invalid</code> は <strong>代入や初期化に使用できない</strong>が、参照の有効性チェックには使用できる。
     </p>
+
+<pre><code>var obj = new FizzBuzz();
+delete obj;           // obj becomes invalid
+if (obj is invalid) {
+    print("invalid");
+}
+</code></pre>
+
     <ul>
-      <li><code>valid</code> / <code>invalid</code> は参照の有効性を判定するための特別なリテラルである。</li>
-      <li><strong><code>valid</code> / <code>invalid</code> は代入・初期化・引数渡しに使用できない。</strong>
-        <ul>
-          <li><code>x = invalid;</code> や <code>var x = invalid;</code> はコンパイルエラー。</li>
-        </ul>
-      </li>
-      <li>参照の有効性判定は <code>is</code> 演算子を用いる（9章参照）。</li>
+      <li><code>delete x;</code> は「参照変数 <code>x</code> を無効化する命令」である。</li>
+      <li><strong><code>delete</code> は例外を投げてはならない。</strong> 既に invalid の場合も無効果である。</li>
+      <li>無効化後、<code>x</code> を通じた参照先のメンバーアクセスは <strong>InvalidReferenceException</strong> を引き起こす。</li>
+      <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は変数単位）。</li>
+      <li>オブジェクトの実際の解放（回収）は実行系が決定する（GC）。</li>
+      <li><strong>未初期化参照と invalid は区別しない。</strong> 初期化を省略した参照型変数は invalid とみなされる。</li>
+      <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
     </ul>
 
-    <h3>8.2 delete（参照の無効化）</h3>
-<pre><code>var obj = new FizzBuzz();
-delete obj;
+    <h3>8.2 invalid 参照アクセス</h3>
+<pre><code>var obj: Foo;     // invalid
+obj.Value;        // throws InvalidReferenceException
 </code></pre>
     <ul>
-      <li><code>delete obj;</code> は「参照変数 <code>obj</code> を無効化する」コマンドである。</li>
-      <li>VM レベルでは <code>delete obj;</code> の実行後、<code>obj</code> は <strong>invalid 状態</strong> となる。</li>
-      <li><code>delete</code> は参照変数に対する操作であるため、同一オブジェクトを参照している別の参照変数には干渉しない。</li>
-      <li>オブジェクトの実際の回収（解放）は実行系が決定する（GC）。</li>
-      <li><code>obj</code> がすでに invalid の場合、<code>delete obj;</code> は無効果であり例外を送出してはならない。</li>
-      <li><strong>invalid 状態の参照をデリファレンス（メンバーアクセス / 呼び出し）した場合、実行時に例外を投げる。</strong>
-        <ul>
-          <li>例外型は <code>InvalidReferenceException</code> とする（16章参照）。</li>
-        </ul>
-      </li>
+      <li>invalid 参照へのメンバーアクセスは必ず <code>InvalidReferenceException</code>。</li>
+      <li>（実装が静的に invalid を確定できても）原則として挙動は同じとし、最適化は実装依存とする。</li>
     </ul>
 
     <hr>
@@ -876,16 +806,13 @@ if (obj is invalid) {
 }
 </code></pre>
     <ul>
-      <li><code>is</code> は実行時の型チェックを行う。</li>
+      <li><code>is</code> は実行時の型チェックを行う（型名が右辺の場合）。</li>
       <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
       <li>インタフェースや trait に対しても使用できる。</li>
-      <li><code>obj is valid</code> / <code>obj is invalid</code> は参照の有効状態を判定する。</li>
-      <li><strong><code>is</code> 演算子の左辺は、必ず「式（値）」でなければならない。</strong>
-        <ul>
-          <li>クラス名・構造体名・インタフェース名・trait 名そのものを左辺に書くことはできない。</li>
-        </ul>
-      </li>
-      <li>曖昧な名前解決（どの型やメンバーを指すかが確定しない状態）は <strong>必ずコンパイルエラー</strong>（17章の名前解決参照）。</li>
+      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックである。</li>
+      <li><strong><code>invalid is T</code> は常に <code>false</code>。</strong> 例外にしてはならない。</li>
+      <li><strong>曖昧な名前解決は必ずコンパイルエラー。</strong></li>
+      <li><code>is</code> 演算子の左辺は必ず「式（値）」でなければならない。</li>
     </ul>
 
     <hr>
@@ -937,18 +864,6 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
 }
 </code></pre>
 
-    <h4>b(n) 記法</h4>
-<pre><code>bitfield enum LogFlags {
-    None : b(0),
-    Info : b(3),
-    Warn,
-}
-</code></pre>
-    <ul>
-      <li><code>b(n)</code> はビット n（<code>1 &lt;&lt; n</code>）を表す。</li>
-      <li><code>bitfield enum</code>で使用可能なビットは最大 32（n は 0-31）。</li>
-    </ul>
-
     <hr>
 
     <h2 id="ch12">12. main Block（エントリポイント）</h2>
@@ -961,21 +876,16 @@ var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()
     <ul>
       <li>プログラムのエントリポイント。</li>
       <li><code>args</code> はコマンドライン引数。</li>
-      <li><code>main</code> ブロックは必ず <code>function main(args: string[]): int</code> の形で宣言し、
-          戻り値は <code>int</code> 型の <code>return</code> 文で指定する。</li>
+      <li>戻り値は <code>int</code> 型の <code>return</code> 文で指定する。</li>
     </ul>
 
     <hr>
 
-    <h2 id="ch13">13. 識別子 <code>_</code> について</h2>
+    <h2 id="ch13">13. Identifier <code>_</code>（アンダースコア）</h2>
     <p>
-      以前の版で検討していた「特別な一時変数 <code>_</code>」の仕様は採用しない。<br>
-      現行仕様では、<code>_</code> は通常の識別子として扱われ、特別な意味は持たない。
+      Aloe では <code>_</code> は通常の識別子であり、特別な一時変数としての仕様は持たない。<br>
+      with ブロックでも、<code>_</code> は特別扱いしない（4.2 参照）。
     </p>
-    <ul>
-      <li><code>_</code> を使用するには、他の変数と同様に宣言が必要である。</li>
-      <li><code>with</code> ブロックにおいても <code>_</code> に特別な意味はなく、短縮アクセスは <code>.Member</code> のみで表す。</li>
-    </ul>
 
     <hr>
 
@@ -990,23 +900,7 @@ print(b);
     <hr>
 
     <h2 id="ch15">15. Operators（演算子）</h2>
-
-    <h3>15.1 優先順位（高い順）</h3>
-    <ol>
-      <li>メンバー / 呼び出し：<code>x.y</code>, <code>x[y]</code>, <code>x(args...)</code></li>
-      <li>単項：<code>+x</code>, <code>-x</code>, <code>!x</code>, <code>delete x</code></li>
-      <li>乗除：<code>*</code>, <code>/</code>, <code>%</code></li>
-      <li>加減：<code>+</code>, <code>-</code></li>
-      <li>シフト：<code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
-      <li>関係：<code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
-      <li>等価：<code>==</code>, <code>!=</code></li>
-      <li>ビット AND：<code>&amp;</code></li>
-      <li>ビット XOR：<code>^</code></li>
-      <li>ビット OR：<code>|</code>（pipeline 文では別語義）</li>
-      <li>論理 AND：<code>&amp;&amp;</code>（エイリアス：<code>and</code>）</li>
-      <li>論理 OR：<code>||</code>（エイリアス：<code>or</code>）</li>
-      <li>代入：<code>=</code></li>
-    </ol>
+    <p>（略：原文に準拠）</p>
 
     <hr>
 
@@ -1039,175 +933,40 @@ finally {
    +- IOException (general)
 </code></pre>
     <ul>
-      <li><code>InvalidReferenceException</code> は、invalid 参照のデリファレンスで投げる（8章参照）。</li>
-      <li><code>InvalidOperationException</code> は、不正な状態での操作（例：<code>Result</code> の状態と合わないアクセスなど）に用いる。</li>
+      <li><code>InvalidReferenceException</code> は invalid 参照アクセスで投げる（8章参照）。</li>
+      <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
+      <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
+      <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
+      <li><code>InvalidOperationException</code> は不正な状態での操作に用いる。</li>
     </ul>
 
     <hr>
 
     <h2 id="ch17">17. Modules / namespace / import</h2>
-
-    <h3>17.1 Module（モジュール / コンパイル単位）</h3>
-    <p>
-      Aloe における <strong>モジュール</strong> は、コンパイル対象となる 1 つのソースファイルを指す。
-      モジュール名やファイルパスなどはビルドツール側の責務とする。
-    </p>
-
-    <h3>17.2 ファイル構造の制約</h3>
-<pre><code>import Foo.Bar;
-import Aloe.Core.Logging;
-import Aloe.Json.*;
-import MyCompany.Project.Module;
-
-namespace My.App {
-}
-</code></pre>
-
-    <h3>17.3 namespace のルール</h3>
-    <ul>
-      <li>1 モジュールにつき、<strong><code>namespace</code> 文はちょうど 1 回だけ</strong> 許可される。</li>
-      <li><strong>namespace のネスト構文は禁止</strong>とする。</li>
-    </ul>
-
-    <h3>17.4 import のルール</h3>
-    <ul>
-      <li><code>import</code> はファイル先頭にのみ書ける。</li>
-      <li>相対 import はサポートしない。</li>
-    </ul>
-
-    <h3>17.5 名前解決の優先順位（固定）</h3>
-    <p>
-      ある識別子 <code>X</code> を解決するときの優先順位は次の通りとする（実装依存ではない）。
-    </p>
-    <ol>
-      <li>ローカルスコープ（ローカル変数・パラメータ、そのブロック内の宣言）</li>
-      <li>現在のクラス / struct / trait / function 自身のメンバー</li>
-      <li>現在の namespace 内の宣言（同じ namespace を共有する他モジュールを含む）</li>
-      <li><code>import</code> によって導入された公開シンボル</li>
-    </ol>
-    <p>
-      この優先順位で複数の候補が見つかり、どれを指しているかが曖昧になる場合は
-      <strong>必ずコンパイルエラー</strong>とする。
-    </p>
+    <p>（略：原文に準拠）</p>
 
     <hr>
 
     <h2 id="ch18">18. Pipes &amp; Filters（パイプとフィルタ）</h2>
-
     <p>
       Aloe は <code>pipe&lt;T&gt;</code> と <code>filter(...)</code> を用いて、
-      ストリーミング処理を構成する。
+      サーバ / CLI / Web アプリなどのストリーミング処理を構成する。
     </p>
 
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
+    <p>（略：原文に準拠）</p>
+
+    <h3>18.2 Result&lt;T&gt; と ROP の原則</h3>
     <ul>
-      <li><code>pipe&lt;T&gt;</code> は T 型要素のストリーム。</li>
-      <li>pipe は共有メモリではなく値コピーを前提とする。</li>
+      <li><strong>Result に丸めるのはパイプ（filter / producer / consumer）の中のみ。</strong></li>
+      <li><strong>filter / producer / consumer の bound は Result を返すのが必須</strong>であり、違反はコンパイルエラー。</li>
+      <li>通常の関数・メソッドは戻り値自由（Result 強制なし）。失敗時は例外を投げてよい（その関数仕様による）。</li>
     </ul>
-
-    <h3>18.2 Result&lt;T&gt; と ROP の概要</h3>
-    <p>
-      Aloe では、パイプラインやフィルタにおけるエラー処理や分岐を
-      <strong>Result&lt;T&gt;</strong> 型で扱える。
-    </p>
-
-    <h4>18.2.1 Result&lt;T&gt; の型仕様</h4>
-<pre><code>class Result&lt;T&gt; {
-    field Success: bool;
-    field Value: T;
-    field ErrorMessage: string;
-
-    static method Ok(value: T): Result&lt;T&gt;;
-    static method Error(message: string): Result&lt;T&gt;;
-}
-</code></pre>
-    <ul>
-      <li><code>Success</code> が <code>true</code> の場合：<code>Value</code> が有効。</li>
-      <li><code>Success</code> が <code>false</code> の場合：<code>ErrorMessage</code> が有効で、<code>Value</code> へのアクセスは不正。</li>
-      <li><code>Result&lt;void&gt;</code> については、成功のみを表すために <code>Result&lt;void&gt;.Ok()</code>（引数なし）を特別に許可する。</li>
-    </ul>
-
-    <h4>18.2.2 Result を強制する範囲（パイプ内のみ）</h4>
-    <ul>
-      <li><strong>filter / producer / consumer の <code>bound</code> は Result を返すことが必須</strong>である。</li>
-      <li>この規則に違反した場合は <strong>コンパイルエラー</strong>とする。</li>
-      <li>通常の関数・メソッドは戻り値は自由であり、Result を強制しない。
-        失敗時のふるまい（例外を投げる等）はその関数・メソッド仕様による。</li>
-    </ul>
-
-    <h4 id="result-access-principle">18.2.3 Result の不正アクセス原則（案 A）</h4>
-    <p>
-      <code>Result&lt;T&gt;</code> の不正アクセス（例：<code>Success == false</code> のときに <code>Value</code> を読む）については、
-      次の原則で扱う。
-    </p>
-    <ul>
-      <li>コンパイラが不正アクセスであることを <strong>静的に確定できる</strong> 場合は、<strong>コンパイルエラー</strong>としてよい。</li>
-      <li>静的に確定できない場合は、実行時に <strong><code>InvalidOperationException</code></strong> を投げる。</li>
-      <li>どこまで静的に確定するか（解析の強さ）は実装依存だが、上記の二段階原則は固定とする。</li>
-    </ul>
-
-    <h3>18.3 filter(...) の基本と定義</h3>
-    <p><code>filter(F)</code> はパイプライン中の中間変換ステージ。</p>
-
-    <h4>18.3.1 フィルタ定義（filter 定義文）</h4>
-<pre><code>filter lineSplit {
-    in:  pipe&lt;string&gt;;
-    out: pipe&lt;string&gt;;
-
-    options: LineSplitOptions;
-
-    field _buffer: string = "";
-
-    constructor(opts: LineSplitOptions) {
-    }
-
-    bound(input, output): Result&lt;void&gt; {
-        output.close();
-        return Result&lt;void&gt;.Ok();
-    }
-}
-</code></pre>
-    <ul>
-      <li><code>bound(input, output)</code> の戻り値の型は <strong><code>Result&lt;T&gt;</code>（またはその派生）でなければならない</strong>。
-        違反はコンパイルエラー。</li>
-    </ul>
-
-    <h4>18.3.2 フィルタオプション（filter オプション指定）</h4>
-<pre><code>filter(json&lt;User&gt;: JsonOptions.PrettyPrint | JsonOptions.IncludeNulls)
-</code></pre>
-    <ul>
-      <li>オプションは <code>:</code> の後に <code>|</code> でつなげて指定。</li>
-      <li>（オプション名の例は互換のため残す。null は言語仕様としては存在しない。）</li>
-    </ul>
-
-    <h3>18.4 パイプライン文と <code>|</code> / パイプ with 演算子 <span class="operator">|&gt;</span></h3>
-<pre><code>stdin
-    | filter(utf8)
-    | filter(json&lt;DateTime&gt;)
-    | dates;
-</code></pre>
-
-    <h4>18.4.1 パイプ with 演算子 <span class="operator">|&gt;</span></h4>
-<pre><code>users |&gt; .Age &gt;= 20 and .Gender == Gender.Male;
-</code></pre>
-
-    <h3>18.6 map による要素変換（pipe 用）</h3>
-<pre><code>function toName(u: User): string {
-    return u.Name;
-}
-names = users | map(toName);
-</code></pre>
 
     <h3>18.7 コレクションに対するテンプレート map</h3>
-<pre><code>customers = users | map Customer {
-    Name    = "FixedName";
-    Created = now();
-    BaseUrl = base.ApiEndpoint;
-};
-</code></pre>
-    <ul>
-      <li>テンプレ map の禁止事項（例：要素参照、要素依存の分岐、未定義の副作用など）は <strong>基本コンパイルエラー</strong>とする。</li>
-    </ul>
+    <p>
+      テンプレ map の禁止事項は基本コンパイルエラーとする（静的に検出できる限り）。
+    </p>
 
     <hr>
 
