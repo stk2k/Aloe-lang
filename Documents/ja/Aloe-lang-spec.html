@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="35">
-  <meta name="edit-date" content="2025-12-18T22:24:57+09:00">
+  <meta name="edit-version" content="33">
+  <meta name="edit-date" content="2025-12-18T23:21:46+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -80,25 +80,6 @@
     .operator {
       font-family: "JetBrains Mono", "Cascadia Code", Consolas, "Ricty Diminished", monospace;
     }
-    table {
-      border-collapse: collapse;
-      width: 100%;
-      margin: 0.75rem 0;
-      border: 1px solid #e5e7eb;
-      background: #ffffff;
-    }
-    th, td {
-      border: 1px solid #e5e7eb;
-      padding: 0.5rem 0.6rem;
-      text-align: left;
-      vertical-align: top;
-      font-size: 0.95rem;
-    }
-    th {
-      background: #f3f4f6;
-      color: #111827;
-      font-weight: 600;
-    }
   </style>
 </head>
 <body>
@@ -107,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 35)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 33)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -140,7 +121,9 @@
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
         <li><a href="#with-type">4.2.1 型名対象 with 拡張</a></li>
         <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
-        <li><a href="#boxing-corners">2.4.6 boxing/unboxing の角</a></li>
+        <li><a href="#boxing-unboxing">2.4 boxing / unboxing</a></li>
+        <li><a href="#implicit-unbox-cast">5.2.2 暗黙 unbox キャスト</a></li>
+        <li><a href="#unbox-operator">15.3 unbox 演算子</a></li>
       </ul>
     </nav>
   </aside>
@@ -149,8 +132,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 35<br>
-      edit-date: 2025-12-18T22:24:57+09:00
+      edit-version: 33<br>
+      edit-date: 2025-12-18T23:21:46+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -161,6 +144,7 @@
       また <strong>4.2 with-blocks</strong> に
       <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
       の拡張を含みます。<br>
+      さらに、汎用型 <code>object</code> と box object、暗黙 unbox キャスト、および <code>unbox</code> 演算子を導入します。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
 
@@ -187,7 +171,7 @@
       <li>値型 / 参照型
         <ul>
           <li><code>struct</code> ... 値型</li>
-          <li><code>class</code> ... 参照型</li>
+          <li><code>class</code> / <code>object</code> ... 参照型</li>
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
@@ -197,12 +181,7 @@
           <li><code>invalid</code> は代入や初期化に使えない（有効性チェック用途のみ）。</li>
         </ul>
       </li>
-      <li><code>object</code> を基底型とする参照型体系と、プリミティブの boxing / unboxing を導入する
-        <ul>
-          <li>プリミティブ値は <code>object</code> に代入できる（暗黙 boxing）。</li>
-          <li>unboxing は <code>as</code> 演算子と <code>ifnot</code> 句で行う（15章参照）。</li>
-        </ul>
-      </li>
+      <li><code>object</code> による汎用参照と box object による boxing / unboxing</li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
     </ul>
 
@@ -302,6 +281,7 @@ throws
 trait
 true
 try
+unbox
 valid
 invalid
 var
@@ -393,6 +373,7 @@ print(x);
       <li><code>class</code></li>
       <li><code>enum</code>, <code>bitfield enum</code></li>
       <li>非同期タスク：<code>task</code></li>
+      <li>汎用参照：<code>object</code></li>
       <li>パイプ：<code>pipe&lt;T&gt;</code>（18章参照）</li>
       <li>結果型：<code>Result&lt;T&gt;</code>（18章参照）</li>
     </ul>
@@ -408,13 +389,21 @@ print(x);
       </li>
       <li>参照型：
         <ul>
-          <li><code>object</code>（全参照型の基底型）</li>
           <li><code>class</code></li>
           <li><code>string</code>（実装上は参照型）</li>
+          <li><code>object</code></li>
           <li><code>task</code>, <code>pipe&lt;T&gt;</code>, <code>Result&lt;T&gt;</code> など</li>
-          <li>プリミティブの box object（2.4 参照）</li>
         </ul>
       </li>
+    </ul>
+
+    <h4>object type（object 型）</h4>
+    <ul>
+      <li><code>object</code> は、<code>void</code> を除く任意の値を保持できる特別な参照型である。</li>
+      <li>任意の参照型の値は <code>object</code> へ暗黙に代入できる（参照コピー）。</li>
+      <li>プリミティブ型の値を <code>object</code> に代入する場合、boxing により対応する box object に変換される（2.4 参照）。</li>
+      <li><code>object</code> から具体型への暗黙変換はない（型変換は <code>as</code> または暗黙 unbox キャストにより行う）。</li>
+      <li><code>if (x is T) { ... }</code> のブロック内では、<code>x</code> を T として扱ってよい（フロー依存の型絞り込み）。</li>
     </ul>
 
     <h4>Struct restrictions and copying（struct の制約とコピー）</h4>
@@ -431,151 +420,31 @@ print(x);
       <li>class インスタンスを別変数に代入すると参照がコピーされる（オブジェクト本体は共有）。</li>
     </ul>
 
-    <h3>2.4 object と box object（boxing / unboxing）</h3>
+    <h3 id="boxing-unboxing">2.4 boxing / unboxing（box object と ToXxx）</h3>
     <p>
-      Aloe は <code>object</code> を参照型体系の基底型として導入する。<br>
-      また、プリミティブ値を <code>object</code> として扱うために、対応する <strong>box object</strong> を提供する。
+      Aloe は <code>object</code> を介してプリミティブ値を扱うために、プリミティブごとに対応する
+      <strong>box object</strong>（クラス）を定義する。
+      box object は大文字で始まる名前を持ち、<code>object</code> から派生する。
     </p>
-
-    <h4>2.4.1 box object の命名規則</h4>
     <ul>
-      <li>box object は大文字で始まる。</li>
-      <li>プリミティブ型に対応する英単語を用いる。</li>
-      <li>別名を持つプリミティブについては、box object 名は次の正準名に固定する：
+      <li><code>bool</code> / <code>boolean</code> - <code>Boolean</code></li>
+      <li><code>int</code> / <code>integer</code> - <code>Integer</code></li>
+      <li><code>float</code> - <code>Float</code></li>
+      <li><code>decimal</code> - <code>Decimal</code></li>
+      <li><code>string</code> - <code>String</code></li>
+      <li><code>byte</code> - <code>Byte</code></li>
+      <li><code>char</code> - <code>Char</code></li>
+    </ul>
+    <ul>
+      <li>box object は内部に対応する値を保持するが、その値を直接参照する公開プロパティは持たない（value は非公開）。</li>
+      <li>unboxing は、対応する <code>ToXxx()</code> メソッドにより行う。</li>
+      <li><code>ToXxx()</code> の正準名（canonical）は次の通り：
         <ul>
-          <li><code>bool</code> / <code>boolean</code> - <code>Boolean</code></li>
-          <li><code>int</code> / <code>integer</code> - <code>Integer</code></li>
+          <li><code>ToBool()</code>, <code>ToInt()</code>, <code>ToFloat()</code>, <code>ToDecimal()</code>, <code>ToString()</code>, <code>ToByte()</code>, <code>ToChar()</code></li>
         </ul>
       </li>
-    </ul>
-
-    <h4>2.4.2 box object 一覧</h4>
-    <ul>
-      <li><code>Boolean</code>（<code>bool</code> を保持）</li>
-      <li><code>Integer</code>（<code>int</code> を保持）</li>
-      <li><code>Float</code>（<code>float</code> を保持）</li>
-      <li><code>Decimal</code>（<code>decimal</code> を保持）</li>
-      <li><code>Byte</code>（<code>byte</code> を保持）</li>
-      <li><code>Char</code>（<code>char</code> を保持）</li>
-    </ul>
-
-    <h4>2.4.3 box object の公開インタフェース</h4>
-    <ul>
-      <li>box object の内部値は <code>private</code> フィールドであり、外部から直接参照できない。</li>
-      <li>unboxing は公開メソッド <code>ToXxx()</code> によって行う。</li>
-    </ul>
-
-<pre><code>class Integer extends object {
-    private field value: int;
-
-    construct(v: int) {
-        this.value = v;
-    }
-
-    public method ToInteger(): int {
-        return this.value;
-    }
-}
-</code></pre>
-
-    <h4>2.4.4 暗黙 boxing（プリミティブ -&gt; object）</h4>
-    <ul>
-      <li>任意のプリミティブ値は <code>object</code> へ暗黙に変換できる（boxing）。</li>
-      <li>boxing は対応する box object を生成して格納する。</li>
-      <li><code>string</code> は参照型であり、<code>object</code> への代入は boxing ではなく恒等（参照のまま）である。</li>
-    </ul>
-
-<pre><code>let o: object = 123;      // boxing: Integer
-let p: object = true;     // boxing: Boolean
-let s: object = "abc";    // string is reference type (identity)
-</code></pre>
-
-    <h4>2.4.5 暗黙 unboxing（object -&gt; プリミティブ）は存在しない</h4>
-    <ul>
-      <li><code>object</code> からプリミティブへの暗黙変換は行わない。</li>
-      <li>unboxing は <code>as</code> 演算子と <code>ifnot</code> 句で行う（15章参照）。</li>
-    </ul>
-
-    <h4 id="boxing-corners">2.4.6 boxing / unboxing の角（invalid 時・string 扱い・box 一覧・ToXxx の正準名）</h4>
-    <p>
-      本節は、boxing / unboxing に関する「仕様上の角」を固定し、実装差を防ぐための規定である。
-    </p>
-
-    <h5>2.4.6.1 invalid 時の規定</h5>
-    <ul>
-      <li><code>invalid</code> 参照へのメンバーアクセスは <code>InvalidReferenceException</code>（8章）。</li>
-      <li>ただし <code>as</code> 演算子（15章）は、左辺が <code>invalid</code> の場合に <code>InvalidReferenceException</code> を投げず、
-          <strong>変換失敗</strong>として扱う（<code>ifnot</code> があれば代替値、無ければ <code>InvalidCastException</code>）。</li>
-      <li>したがって <code>(invalid as int ifnot -1)</code> は <code>-1</code> を返す。</li>
-    </ul>
-
-    <h5>2.4.6.2 string の扱い（boxing / unboxing）</h5>
-    <ul>
-      <li><code>string</code> はプリミティブとして扱うが、実装上は参照型である（2.3）。</li>
-      <li><code>string</code> を <code>object</code> へ代入する際に box object は生成しない（恒等）。</li>
-      <li><code>as string</code> は「型が <code>string</code> であることの確認」であり、数値化やパース等の変換は行わない（15章）。</li>
-      <li>未初期化の <code>string</code> 変数は <code>invalid</code> とみなされる（5.2.1）。</li>
-    </ul>
-
-    <h5>2.4.6.3 box object と ToXxx の正準名</h5>
-    <p>
-      box object 名および unboxing メソッド名は次の表を正準とする。<br>
-      別名を持つプリミティブ（<code>bool/boolean</code>, <code>int/integer</code>）でも、正準名は固定である。
-    </p>
-
-    <table>
-      <thead>
-        <tr>
-          <th>プリミティブ型</th>
-          <th>別名</th>
-          <th>box object（正準名）</th>
-          <th>unboxing メソッド（正準名）</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr>
-          <td><code>bool</code></td>
-          <td><code>boolean</code></td>
-          <td><code>Boolean</code></td>
-          <td><code>ToBoolean()</code></td>
-        </tr>
-        <tr>
-          <td><code>int</code></td>
-          <td><code>integer</code></td>
-          <td><code>Integer</code></td>
-          <td><code>ToInteger()</code></td>
-        </tr>
-        <tr>
-          <td><code>float</code></td>
-          <td>（なし）</td>
-          <td><code>Float</code></td>
-          <td><code>ToFloat()</code></td>
-        </tr>
-        <tr>
-          <td><code>decimal</code></td>
-          <td>（なし）</td>
-          <td><code>Decimal</code></td>
-          <td><code>ToDecimal()</code></td>
-        </tr>
-        <tr>
-          <td><code>byte</code></td>
-          <td>（なし）</td>
-          <td><code>Byte</code></td>
-          <td><code>ToByte()</code></td>
-        </tr>
-        <tr>
-          <td><code>char</code></td>
-          <td>（なし）</td>
-          <td><code>Char</code></td>
-          <td><code>ToChar()</code></td>
-        </tr>
-      </tbody>
-    </table>
-
-    <h5>2.4.6.4 as が行わないこと（変換の禁止）</h5>
-    <ul>
-      <li><code>as</code> は「unboxing / 型一致確認」であり、数値型間変換や丸め、文字列パースなどを行わない。</li>
-      <li>例：<code>Integer</code> を <code>as byte</code> しても成功しない（15章）。</li>
+      <li>boxing：プリミティブ値を <code>object</code> に代入する場合、対応する box object のインスタンスを生成して格納する。</li>
+      <li>unboxing：<code>object</code> からプリミティブを取り出す場合、<code>as</code> 演算子または暗黙 unbox キャスト、<code>unbox</code> 演算子を用いる。</li>
     </ul>
 
     <hr>
@@ -603,10 +472,11 @@ let s: object = "abc";    // string is reference type (identity)
 
     <h3>3.3 enum and int</h3>
     <ul>
-      <li>Aloe は enum と int の暗黙 / 明示変換はいずれも禁止する。</li>
+      <li>Aloe には括弧キャスト構文（例：<code>(T)x</code>）はない。</li>
+      <li>型変換は <code>as</code> 演算子により行う（15.1 参照）。</li>
+      <li>enum と int の暗黙 / 明示変換はいずれも禁止。</li>
       <li>enum と数値型の混在式はコンパイルエラー（bitfield enum のビット演算を除く）。</li>
       <li>内部表現としては enum / bitfield enum はすべて int32。</li>
-      <li><code>as</code> 演算子はプリミティブ unboxing 用途に限る（15章参照）。</li>
     </ul>
 
     <h3>3.4 byte and char</h3>
@@ -757,16 +627,17 @@ var fb  = new FizzBuzz();
       <li><code>var x = 1;</code> は常に <code>int</code>。</li>
       <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
       <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
-      <li>右辺の式の型が <code>object</code> で固定できる場合、推論結果の型も <code>object</code> になる。</li>
+      <li><code>object</code> 型の式を右辺に置いた場合、推論結果の型も <code>object</code> になる。</li>
     </ul>
 
 <pre><code>function SomeFunc(): object {
-    return 123; // boxing: Integer
+    return 123;   // boxing to Integer
 }
 
 function main(args: string[]): int {
     var x = 1;            // int
-    var o = SomeFunc();   // object
+    var a = 123;          // int
+    var v = SomeFunc();   // object
     return 0;
 }
 </code></pre>
@@ -783,8 +654,6 @@ let arr: int[] = [1, 2, 3];
 let lst: int() = (1, 2, 3);
 let st : int{} = {1, 2, 3};
 let mp : map&lt;string/int&gt; = ["key": 10];
-
-let o: object = 123; // boxing: Integer
 </code></pre>
     <ul>
       <li><code>let x: Foo = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
@@ -802,6 +671,39 @@ obj.Value;           // 実行時例外（InvalidReferenceException）
       <li>初期化を省略した参照型変数は、実行時に <strong>invalid</strong> とみなされる。</li>
       <li>無効参照（invalid）へのメンバーアクセスは <strong>InvalidReferenceException</strong> を投げる。</li>
     </ul>
+
+    <h3 id="implicit-unbox-cast">5.2.2 暗黙 unbox キャスト（消費しない）</h3>
+    <p>
+      「期待型（expected type）がプリミティブ型 <code>P</code> に固定される文脈」では、
+      式 <code>E</code> に対して <strong>暗黙 unbox キャスト</strong>を許可する。
+      暗黙 unbox キャストは <strong>参照を消費しない</strong>（参照変数を invalid 化しない）。
+    </p>
+    <p>暗黙 unbox キャストが許可される文脈の例：</p>
+    <ul>
+      <li><code>let x:P = E;</code>（初期化）</li>
+      <li><code>x = E;</code>（代入。<code>x</code> の型が <code>P</code>）</li>
+      <li><code>return E;</code>（戻り値型が <code>P</code>）</li>
+      <li><code>f(E)</code>（仮引数型が <code>P</code>）</li>
+    </ul>
+    <p>
+      暗黙 unbox キャストは、意味的に <code>E as P</code> と等価であり、失敗時は <code>InvalidCastException</code> を投げる。
+      <code>ifnot</code> による代替値指定は、明示 <code>as</code> のみで行う（15.1 参照）。
+    </p>
+    <p>成功条件（変換は行わない）：</p>
+    <ul>
+      <li><code>E</code> の実行時値がプリミティブ <code>P</code> である。</li>
+      <li>または、<code>E</code> の実行時値が対応する box object（例：<code>Integer</code>）であり、<code>ToXxx()</code> により <code>P</code> を取り出せる。</li>
+    </ul>
+    <p>禁止：</p>
+    <ul>
+      <li>数値型間の変換（例：<code>Integer</code> を <code>byte</code> に暗黙変換しない）。</li>
+      <li>文字列パース等の変換（例：<code>"123"</code> を <code>int</code> に暗黙変換しない）。</li>
+    </ul>
+<pre><code>let o: object = 123;      // boxing: Integer
+let i: int = o;           // OK（暗黙 unbox キャスト） == (o as int)
+
+let s2: string = o;       // 失敗（変換しない） throws InvalidCastException
+</code></pre>
 
     <h3>5.3 Constants（const）</h3>
 <pre><code>const MaxCount: int = 100;
@@ -1069,76 +971,56 @@ print(b);
 
     <h2 id="ch15">15. Operators（演算子）</h2>
 
-    <h3>15.1 as 演算子と ifnot 句（プリミティブ unboxing）</h3>
+    <h3>15.1 as 演算子と ifnot（型変換と代替値）</h3>
     <p>
-      Aloe は、<code>object</code> からプリミティブへの unboxing を
-      <code>as</code> 演算子で行う。<br>
-      <code>as</code> は一般的なキャスト構文ではなく、<strong>プリミティブ unboxing 用途</strong>として定義する。
+      Aloe は括弧キャストを持たず、型変換には <code>as</code> 演算子を用いる。
+      <code>as</code> は失敗時に <code>InvalidCastException</code> を投げる。
+      また <code>ifnot</code> 節により、失敗時の代替値または <code>throw</code> を指定できる。
     </p>
 
-    <h4>15.1.1 構文</h4>
-<pre><code>expr as P ifnot alt
-expr as P ifnot throw
-expr as P
+<pre><code>let o: object = 123;                 // boxing: Integer
+
+let i1: int = o as int;              // OK（unboxing）失敗なら InvalidCastException
+let i2: int = o as int ifnot -1;     // 失敗なら -1
+let i3: int = o as int ifnot throw;  // 失敗なら InvalidCastException（省略時と同じ）
 </code></pre>
 
     <ul>
-      <li><code>P</code> はプリミティブ型（<code>bool</code>, <code>int</code>, <code>float</code>, <code>decimal</code>, <code>string</code>, <code>byte</code>, <code>char</code>）。</li>
-      <li><code>ifnot</code> 句は省略できる。</li>
-      <li><code>expr as P</code> は <code>expr as P ifnot throw</code> の省略形とする。</li>
-      <li><code>alt</code> は型 <code>P</code> でなければならない（または <code>P</code> へ暗黙変換可能）。</li>
+      <li><code>E as T</code> の <code>T</code> が参照型の場合：実行時型チェックによりキャストを行う。</li>
+      <li><code>E as P</code> の <code>P</code> がプリミティブの場合：
+        <ul>
+          <li><code>E</code> がプリミティブ <code>P</code> ならそのまま成功。</li>
+          <li><code>E</code> が対応する box object（例：<code>Integer</code>）なら <code>ToXxx()</code> により unboxing して成功。</li>
+          <li>それ以外は失敗（<code>InvalidCastException</code>）。</li>
+        </ul>
+      </li>
+      <li><code>ifnot</code> 節が省略された場合は <code>ifnot throw</code> と同義。</li>
+      <li><code>ifnot throw</code> は <code>InvalidCastException</code> を投げる。</li>
+      <li><code>as</code> は変換を行わない（数値型間変換や文字列パース等は行わない）。</li>
     </ul>
 
-    <h4>15.1.2 評価順</h4>
-    <ul>
-      <li><code>expr</code> は 1 回だけ評価される（再評価しない）。</li>
-      <li><code>alt</code> は変換失敗時にのみ評価される。</li>
-    </ul>
-
-    <h4>15.1.3 成功条件と結果</h4>
+    <h3 id="unbox-operator">15.3 unbox 演算子（消費する unboxing）</h3>
     <p>
-      <code>expr</code> の評価結果を <code>v</code> とする。<br>
-      unboxing の成功条件は次のいずれかである：
+      <code>unbox</code> は、参照変数からプリミティブ値を取り出し、成功時に参照変数を invalid 化する演算子である。
+      これは「消費する unboxing（move 的 unboxing）」である。
     </p>
-    <ul>
-      <li><code>v</code> の実行時型がプリミティブ <code>P</code> である場合、結果は <code>v</code> 自身（恒等）。</li>
-      <li><code>v</code> の実行時型が対応 box object <code>BoxP</code> である場合、結果は <code>v.ToP()</code> の戻り値。</li>
-    </ul>
 
-    <h4>15.1.4 失敗条件</h4>
-    <ul>
-      <li>上記の成功条件を満たさない場合は「変換失敗」である。</li>
-      <li><code>v</code> が <code>invalid</code> の場合も「変換失敗」として扱う（この時点では例外を投げない）。</li>
-    </ul>
-
-    <h4>15.1.5 ifnot の意味</h4>
-    <ul>
-      <li>変換成功時：変換結果を返す。</li>
-      <li>変換失敗時：<code>ifnot</code> 句がある場合は <code>alt</code> を評価して返す。</li>
-      <li>変換失敗時：<code>ifnot throw</code> の場合は <code>InvalidCastException</code> を投げる。</li>
-      <li>変換失敗時：<code>ifnot</code> 句が省略された場合は <code>InvalidCastException</code> を投げる。</li>
-    </ul>
-
-    <h4>15.1.6 数値型間の変換を行わない</h4>
-    <ul>
-      <li><code>as</code> によって数値型間の変換は行わない。</li>
-      <li>例：<code>Integer</code> を <code>as byte</code> しても成功しない。</li>
-    </ul>
-
-<pre><code>let o: object = 123;                    // boxing: Integer
-
-let i: int = o as int;                  // OK（unboxing）
-let j: int = o as int ifnot -1;         // OK
-
-let b: byte = o as byte ifnot 0;        // 失敗（変換しない） -> 0
-let x: int = "x" as int ifnot -1;       // 失敗 -> -1
-let y: int = "x" as int;                // 失敗 -> InvalidCastException
-
-var z: object;                          // invalid
-let w: int = z as int ifnot -1;         // invalid -> -1
+<pre><code>let o: object = 123;         // boxing: Integer
+let i: int = unbox o;        // i = 123, o becomes invalid
 </code></pre>
 
-    <p>（その他の演算子は原文に準拠）</p>
+    <ul>
+      <li><code>unbox</code> のオペランドは「代入可能な参照変数（lvalue）」でなければならない。</li>
+      <li><code>unbox x</code> は、期待型がプリミティブ <code>P</code> に固定される文脈でのみ使用できる。</li>
+      <li>評価規則（<code>x</code> は 1 回だけ評価される）：
+        <ul>
+          <li><code>x</code> が invalid の場合：<code>InvalidReferenceException</code> を投げる（<code>x</code> は変化しない）。</li>
+          <li>unboxing が失敗する場合：<code>InvalidCastException</code> を投げる（<code>x</code> は変化しない）。</li>
+          <li>unboxing が成功する場合：値を返し、その後に <code>delete x;</code> を実行したのと同じく <code>x</code> を invalid 化する。</li>
+        </ul>
+      </li>
+      <li><code>unbox</code> は暗黙 unbox キャストと異なり、成功時に参照変数を消費する。</li>
+    </ul>
 
     <hr>
 
@@ -1173,7 +1055,7 @@ finally {
 </code></pre>
     <ul>
       <li><code>InvalidReferenceException</code> は invalid 参照アクセスで投げる（8章参照）。</li>
-      <li><code>InvalidCastException</code> は <code>as</code> による unboxing 失敗時に投げる（15章参照）。</li>
+      <li><code>InvalidCastException</code> は <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> による型変換失敗で投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
       <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
