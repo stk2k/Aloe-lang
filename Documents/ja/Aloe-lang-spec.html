@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="35">
-  <meta name="edit-date" content="2025-12-18T23:44:11+09:00">
+  <meta name="edit-version" content="36">
+  <meta name="edit-date" content="2025-12-19T00:03:23+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 35)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 36)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -133,8 +133,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 35<br>
-      edit-date: 2025-12-18T23:44:11+09:00
+      edit-version: 36<br>
+      edit-date: 2025-12-19T00:03:23+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -441,6 +441,14 @@ print(x);
       <li><code>byte</code> - <code>Byte</code></li>
       <li><code>char</code> - <code>Char</code></li>
     </ul>
+
+    <h4>2.4.0 boxing の正準規則（固定）</h4>
+    <ul>
+      <li><strong>プリミティブ値を <code>object</code> に代入する場合、必ず対応する box object に boxing する。</strong></li>
+      <li><strong><code>string</code> もプリミティブとして扱い、<code>object</code> へ代入する場合は必ず <code>String</code> に boxing する。</strong></li>
+      <li>box object を <code>object</code> に代入する場合は、その参照を保持する（再 boxing はしない）。</li>
+    </ul>
+
     <ul>
       <li>box object は対応する値を内部に保持するが、<strong>value プロパティは公開しない</strong>（value は非公開）。</li>
       <li>unboxing は対応する <strong><code>ToXxx()</code></strong> メソッドで行う。</li>
@@ -449,15 +457,13 @@ print(x);
           <li><code>ToBool()</code>, <code>ToInt()</code>, <code>ToFloat()</code>, <code>ToDecimal()</code>, <code>ToString()</code>, <code>ToByte()</code>, <code>ToChar()</code></li>
         </ul>
       </li>
-      <li>boxing：プリミティブ値を <code>object</code> に代入すると、対応する box object のインスタンスとして保持される。</li>
       <li>unboxing：<code>object</code> からプリミティブ値を得るには <code>as</code>（15.1）/ 暗黙 unbox キャスト（5.2.2）/ <code>unbox</code>（15.3）を用いる。</li>
     </ul>
 
     <h4>2.4.1 角（invalid 時・string 扱い・変換の禁止）</h4>
     <ul>
       <li>invalid な参照に対して <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> を評価する場合の挙動は、それぞれの節の規則に従う。</li>
-      <li><code>string</code> は参照型である。<code>object</code> に <code>string</code> を代入した場合、参照コピーとして保持される。</li>
-      <li><code>String</code> は box object の一つである。<code>String</code> はプリミティブ <code>string</code> を <code>object</code> に保持するための箱であり、値の公開は <code>ToString()</code> による。</li>
+      <li><code>string</code> を <code>object</code> に代入した場合、必ず <code>String</code> box object に boxing される（2.4.0）。</li>
       <li><strong>型変換は行わない。</strong> 例えば数値型同士の変換や文字列のパースなどは、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の範囲では行わない（失敗として扱う）。</li>
     </ul>
 
@@ -727,16 +733,18 @@ obj.Value;           // 実行時例外（InvalidReferenceException）
       <li><code>return E;</code>（関数の戻り値型が <code>P</code>）</li>
       <li><code>f(E)</code>（引数型が <code>P</code>）</li>
     </ul>
+    <ul>
+      <li><strong>暗黙 unbox キャストは、演算子型付け（例：<code>E + 1</code> のため）には適用しない。</strong> 必要な場合は <code>E as P</code> を明示するか、一旦 <code>let t:P = E;</code> のように受ける。</li>
+    </ul>
     <p>
       暗黙 unbox キャストは意味的には <code>E as P</code> と等価であり、失敗時は <code>InvalidCastException</code> を投げる。
       <code>ifnot</code> による代替値指定は、明示 <code>as</code>（15.1）でのみ行える。
     </p>
 <pre><code>let o: object = 123;   // boxing: Integer
 let i: int = o;        // OK（暗黙 unbox キャスト） == (o as int)
-
-let s2: string = o;    // 失敗: InvalidCastException
 </code></pre>
     <ul>
+      <li><code>E</code> が invalid 参照の場合：<code>InvalidReferenceException</code>（<code>InvalidCastException</code> ではない）。</li>
       <li>成功条件：
         <ul>
           <li><code>E</code> がプリミティブ <code>P</code> の値である。</li>
@@ -744,6 +752,13 @@ let s2: string = o;    // 失敗: InvalidCastException
         </ul>
       </li>
       <li><strong>型変換は行わない。</strong> 数値型同士の変換や文字列パース等は行わず、該当しなければ失敗とする。</li>
+    </ul>
+
+    <h3>5.2.3 推奨（as / 暗黙 unbox / unbox）</h3>
+    <ul>
+      <li>失敗を分岐で扱いたい場合は <code>as P ifnot ...</code> を推奨する。</li>
+      <li>短く書きたい場合は暗黙 unbox キャストを許可するが、失敗時は例外となる。</li>
+      <li>値の取り出しと同時に「参照を消費したい」場合のみ <code>unbox</code> を用いる。</li>
     </ul>
 
     <h3>5.3 Constants（const）</h3>
@@ -1035,6 +1050,7 @@ let i3: int = o as int ifnot throw;    // 失敗時は InvalidCastException（�
       <li><code>ifnot</code> を省略した場合は <code>ifnot throw</code> と同義とする。</li>
       <li><strong>型変換は行わない。</strong> 数値型同士の変換、文字列パース等は行わない。</li>
       <li><code>ifnot</code> 節は、キャストが失敗した場合にのみ評価する。</li>
+      <li><strong><code>E</code> が invalid 参照の場合は <code>InvalidReferenceException</code>。</strong> これはキャスト失敗ではなく参照エラーであり、<code>ifnot</code> では捕捉しない。</li>
     </ul>
 
     <h3 id="unbox-operator">15.3 unbox 演算子（消費 unboxing）</h3>
@@ -1046,7 +1062,7 @@ let i: int = unbox o;        // i = 123, o becomes invalid
 </code></pre>
     <ul>
       <li><code>unbox</code> のオペランドは代入可能な参照変数（lvalue）でなければならない。</li>
-      <li><code>unbox x</code> は、期待される型がプリミティブ型 <code>P</code> に固定できるコンテキストでのみ使用できる。</li>
+      <li><code>unbox</code> は、期待される型がプリミティブ型 <code>P</code> に固定できるコンテキストでのみ使用できる。</li>
       <li>評価規則（<code>x</code> は 1 回だけ評価）：
         <ul>
           <li><code>x</code> が invalid の場合：<code>InvalidReferenceException</code>（<code>x</code> は変化しない）。</li>
