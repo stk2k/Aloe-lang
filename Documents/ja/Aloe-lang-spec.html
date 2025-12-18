@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="34">
-  <meta name="edit-date" content="2025-12-18T22:16:43+09:00">
+  <meta name="edit-version" content="35">
+  <meta name="edit-date" content="2025-12-18T22:24:57+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -80,6 +80,25 @@
     .operator {
       font-family: "JetBrains Mono", "Cascadia Code", Consolas, "Ricty Diminished", monospace;
     }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.75rem 0;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+    }
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5rem 0.6rem;
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.95rem;
+    }
+    th {
+      background: #f3f4f6;
+      color: #111827;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -88,7 +107,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 34)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 35)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -121,6 +140,7 @@
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
         <li><a href="#with-type">4.2.1 型名対象 with 拡張</a></li>
         <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
+        <li><a href="#boxing-corners">2.4.6 boxing/unboxing の角</a></li>
       </ul>
     </nav>
   </aside>
@@ -129,8 +149,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 34<br>
-      edit-date: 2025-12-18T22:16:43+09:00
+      edit-version: 35<br>
+      edit-date: 2025-12-18T22:24:57+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -462,16 +482,100 @@ print(x);
     <ul>
       <li>任意のプリミティブ値は <code>object</code> へ暗黙に変換できる（boxing）。</li>
       <li>boxing は対応する box object を生成して格納する。</li>
+      <li><code>string</code> は参照型であり、<code>object</code> への代入は boxing ではなく恒等（参照のまま）である。</li>
     </ul>
 
 <pre><code>let o: object = 123;      // boxing: Integer
 let p: object = true;     // boxing: Boolean
+let s: object = "abc";    // string is reference type (identity)
 </code></pre>
 
     <h4>2.4.5 暗黙 unboxing（object -&gt; プリミティブ）は存在しない</h4>
     <ul>
       <li><code>object</code> からプリミティブへの暗黙変換は行わない。</li>
       <li>unboxing は <code>as</code> 演算子と <code>ifnot</code> 句で行う（15章参照）。</li>
+    </ul>
+
+    <h4 id="boxing-corners">2.4.6 boxing / unboxing の角（invalid 時・string 扱い・box 一覧・ToXxx の正準名）</h4>
+    <p>
+      本節は、boxing / unboxing に関する「仕様上の角」を固定し、実装差を防ぐための規定である。
+    </p>
+
+    <h5>2.4.6.1 invalid 時の規定</h5>
+    <ul>
+      <li><code>invalid</code> 参照へのメンバーアクセスは <code>InvalidReferenceException</code>（8章）。</li>
+      <li>ただし <code>as</code> 演算子（15章）は、左辺が <code>invalid</code> の場合に <code>InvalidReferenceException</code> を投げず、
+          <strong>変換失敗</strong>として扱う（<code>ifnot</code> があれば代替値、無ければ <code>InvalidCastException</code>）。</li>
+      <li>したがって <code>(invalid as int ifnot -1)</code> は <code>-1</code> を返す。</li>
+    </ul>
+
+    <h5>2.4.6.2 string の扱い（boxing / unboxing）</h5>
+    <ul>
+      <li><code>string</code> はプリミティブとして扱うが、実装上は参照型である（2.3）。</li>
+      <li><code>string</code> を <code>object</code> へ代入する際に box object は生成しない（恒等）。</li>
+      <li><code>as string</code> は「型が <code>string</code> であることの確認」であり、数値化やパース等の変換は行わない（15章）。</li>
+      <li>未初期化の <code>string</code> 変数は <code>invalid</code> とみなされる（5.2.1）。</li>
+    </ul>
+
+    <h5>2.4.6.3 box object と ToXxx の正準名</h5>
+    <p>
+      box object 名および unboxing メソッド名は次の表を正準とする。<br>
+      別名を持つプリミティブ（<code>bool/boolean</code>, <code>int/integer</code>）でも、正準名は固定である。
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>プリミティブ型</th>
+          <th>別名</th>
+          <th>box object（正準名）</th>
+          <th>unboxing メソッド（正準名）</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>bool</code></td>
+          <td><code>boolean</code></td>
+          <td><code>Boolean</code></td>
+          <td><code>ToBoolean()</code></td>
+        </tr>
+        <tr>
+          <td><code>int</code></td>
+          <td><code>integer</code></td>
+          <td><code>Integer</code></td>
+          <td><code>ToInteger()</code></td>
+        </tr>
+        <tr>
+          <td><code>float</code></td>
+          <td>（なし）</td>
+          <td><code>Float</code></td>
+          <td><code>ToFloat()</code></td>
+        </tr>
+        <tr>
+          <td><code>decimal</code></td>
+          <td>（なし）</td>
+          <td><code>Decimal</code></td>
+          <td><code>ToDecimal()</code></td>
+        </tr>
+        <tr>
+          <td><code>byte</code></td>
+          <td>（なし）</td>
+          <td><code>Byte</code></td>
+          <td><code>ToByte()</code></td>
+        </tr>
+        <tr>
+          <td><code>char</code></td>
+          <td>（なし）</td>
+          <td><code>Char</code></td>
+          <td><code>ToChar()</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h5>2.4.6.4 as が行わないこと（変換の禁止）</h5>
+    <ul>
+      <li><code>as</code> は「unboxing / 型一致確認」であり、数値型間変換や丸め、文字列パースなどを行わない。</li>
+      <li>例：<code>Integer</code> を <code>as byte</code> しても成功しない（15章）。</li>
     </ul>
 
     <hr>
@@ -1029,6 +1133,9 @@ let j: int = o as int ifnot -1;         // OK
 let b: byte = o as byte ifnot 0;        // 失敗（変換しない） -> 0
 let x: int = "x" as int ifnot -1;       // 失敗 -> -1
 let y: int = "x" as int;                // 失敗 -> InvalidCastException
+
+var z: object;                          // invalid
+let w: int = z as int ifnot -1;         // invalid -> -1
 </code></pre>
 
     <p>（その他の演算子は原文に準拠）</p>
