@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="32">
-  <meta name="edit-date" content="2025-12-18T00:47:44+09:00">
+  <meta name="edit-version" content="33">
+  <meta name="edit-date" content="2025-12-18T21:29:27+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 32)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 33)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -129,8 +129,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 32<br>
-      edit-date: 2025-12-18T00:47:44+09:00
+      edit-version: 33<br>
+      edit-date: 2025-12-18T21:29:27+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -943,7 +943,90 @@ finally {
     <hr>
 
     <h2 id="ch17">17. Modules / namespace / import</h2>
-    <p>（略：原文に準拠）</p>
+
+    <h3>17.1 名前解決（Name Resolution）</h3>
+    <p>
+      Aloe では、識別子（名前）の解決規則を仕様として固定する。<br>
+      この章での「名前解決」は、単純名（例：<code>Foo</code>）および修飾名（例：<code>A.B</code>）を、
+      変数・関数・型・名前空間などのいずれに結び付けるかを決定する規則を指す。
+    </p>
+
+    <h4>17.1.1 名前の分類</h4>
+    <ul>
+      <li><strong>単純名（simple name）</strong>：<code>Foo</code>, <code>bar</code>, <code>x</code></li>
+      <li><strong>修飾名（qualified name）</strong>：<code>A.B</code>, <code>ns1.ns2.Type</code></li>
+      <li><strong>省略メンバー名（omitted member name）</strong>：<code>.name</code>, <code>.Run()</code>（with ブロック専用。4.2 参照）</li>
+    </ul>
+
+    <h4>17.1.2 単純名の解決（出現位置による分離）</h4>
+    <p>
+      Aloe では、単純名の解決は <strong>構文上の出現位置</strong>により分離される。<br>
+      すなわち、型を要求する位置（型位置）では型名だけを探索し、式を要求する位置（式位置）では値名だけを探索する。<br>
+      これにより、同一の綴りが型名と変数名に存在しても、出現位置に応じて解決される。
+    </p>
+
+    <h5>（A）式位置（expression-position）</h5>
+    <p>
+      例：代入の右辺、関数呼び出し、<code>return</code> 式、<code>if</code> 条件式など。<br>
+      式位置に現れる単純名は、次の優先順で探索する。
+    </p>
+    <ol>
+      <li>ローカルスコープ（ブロック内の <code>var</code> / <code>let</code> / <code>const</code>、引数）</li>
+      <li>現在の型のメンバー
+        <ul>
+          <li>インスタンス文脈では <code>this</code> のフィールド／メソッド</li>
+          <li>static 文脈では static フィールド／メソッド</li>
+        </ul>
+      </li>
+      <li>外側の型のメンバー（ネスト型を許す場合）</li>
+      <li>import により導入された値名（関数・定数など）</li>
+    </ol>
+    <p class="note">
+      同一優先順位で複数候補が存在する場合は、必ずコンパイルエラーとする（曖昧な名前解決は許可しない）。
+    </p>
+
+    <h5>（B）型位置（type-position）</h5>
+    <p>
+      例：<code>let x: Foo</code> の <code>Foo</code>、<code>new Foo()</code> の <code>Foo</code>、<code>obj is Foo</code> の <code>Foo</code> など。<br>
+      型位置に現れる単純名は、次の優先順で探索する。
+    </p>
+    <ol>
+      <li>現在の namespace 内の型（class / struct / enum / interface / trait）</li>
+      <li>import により導入された型名</li>
+      <li>組み込み型（プリミティブ型、<code>task</code>、<code>pipe&lt;T&gt;</code>、<code>Result&lt;T&gt;</code> など）</li>
+    </ol>
+    <p class="note">
+      同一優先順位で複数候補が存在する場合は、必ずコンパイルエラーとする。
+    </p>
+
+    <h4>17.1.3 修飾名（A.B）の解決</h4>
+    <p>
+      修飾名 <code>A.B</code> は、まず左辺 <code>A</code> を解決し、その結果に応じて <code>B</code> を解決する。
+    </p>
+    <ul>
+      <li><code>A</code> が namespace として解決できる場合、<code>A.B</code> は namespace の探索を継続する。</li>
+      <li><code>A</code> が型として解決できる場合、<code>A.B</code> は型メンバー（static）またはネスト型として解決する。</li>
+      <li><code>A</code> が式（値）として解決できる場合、<code>A.B</code> はインスタンスメンバーとして解決する。</li>
+    </ul>
+    <p class="note">
+      <strong>重要：</strong> <code>A</code> が namespace / 型 / 値の複数カテゴリとして解釈可能な場合、
+      <code>A.B</code> は曖昧であるため必ずコンパイルエラーとする。<br>
+      この場合、ユーザーは namespace を明示した修飾（完全修飾名）や、<code>this.</code> 等により意図を明示しなければならない。
+    </p>
+
+    <h4>17.1.4 import による衝突</h4>
+    <ul>
+      <li>同一スコープにおいて、import により同名の識別子を導入してはならない。衝突はコンパイルエラーとする。</li>
+      <li>ローカル宣言と import 名が衝突する場合、ローカル宣言が優先される（ただし、曖昧になる場合はコンパイルエラー）。</li>
+      <li>型位置では型名のみ、式位置では値名のみを探索する（17.1.2 の規則を維持する）。</li>
+    </ul>
+
+    <h4>17.1.5 with ブロックにおける省略メンバー名（.Member）</h4>
+    <p>
+      <code>with</code> ブロック内の <code>.Member</code> は、4.2 の規則に従い with ターゲットに対して解決される。<br>
+      値対象 with（<code>with (expr)</code>）はインスタンスメンバーのみを候補とし、型対象 with（<code>with (TypeName)</code>）は static メンバー（enum の場合は列挙子を含む）のみを候補とする。<br>
+      同名メンバーが複数ターゲットに存在し、解決が曖昧になる場合は必ずコンパイルエラーとする。
+    </p>
 
     <hr>
 
