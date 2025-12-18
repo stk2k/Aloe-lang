@@ -692,3 +692,432 @@ let o: object = 123; // boxing: Integer
       この場合、その参照は <strong>invalid 状態</strong>として扱われる（未初期化と invalid は区別しない）。
     </p>
 <pre><code>var obj: Foo;        // OK（参照型の未初期化宣言）
+obj.Value;           // 実行時例外（InvalidReferenceException）
+</code></pre>
+    <ul>
+      <li>初期化を省略した参照型変数は、実行時に <strong>invalid</strong> とみなされる。</li>
+      <li>無効参照（invalid）へのメンバーアクセスは <strong>InvalidReferenceException</strong> を投げる。</li>
+    </ul>
+
+    <h3>5.3 Constants（const）</h3>
+<pre><code>const MaxCount: int = 100;
+const Pi: float = 3.14159;
+const AppName: string = "Aloe VM";
+</code></pre>
+    <ul>
+      <li><code>const</code> 変数は再代入不可。</li>
+      <li>const には型注釈が必須。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch6">6. Fields（フィールド宣言）</h2>
+    <p>class / struct のフィールドは <code>field</code> キーワードで宣言する。</p>
+<pre><code>class Sample {
+    field count: int = 0;
+    field name: string = "default";
+
+    readonly field id: int;
+
+    construct(id: int) {
+        this.id = id;
+    }
+    method change(): void {
+        this.count = this.count + 1;
+    }
+}
+</code></pre>
+    <ul>
+      <li><code>field</code> ... 通常のフィールド。</li>
+      <li><code>readonly field</code> ... コンストラクタ内のみ代入可、それ以降は読み取り専用。</li>
+      <li>struct / class の両方で同じ意味。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch7">7. Class / Struct / Interface / Trait</h2>
+
+    <h3>7.1 class</h3>
+<pre><code>class FizzBuzz {
+    field _count: int = 0;
+    field name: string = "FizzBuzz";
+
+    construct() {
+    }
+
+    method run(): void {
+        var i = 1;
+        while (i &lt;= 100) {
+            i = i + 1;
+        }
+    }
+}
+</code></pre>
+    <ul>
+      <li>class は参照型。</li>
+      <li><code>sealed class</code> は <code>extends</code> による継承不可。</li>
+      <li>単一継承のみサポート。</li>
+    </ul>
+
+    <h3>7.2 struct</h3>
+<pre><code>struct Point {
+    field x: int;
+    field y: int;
+
+    construct(x: int, y: int) {
+        this.x = x;
+        this.y = y;
+    }
+}
+</code></pre>
+    <ul>
+      <li>struct は値型。</li>
+      <li>フィールドはプリミティブ型か他の struct に限定（参照型フィールドは禁止）。</li>
+      <li>struct のコピーは常に値コピー。</li>
+      <li>struct の継承はサポートしない（<code>sealed struct</code> は「拡張禁止」マーカー）。</li>
+    </ul>
+
+    <h4>Struct layout annotations: @StructLayout / @FieldOffset</h4>
+    <p>（略：本節は原文に準拠）</p>
+
+    <h3>7.3 Inheritance and sealed</h3>
+<pre><code>class Base {
+    method foo(): void { }
+}
+
+class Derived extends Base {
+    method bar(): void { }
+}
+
+sealed class FinalDerived extends Base {
+}
+</code></pre>
+
+    <h3>7.4 interface</h3>
+<pre><code>interface ILogger {
+    method log(msg: string): void;
+}
+
+class ConsoleLogger implements ILogger {
+    method log(msg: string): void {
+        print(msg);
+    }
+}
+</code></pre>
+
+    <h3>7.5 trait</h3>
+<pre><code>trait Trait_A {
+    method hello(): void {
+        print("Hello from Trait_A");
+    }
+}
+</code></pre>
+
+    <p>（trait の詳細は原文に準拠）</p>
+
+    <hr>
+
+    <h2 id="ch8">8. delete &amp; invalid</h2>
+
+    <h3 id="validity-model">8.1 参照の有効性モデル（valid / invalid）</h3>
+    <p>
+      Aloe では、参照が「有効（valid）」か「無効（invalid）」かという状態をモデル化する。<br>
+      <code>invalid</code> は <strong>代入や初期化に使用できない</strong>が、参照の有効性チェックには使用できる。
+    </p>
+
+<pre><code>var obj = new FizzBuzz();
+delete obj;           // obj becomes invalid
+if (obj is invalid) {
+    print("invalid");
+}
+</code></pre>
+
+    <ul>
+      <li><code>delete x;</code> は「参照変数 <code>x</code> を無効化する命令」である。</li>
+      <li><strong><code>delete</code> は例外を投げてはならない。</strong> 既に invalid の場合も無効果である。</li>
+      <li>無効化後、<code>x</code> を通じた参照先のメンバーアクセスは <strong>InvalidReferenceException</strong> を引き起こす。</li>
+      <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は変数単位）。</li>
+      <li>オブジェクトの実際の解放（回収）は実行系が決定する（GC）。</li>
+      <li><strong>未初期化参照と invalid は区別しない。</strong> 初期化を省略した参照型変数は invalid とみなされる。</li>
+      <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
+    </ul>
+
+    <h3>8.2 invalid 参照アクセス</h3>
+<pre><code>var obj: Foo;     // invalid
+obj.Value;        // throws InvalidReferenceException
+</code></pre>
+    <ul>
+      <li>invalid 参照へのメンバーアクセスは必ず <code>InvalidReferenceException</code>。</li>
+      <li>（実装が静的に invalid を確定できても）原則として挙動は同じとし、最適化は実装依存とする。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch9">9. is Operator（is 演算子）</h2>
+<pre><code>if (obj is FizzBuzz) {
+}
+
+if (obj is ILogger) {
+}
+
+if (obj is Trait_A) {
+}
+
+if (obj is valid) {
+}
+
+if (obj is invalid) {
+}
+</code></pre>
+    <ul>
+      <li><code>is</code> は実行時の型チェックを行う（型名が右辺の場合）。</li>
+      <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
+      <li>インタフェースや trait に対しても使用できる。</li>
+      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックである。</li>
+      <li><strong><code>invalid is T</code> は常に <code>false</code>。</strong> 例外にしてはならない。</li>
+      <li><strong>曖昧な名前解決は必ずコンパイルエラー。</strong></li>
+      <li><code>is</code> 演算子の左辺は必ず「式（値）」でなければならない。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch10">10. Collections（配列 / リスト / セット / マップ）</h2>
+
+    <h3>10.1 Arrays (T[])</h3>
+<pre><code>var arr: int[] = [1, 2, 3];
+var matrix: float[][] = [[1.0, 2.0], [3.0, 4.0]];
+</code></pre>
+
+    <h3>10.2 Lists (T())</h3>
+<pre><code>var lst: int() = (1, 2, 3);
+var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
+</code></pre>
+
+    <h3>10.3 Sets (T{})</h3>
+<pre><code>var st: int{} = {1, 2, 3};
+var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
+</code></pre>
+
+    <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
+<pre><code>var mp: map&lt;int&gt; = ["key1": 10, "key2": 20];
+var mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
+var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
+</code></pre>
+
+    <hr>
+
+    <h2 id="ch11">11. enum and bitfield enum</h2>
+
+    <h3>11.1 Normal enum</h3>
+<pre><code>enum Color {
+    Red,
+    Green,
+    Blue
+}
+</code></pre>
+    <ul>
+      <li>内部表現は常に int32。</li>
+      <li>enum 型も型ベース with の対象となり、<code>with (Color) { Red; }</code> などで列挙子に短縮アクセスできる。</li>
+    </ul>
+
+    <h3>11.2 bitfield enum</h3>
+<pre><code>bitfield enum LogFlags {
+    None = 1 &lt;&lt; 0,
+    Info = 1 &lt;&lt; 3,
+    Warn,
+}
+</code></pre>
+
+    <hr>
+
+    <h2 id="ch12">12. main Block（エントリポイント）</h2>
+<pre><code>function main(args: string[]): int {
+    var fb = new FizzBuzz();
+    fb.run();
+    return 0;
+}
+</code></pre>
+    <ul>
+      <li>プログラムのエントリポイント。</li>
+      <li><code>args</code> はコマンドライン引数。</li>
+      <li>戻り値は <code>int</code> 型の <code>return</code> 文で指定する。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch13">13. Identifier <code>_</code>（アンダースコア）</h2>
+    <p>
+      Aloe では <code>_</code> は通常の識別子であり、特別な一時変数としての仕様は持たない。<br>
+      with ブロックでも、<code>_</code> は特別扱いしない（4.2 参照）。
+    </p>
+
+    <hr>
+
+    <h2 id="ch14">14. swap Keyword（swap キーワード）</h2>
+<pre><code>var a = 10;
+var b = 20;
+swap (a, b);
+print(a);
+print(b);
+</code></pre>
+
+    <hr>
+
+    <h2 id="ch15">15. Operators（演算子）</h2>
+
+    <h3>15.1 as 演算子と ifnot 句（プリミティブ unboxing）</h3>
+    <p>
+      Aloe は、<code>object</code> からプリミティブへの unboxing を
+      <code>as</code> 演算子で行う。<br>
+      <code>as</code> は一般的なキャスト構文ではなく、<strong>プリミティブ unboxing 用途</strong>として定義する。
+    </p>
+
+    <h4>15.1.1 構文</h4>
+<pre><code>expr as P ifnot alt
+expr as P ifnot throw
+expr as P
+</code></pre>
+
+    <ul>
+      <li><code>P</code> はプリミティブ型（<code>bool</code>, <code>int</code>, <code>float</code>, <code>decimal</code>, <code>string</code>, <code>byte</code>, <code>char</code>）。</li>
+      <li><code>ifnot</code> 句は省略できる。</li>
+      <li><code>expr as P</code> は <code>expr as P ifnot throw</code> の省略形とする。</li>
+      <li><code>alt</code> は型 <code>P</code> でなければならない（または <code>P</code> へ暗黙変換可能）。</li>
+    </ul>
+
+    <h4>15.1.2 評価順</h4>
+    <ul>
+      <li><code>expr</code> は 1 回だけ評価される（再評価しない）。</li>
+      <li><code>alt</code> は変換失敗時にのみ評価される。</li>
+    </ul>
+
+    <h4>15.1.3 成功条件と結果</h4>
+    <p>
+      <code>expr</code> の評価結果を <code>v</code> とする。<br>
+      unboxing の成功条件は次のいずれかである：
+    </p>
+    <ul>
+      <li><code>v</code> の実行時型がプリミティブ <code>P</code> である場合、結果は <code>v</code> 自身（恒等）。</li>
+      <li><code>v</code> の実行時型が対応 box object <code>BoxP</code> である場合、結果は <code>v.ToP()</code> の戻り値。</li>
+    </ul>
+
+    <h4>15.1.4 失敗条件</h4>
+    <ul>
+      <li>上記の成功条件を満たさない場合は「変換失敗」である。</li>
+      <li><code>v</code> が <code>invalid</code> の場合も「変換失敗」として扱う（この時点では例外を投げない）。</li>
+    </ul>
+
+    <h4>15.1.5 ifnot の意味</h4>
+    <ul>
+      <li>変換成功時：変換結果を返す。</li>
+      <li>変換失敗時：<code>ifnot</code> 句がある場合は <code>alt</code> を評価して返す。</li>
+      <li>変換失敗時：<code>ifnot throw</code> の場合は <code>InvalidCastException</code> を投げる。</li>
+      <li>変換失敗時：<code>ifnot</code> 句が省略された場合は <code>InvalidCastException</code> を投げる。</li>
+    </ul>
+
+    <h4>15.1.6 数値型間の変換を行わない</h4>
+    <ul>
+      <li><code>as</code> によって数値型間の変換は行わない。</li>
+      <li>例：<code>Integer</code> を <code>as byte</code> しても成功しない。</li>
+    </ul>
+
+<pre><code>let o: object = 123;                    // boxing: Integer
+
+let i: int = o as int;                  // OK（unboxing）
+let j: int = o as int ifnot -1;         // OK
+
+let b: byte = o as byte ifnot 0;        // 失敗（変換しない） -> 0
+let x: int = "x" as int ifnot -1;       // 失敗 -> -1
+let y: int = "x" as int;                // 失敗 -> InvalidCastException
+</code></pre>
+
+    <p>（その他の演算子は原文に準拠）</p>
+
+    <hr>
+
+    <h2 id="ch16">16. Exceptions（例外）</h2>
+<pre><code>try {
+}
+catch (e) {
+}
+finally {
+}
+</code></pre>
+
+    <h3>16.1 標準例外の概要</h3>
+<pre><code>Exception
++- SystemException
+|  +- InvalidReferenceException
+|  +- InvalidCastException
+|  +- IndexOutOfBoundsException
+|  +- OverflowException
+|  +- ZeroDivisionException
+|  +- InvalidOperationException
+|  +- NotImplementedException
+|  +- TimeoutException
+|  +- ArgumentException
+|  |  +- ArgumentNullException
+|  |  +- ArgumentOutOfRangeException
+|  +- FormatException
++- IOException
+   +- FileNotFoundException
+   +- EndOfStreamException
+   +- IOException (general)
+</code></pre>
+    <ul>
+      <li><code>InvalidReferenceException</code> は invalid 参照アクセスで投げる（8章参照）。</li>
+      <li><code>InvalidCastException</code> は <code>as</code> による unboxing 失敗時に投げる（15章参照）。</li>
+      <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
+      <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
+      <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
+      <li><code>InvalidOperationException</code> は不正な状態での操作に用いる。</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="ch17">17. Modules / namespace / import</h2>
+    <p>（略：原文に準拠）</p>
+
+    <hr>
+
+    <h2 id="ch18">18. Pipes &amp; Filters（パイプとフィルタ）</h2>
+    <p>
+      Aloe は <code>pipe&lt;T&gt;</code> と <code>filter(...)</code> を用いて、
+      サーバ / CLI / Web アプリなどのストリーミング処理を構成する。
+    </p>
+
+    <h3>18.1 pipe&lt;T&gt; の基本</h3>
+    <p>（略：原文に準拠）</p>
+
+    <h3>18.2 Result&lt;T&gt; と ROP の原則</h3>
+    <ul>
+      <li><strong>Result に丸めるのはパイプ（filter / producer / consumer）の中のみ。</strong></li>
+      <li><strong>filter / producer / consumer の bound は Result を返すのが必須</strong>であり、違反はコンパイルエラー。</li>
+      <li>通常の関数・メソッドは戻り値自由（Result 強制なし）。失敗時は例外を投げてよい（その関数仕様による）。</li>
+    </ul>
+
+    <h3>18.7 コレクションに対するテンプレート map</h3>
+    <p>
+      テンプレ map の禁止事項は基本コンパイルエラーとする（静的に検出できる限り）。
+    </p>
+
+    <hr>
+
+    <h2 id="editor-notes">Appendix: 生成AI 向け編集ポリシー（仕様書本文ではない）</h2>
+    <p class="note">
+      <strong>生成AI向け共通編集ポリシー（Aloe 言語仕様書 / AloeVM 仕様書）：</strong><br>
+      ・この文書と AloeVM 仕様書は、常に同じ編集ポリシーで運用する。<br>
+      ・日本語版・英語版の内容（章構成・見出し・本文の意味）は常に一致させる（片方だけを勝手に簡略化 / 拡張しない）。<br>
+      ・<code>edit-version</code> は日本語版・英語版で共通とし、仕様本文（サンプルを含む）を変更したときだけ +1 する。減らしたり巻き戻したりしない。<br>
+      ・<code>edit-date</code> には、編集を反映した「その瞬間の Asia/Tokyo の現在時刻」を ISO 8601 形式（YYYY-MM-DDThh:mm:ss+09:00）で必ず書く。推測や他タイムゾーンの時刻を書いてはいけない。<br>
+      ・関係ない箇所については原則変更禁止。意味が同じでも、変数名やメソッド名、文言を「良かれと思って」書き換えない。<br>
+      ・新しい仕様追加や既存仕様の意味が変わる修正をしたくなった場合は、必ず一度ユーザーに相談し、合意を取ってから反映する。<br>
+      ・直前にユーザーが「正」として提示した全文 HTML を常に正本とみなし、その版に対する最小限の差分だけを適用する。<br>
+      ・もし直前の HTML が手元で再現できなくなった場合や、どこまでが最新かわからなくなった場合は、編集を続けず、必ずユーザーに確認する。<br>
+      ・HTML 内に絵文字や外字を使用しない。日本語文字は第一水準・第二水準までとする。<br>
+    </p>
+
+  </main>
+</div>
+</body>
+</html>
