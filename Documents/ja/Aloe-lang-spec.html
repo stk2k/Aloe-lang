@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="40">
-  <meta name="edit-date" content="2025-12-20T01:04:14+09:00">
+  <meta name="edit-version" content="41">
+  <meta name="edit-date" content="2025-12-20T01:29:59+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 40)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 41)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -124,9 +124,9 @@
         <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
         <li><a href="#boxing-unboxing">2.4 boxing / unboxing</a></li>
         <li><a href="#string-value-semantics">2.3.1 string 値型の観測可能な意味</a></li>
-        <li><a href="#parse-tryparse">2.4.2 Parse / TryParse</a></li>
         <li><a href="#implicit-unbox-cast">5.2.2 暗黙 unbox キャスト</a></li>
         <li><a href="#unbox-operator">15.3 unbox 演算子</a></li>
+        <li><a href="#result-error-model">18.2.1 Result&lt;T&gt; と Error</a></li>
       </ul>
     </nav>
   </aside>
@@ -135,8 +135,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 40<br>
-      edit-date: 2025-12-20T01:04:14+09:00
+      edit-version: 41<br>
+      edit-date: 2025-12-20T01:29:59+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -149,8 +149,7 @@
       の拡張を含みます。<br>
       さらに、任意値の受け皿として <strong><code>object</code></strong> を導入し、
       プリミティブ値は <strong>box object</strong> に boxing して保持し、unboxing は <strong><code>as</code> / 暗黙 unbox キャスト / <code>unbox</code></strong> により行います。<br>
-      文字列型 <strong><code>string</code></strong> は <strong>値型</strong> として扱います（2.3.1 参照）。<br>
-      また数値 box object は <strong>Parse / TryParse</strong> によるパース導線を持ちます（2.4.2 参照）。<br>
+      文字列型 <strong><code>string</code></strong> は <strong>値型</strong> として扱います（2.3.1）。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
 
@@ -170,34 +169,29 @@
     <ul>
       <li>静的型付け
         <ul>
-          <li><code>var</code> による型推論</li>
-          <li><code>let</code> による明示的な型指定</li>
+          <li><code>var</code> による型推論（初期化必須）</li>
+          <li><code>let</code> による明示的な型指定（初期化省略可）</li>
         </ul>
       </li>
       <li>値型 / 参照型
         <ul>
           <li><code>struct</code> ... 値型</li>
           <li><code>class</code> / <code>object</code> ... 参照型</li>
-          <li><code>string</code> ... 値型</li>
+          <li><code>string</code> ... 値型（2.3.1）</li>
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
       <li>参照の無効状態（<code>invalid</code>）を言語レベルのモデルとして導入する
         <ul>
           <li><code>delete</code> は「参照変数を無効化する命令」であり、無効化後の参照アクセスは例外となる。</li>
-          <li><code>invalid</code> は代入や初期化に使えない（有効性チェック用途のみ）。</li>
+          <li><code>invalid</code> は比較用の特殊定数であり、代入や初期化には使用できない。</li>
         </ul>
       </li>
       <li><code>object</code> と box object による boxing / unboxing
         <ul>
           <li>プリミティブ値を <code>object</code> に保持する場合、対応する box object に boxing される。</li>
           <li><code>object</code> からプリミティブを取り出す場合、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> を用いる。</li>
-        </ul>
-      </li>
-      <li>数値 box object による文字列パース導線
-        <ul>
-          <li><code>Parse</code> は例外を許可する形でパースする。</li>
-          <li><code>TryParse</code> は例外を出さずにパースする。</li>
+          <li>数値型同士の変換や文字列パースは <code>as</code> / <code>unbox</code> では行わず、標準ライブラリの Parse / TryParse を用いる。</li>
         </ul>
       </li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
@@ -370,7 +364,7 @@ print(x);
       <li><code>int</code> / <code>integer</code> - 符号付き整数。</li>
       <li><code>float</code> - 浮動小数点数。</li>
       <li><code>decimal</code> - 高精度 10 進数。</li>
-      <li><code>string</code> - 文字列（内部表現は実装依存。観測可能な意味は 2.3.1 に固定する）。</li>
+      <li><code>string</code> - 文字列（値型。2.3.1 参照）。</li>
       <li><code>byte</code> - 0-255 の符号なし整数。</li>
       <li><code>char</code> - 1 文字。</li>
       <li><code>void</code> - 戻り値なし（戻り値専用）。</li>
@@ -410,29 +404,25 @@ print(x);
           <li><code>class</code></li>
           <li><code>object</code></li>
           <li><code>task</code>, <code>pipe&lt;T&gt;</code>, <code>Result&lt;T&gt;</code> など</li>
-          <li>配列 / リスト / セット / マップ などのコレクション型</li>
         </ul>
       </li>
     </ul>
 
     <h4 id="string-value-semantics">2.3.1 string 値型の観測可能な意味（固定）</h4>
-    <p>
-      <code>string</code> は値型として扱う。実装が内部で参照共有等を行ってもよいが、
-      次の意味は常に守られ、利用者が観測できる挙動はこれに固定される。
-    </p>
     <ul>
-      <li><code>string</code> 変数は <strong>invalid 状態にならない</strong>。未初期化宣言時も invalid にはならない（5.2.1 参照）。</li>
-      <li><code>delete</code> の対象は参照型変数のみであり、<code>delete s;</code>（<code>s</code> が <code>string</code>）は <strong>コンパイルエラー</strong>。</li>
-      <li><code>string</code> の代入・引数渡し・戻り値は <strong>値として扱う</strong>（値セマンティクス）。</li>
-      <li><code>string</code> を <code>object</code> に代入する場合、必ず <code>String</code> box object に boxing される（2.4.0）。</li>
-      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックであるため、<code>string</code> に適用することは <strong>コンパイルエラー</strong>。</li>
+      <li><strong>代入は値コピーとして観測される。</strong> 実装は内部共有などの最適化を行ってよいが、その有無は仕様上観測できない。</li>
+      <li><strong>string は不変（immutable）</strong>であり、既存の string の内容を書き換える操作は存在しない。連結や置換は新しい string を返す。</li>
+      <li><strong>比較演算子 <code>==</code> は内容比較</strong>である（参照比較ではない）。</li>
+      <li><strong>string は値型であるため、参照の有効性モデル（valid / invalid）の対象ではない。</strong></li>
+      <li><strong>値型に対する <code>delete</code> はコンパイルエラー</strong>であり、<code>delete</code> は参照変数の無効化にのみ使用できる（8章参照）。</li>
+      <li><code>object</code> へ代入する場合、string は常に <code>String</code> box object に boxing される（2.4参照）。</li>
     </ul>
 
     <h4>object 型（万能参照型）</h4>
     <ul>
       <li><code>object</code> は、<code>void</code> を除く任意の値を保持できる特別な参照型である。</li>
       <li>参照型の値は <code>object</code> へ暗黙に代入できる（参照コピー）。</li>
-      <li>プリミティブ値（<code>string</code> を含む）を <code>object</code> に代入する場合、対応する box object に boxing される（2.4参照）。</li>
+      <li>プリミティブ値（string を含む）を <code>object</code> に代入する場合、対応する box object に boxing される（2.4参照）。</li>
       <li><code>object</code> から具体型 T への暗黙変換はない。</li>
       <li><code>if (x is T) { ... }</code> のブロック内では、<code>x</code> を T として扱ってよい（フロー依存の型絞り込み）。</li>
     </ul>
@@ -468,7 +458,7 @@ print(x);
 
     <h4>2.4.0 boxing の正準規則（固定）</h4>
     <ul>
-      <li><strong>プリミティブ値（<code>string</code> を含む）を <code>object</code> に代入する場合、必ず対応する box object に boxing する。</strong></li>
+      <li><strong>プリミティブ値（string を含む）を <code>object</code> に代入する場合、必ず対応する box object に boxing する。</strong></li>
       <li>box object を <code>object</code> に代入する場合は、その参照を保持する（再 boxing はしない）。</li>
     </ul>
 
@@ -489,86 +479,57 @@ print(x);
       <li><strong>型変換は行わない。</strong> 例えば数値型同士の変換や文字列のパースなどは、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の範囲では行わない（失敗として扱う）。</li>
     </ul>
 
-    <h4 id="parse-tryparse">2.4.2 Parse / TryParse（数値 box object の文字列パース導線）</h4>
+    <h4>2.4.2 Parse / TryParse（文字列から数値への導線）</h4>
     <p>
-      <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> は型変換を行わない。
-      そのため、文字列から数値を得る導線は数値 box object の <strong>Parse / TryParse</strong> により提供する。
+      数値型同士の変換や文字列パースは <code>as</code> / <code>unbox</code> では行わない。<br>
+      文字列から数値への変換は、対応する box object が提供する <strong><code>Parse</code></strong> / <strong><code>TryParse</code></strong> を用いる。
     </p>
     <ul>
-      <li>対象：<code>Integer</code>, <code>Byte</code>, <code>Float</code>, <code>Decimal</code></li>
-      <li><code>Parse</code> は例外を許可する形でパースする。</li>
-      <li><code>TryParse</code> は例外を出さずにパースする。</li>
-      <li>共通ルール（受理する文字列）：
-        <ul>
-          <li>前後の空白は許可し、パース前に除去する（trim）。</li>
-          <li>途中の空白は不許可（書式不正）。</li>
-          <li>区切り記号（例：<code>_</code>, <code>,</code>）は不許可（書式不正）。</li>
-          <li>数字は ASCII の <code>0-9</code> のみを受理する（全角数字等は不許可）。</li>
-        </ul>
-      </li>
-      <li>エラー型（正準）：
-        <ul>
-          <li>書式不正は <code>FormatException</code>。</li>
-          <li>範囲外 / 表現不能は <code>OverflowException</code>。</li>
-        </ul>
-      </li>
+      <li><code>Integer.Parse</code> / <code>Integer.TryParse</code>（int）</li>
+      <li><code>Byte.Parse</code> / <code>Byte.TryParse</code>（byte）</li>
+      <li><code>Float.Parse</code> / <code>Float.TryParse</code>（float）</li>
+      <li><code>Decimal.Parse</code> / <code>Decimal.TryParse</code>（decimal）</li>
     </ul>
 
-    <h5>2.4.2.1 Parse の規則</h5>
+    <h5>2.4.2.1 共通ルール（受け付ける文字列）</h5>
     <ul>
-      <li>シグネチャ（概念）：<code>static method Parse(text: string): P</code></li>
-      <li>失敗時の例外：
-        <ul>
-          <li>書式不正は <code>FormatException</code>。</li>
-          <li>範囲外 / 表現不能は <code>OverflowException</code>。</li>
-        </ul>
-      </li>
+      <li>入力は <code>string</code> とする。</li>
+      <li>先頭と末尾の ASCII 空白（U+0020）およびタブ（U+0009）は無視してよい（実装は trim してよい）。</li>
+      <li>文字列内部の空白は許可しない。</li>
+      <li>桁区切り（カンマ等）は許可しない。</li>
+      <li><strong><code>NaN</code> / <code>Infinity</code> は概念として存在しないため、これらの表記は受け付けない。</strong></li>
+      <li>解析不能な場合は <code>FormatException</code>（Parse）または TryParse の失敗とする。</li>
+      <li>表現可能範囲外の場合は <code>OverflowException</code>（Parse）または TryParse の失敗とする。</li>
     </ul>
 
-    <h5>2.4.2.2 TryParse の規則</h5>
+    <h5>2.4.2.2 Integer / Byte の書式</h5>
     <ul>
-      <li>シグネチャ（概念）：<code>static method TryParse(text: string): Result&lt;P&gt;</code></li>
-      <li>成功時：値を含む成功結果を返す。</li>
-      <li>失敗時：例外は投げず、失敗情報を含む失敗結果を返す（失敗理由は <code>FormatException</code> / <code>OverflowException</code> に正規化する）。</li>
+      <li>10進：<code>[+|-]?[0-9]+</code></li>
+      <li>16進：<code>[+|-]?0x[0-9a-fA-F]+</code></li>
+      <li>2進：<code>[+|-]?0b[0-1]+</code></li>
+      <li>Byte は符号を許可しない（<code>-</code> を含む場合は失敗）。</li>
+      <li>Byte は 0..255 の範囲外を失敗とする。</li>
     </ul>
 
-    <h5>2.4.2.3 各型の受理フォーマット（固定）</h5>
+    <h5>2.4.2.3 Float の書式</h5>
     <ul>
-      <li><strong>Integer</strong>（<code>int</code>）：
-        <ul>
-          <li>10進：<code>[+|-]?</code> + 1 文字以上の数字</li>
-          <li>16進：<code>[+|-]?</code> + <code>0x</code>/<code>0X</code> + 1 文字以上の 16 進数字</li>
-          <li>2進：<code>[+|-]?</code> + <code>0b</code>/<code>0B</code> + 1 文字以上の <code>0</code>/<code>1</code></li>
-          <li>小数点・指数表記は不許可（書式不正）。</li>
-        </ul>
-      </li>
-      <li><strong>Byte</strong>（<code>byte</code>）：
-        <ul>
-          <li>10進：1 文字以上の数字（符号は不許可）</li>
-          <li>16進：<code>0x</code>/<code>0X</code> + 1 文字以上の 16 進数字</li>
-          <li>2進：<code>0b</code>/<code>0B</code> + 1 文字以上の <code>0</code>/<code>1</code></li>
-          <li>範囲外（0..255）は <code>OverflowException</code> / TryParse 失敗。</li>
-        </ul>
-      </li>
-      <li><strong>Float</strong>（<code>float</code>）：
-        <ul>
-          <li>10進のみ。符号は任意（<code>+</code>/<code>-</code>）。</li>
-          <li>小数点 <code>.</code> を許可する。</li>
-          <li>指数表記 <code>e</code>/<code>E</code> を許可する（指数部の符号 <code>+</code>/<code>-</code> を許可）。</li>
-          <li>16進 / 2進プレフィックスは不許可（書式不正）。</li>
-          <li><strong>Aloe の数値体系には NaN / Infinity の概念は存在しない。</strong>
-            <code>NaN</code>, <code>Infinity</code>, <code>-Infinity</code> 等の文字列は受理してはならない（書式不正）。</li>
-          <li>表現不能（オーバーフロー / アンダーフロー等）は <code>OverflowException</code> / TryParse 失敗。</li>
-        </ul>
-      </li>
-      <li><strong>Decimal</strong>（<code>decimal</code>）：
-        <ul>
-          <li>10進のみ。符号は任意（<code>+</code>/<code>-</code>）。</li>
-          <li>小数点 <code>.</code> を許可する。</li>
-          <li>指数表記は不許可（書式不正）。</li>
-          <li>表現不能（範囲外 / 精度上の表現不能等）は <code>OverflowException</code> / TryParse 失敗。</li>
-        </ul>
-      </li>
+      <li>十進小数：<code>[+|-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)</code></li>
+      <li>指数部（任意）：上記に続けて <code>[e|E][+|-]?[0-9]+</code> を許可する。</li>
+      <li>オーバーフロー/アンダーフローは例外（Parse）または失敗（TryParse）とする（3.5参照）。</li>
+    </ul>
+
+    <h5>2.4.2.4 Decimal の書式</h5>
+    <ul>
+      <li>十進小数：<code>[+|-]?([0-9]+(\.[0-9]*)?|\.[0-9]+)</code></li>
+      <li>指数表記は許可しない。</li>
+      <li>精度・丸め・範囲は実装が持つ decimal 仕様に従うが、表現不能なら OverflowException（Parse）または失敗（TryParse）とする。</li>
+    </ul>
+
+    <h5>2.4.2.5 Parse と TryParse の戻り</h5>
+    <ul>
+      <li><code>Parse</code> は成功時に値を返し、失敗時に例外を投げる。</li>
+      <li><code>TryParse</code> は成功時に値を返し、失敗時に例外を投げない。</li>
+      <li>TryParse の失敗表現は、標準ライブラリが定義する仕様に従う（Result を用いる場合、ErrorMessage は必須である。18.2.1参照）。</li>
     </ul>
 
     <hr>
@@ -620,13 +581,11 @@ print(x);
       </li>
     </ul>
 
-    <h3>3.5 NaN / Infinity（概念として存在しない）</h3>
+    <h3>3.5 NaN / Infinity</h3>
     <ul>
-      <li><strong>Aloe の数値体系には NaN / Infinity の概念は存在しない。</strong></li>
-      <li>実行時に NaN / Infinity を生成・保持・観測できてはならない。</li>
-      <li>数値オーバーフロー / アンダーフロー等の表現不能は常に <code>OverflowException</code> として扱う。</li>
-      <li><code>ZeroDivisionException</code> は <code>0 / 0</code> および <code>0.0 / 0.0</code> で常に投げる。</li>
-      <li><code>Float.Parse</code> / <code>Float.TryParse</code> は <code>NaN</code>, <code>Infinity</code> 等の文字列を受理してはならない（2.4.2.3）。</li>
+      <li><strong>NaN / Infinity は概念として存在しない。</strong></li>
+      <li>数値オーバーフロー/アンダーフローは NaN/Infinity ではなく例外で扱う。</li>
+      <li><code>ZeroDivisionException</code> は 0 / 0.0 で常に投げる。</li>
     </ul>
 
     <hr>
@@ -765,12 +724,11 @@ print(x);
 
     <h2 id="ch5">5. Variables &amp; Constants（変数と定数）</h2>
 
-    <h3>5.1 var（型推論）</h3>
+    <h3>5.1 var（型推論。初期化必須）</h3>
 <pre><code>var i = 10;
 var f = 10.5;
 var s = "Hello";
 var c = 'A';
-var b = 255;
 var arr = [1, 2, 3];
 var lst = (1, 2, 3);
 var st  = {1, 2, 3};
@@ -778,13 +736,11 @@ var mp  = ["key": 10];
 var fb  = new FizzBuzz();
 </code></pre>
     <ul>
-      <li>変数の型は右辺の式から推論される。</li>
-      <li><strong><code>var</code> は初期化子を必須とする。</strong> <code>var x;</code> はコンパイルエラー。</li>
-      <li><code>var x = 1;</code> は常に <code>int</code>。</li>
-      <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
+      <li><strong><code>var</code> は型推論専用であり、初期化が必須</strong>である。</li>
+      <li><code>var x;</code> はコンパイルエラー。</li>
+      <li><code>var x: T = ...;</code> のような型注釈付き var 宣言は行わない（明示型は let を用いる）。</li>
       <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
       <li><code>object</code> 型の式を右辺に置いた場合、推論結果の型も <code>object</code> になる。</li>
-      <li><strong><code>var</code> に型注釈を付ける構文は持たない。</strong> 明示的な型は <code>let</code> を用いる。</li>
     </ul>
 
 <pre><code>function SomeFunc(): object {
@@ -799,7 +755,7 @@ function main(args: string[]): int {
 }
 </code></pre>
 
-    <h3>5.2 let（明示的な型）</h3>
+    <h3>5.2 let（明示的な型。初期化省略可）</h3>
 <pre><code>let i: int = 10;
 let f: float = 10.5;
 let d: decimal = 10.12345678901234567890:d;
@@ -813,28 +769,33 @@ let st : int{} = {1, 2, 3};
 let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
+      <li><code>let</code> には型注釈が必須。</li>
       <li><code>let x: Foo = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
+      <li><strong>初期化を省略した場合は型に応じたデフォルト値で初期化される（5.2.1）。</strong></li>
     </ul>
 
-    <h3>5.2.1 未初期化宣言（デフォルト値 / invalid）</h3>
+    <h3>5.2.1 デフォルト初期化（プリミティブはデフォルト値、参照は invalid）</h3>
     <p>
-      <code>let</code> による宣言では、初期化を省略した宣言を許可する。
-      この場合の初期状態は型カテゴリで決定する。
+      <code>let</code> において初期化を省略した場合、変数は次の規則で初期化される。
     </p>
-<pre><code>let i: int;        // デフォルト値（0）
-let s: string;     // デフォルト値（""）
-let obj: Foo;      // invalid（参照型の未初期化宣言）
+    <ul>
+      <li>プリミティブ型：デフォルト値で初期化する。</li>
+      <li>参照型：<strong>invalid 状態</strong>として初期化される。</li>
+    </ul>
+<pre><code>let a: int;         // 0
+let b: bool;        // false
+let c: float;       // 0.0
+let d: decimal;     // 0:d
+let s: string;      // ""（空文字列）
+let ch: char;       // '\0' 相当（実装が定義するゼロ文字）
+let by: byte;       // 0
+
+let obj: Foo;       // invalid（参照型）
 </code></pre>
     <ul>
-      <li><strong>値型（プリミティブ / struct / enum）はデフォルト値で初期化する。</strong></li>
-      <li><strong>参照型（class / object / コレクション等）は invalid 状態で初期化する。</strong></li>
-      <li><code>string</code> は値型であり、デフォルト値は <strong>空文字列 <code>""</code></strong> とする。</li>
-      <li>未初期化参照（invalid）へのメンバーアクセスは <strong>InvalidReferenceException</strong> を投げる。</li>
+      <li>参照型のデフォルト初期化は「未初期化参照」と同義であり、invalid と区別しない。</li>
+      <li>invalid 参照へのメンバーアクセスは <code>InvalidReferenceException</code> を投げる（8章参照）。</li>
     </ul>
-
-<pre><code>let obj: Foo;        // invalid
-obj.Value;           // 実行時例外（InvalidReferenceException）
-</code></pre>
 
     <h3 id="implicit-unbox-cast">5.2.2 暗黙 unbox キャスト（非消費）</h3>
     <p>
@@ -909,6 +870,7 @@ const AppName: string = "Aloe VM";
       <li><code>field</code> ... 通常のフィールド。</li>
       <li><code>readonly field</code> ... コンストラクタ内のみ代入可、それ以降は読み取り専用。</li>
       <li>struct / class の両方で同じ意味。</li>
+      <li>フィールド初期化を省略した場合は、<code>let</code> のデフォルト初期化規則（5.2.1）に従う。</li>
     </ul>
 
     <hr>
@@ -1011,17 +973,18 @@ if (obj is invalid) {
 </code></pre>
 
     <ul>
-      <li><strong><code>delete x;</code> は参照変数 <code>x</code> の状態を <code>invalid</code> にする操作である。</strong></li>
-      <li><code>delete</code> は解放のためのステートメントではなく、あくまで「無効化にする処理」である。</li>
+      <li><strong><code>delete x;</code> は「参照変数 <code>x</code> の状態を invalid にする操作」である。</strong></li>
+      <li><strong><code>delete</code> のオペランドは参照型の変数（lvalue）でなければならない。</strong> 値型（string を含む）に対する <code>delete</code> はコンパイルエラー。</li>
       <li><strong><code>delete</code> は例外を投げてはならない。</strong> 既に invalid の場合も無効果である。</li>
       <li>無効化後、<code>x</code> を通じた参照先のメンバーアクセスは <strong>InvalidReferenceException</strong> を引き起こす。</li>
       <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は変数単位）。</li>
       <li>オブジェクトの実際の解放（回収）は実行系が決定する（GC）。</li>
-      <li><strong><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</strong></li>
+      <li>参照型のデフォルト初期化（5.2.1）と invalid は区別しない。</li>
+      <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
     </ul>
 
     <h3>8.2 invalid 参照アクセス</h3>
-<pre><code>let obj: Foo;     // invalid
+<pre><code>let obj: Foo;     // invalid（参照型のデフォルト初期化）
 obj.Value;        // throws InvalidReferenceException
 </code></pre>
     <ul>
@@ -1062,24 +1025,24 @@ if (obj is invalid) {
     <h2 id="ch10">10. Collections（配列 / リスト / セット / マップ）</h2>
 
     <h3>10.1 Arrays (T[])</h3>
-<pre><code>let arr: int[] = [1, 2, 3];
-let matrix: float[][] = [[1.0, 2.0], [3.0, 4.0]];
+<pre><code>var arr: int[] = [1, 2, 3];
+var matrix: float[][] = [[1.0, 2.0], [3.0, 4.0]];
 </code></pre>
 
     <h3>10.2 Lists (T())</h3>
-<pre><code>let lst: int() = (1, 2, 3);
-let objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
+<pre><code>var lst: int() = (1, 2, 3);
+var objLst: FizzBuzz() = (new FizzBuzz(), new FizzBuzz());
 </code></pre>
 
     <h3>10.3 Sets (T{})</h3>
-<pre><code>let st: int{} = {1, 2, 3};
-let structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
+<pre><code>var st: int{} = {1, 2, 3};
+var structSt: Point{} = {Point { x:0, y:0 }, Point { x:1, y:1 }};
 </code></pre>
 
     <h3>10.4 Maps (map&lt;K/V&gt;)</h3>
-<pre><code>let mp: map&lt;int&gt; = ["key1": 10, "key2": 20];
-let mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
-let objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
+<pre><code>var mp: map&lt;int&gt; = ["key1": 10, "key2": 20];
+var mp2: map&lt;string/float&gt; = ["key1": 10.5, "key2": 20.5];
+var objMp: map&lt;FizzBuzz&gt; = ["obj1": new FizzBuzz(), "obj2": new FizzBuzz()];
 </code></pre>
 
     <hr>
@@ -1164,7 +1127,7 @@ let i3: int = o as int ifnot throw;    // 失敗時は InvalidCastException（�
         </ul>
       </li>
       <li><code>ifnot</code> を省略した場合は <code>ifnot throw</code> と同義とする。</li>
-      <li><strong>型変換は行わない。</strong> 数値型同士の変換、文字列パース等は行わない。</li>
+      <li><strong>型変換は行わない。</strong> 数値型同士の変換、文字列パース等は行わない（パースは Parse / TryParse を用いる）。</li>
       <li><code>ifnot</code> 節は、キャストが失敗した場合にのみ評価する。</li>
       <li><strong><code>E</code> が invalid 参照の場合は <code>InvalidReferenceException</code>。</strong> これはキャスト失敗ではなく参照エラーであり、<code>ifnot</code> では捕捉しない。</li>
     </ul>
@@ -1228,7 +1191,7 @@ finally {
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
       <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
-      <li><code>InvalidOperationException</code> は不正な状態での操作に用いる。</li>
+      <li><code>InvalidOperationException</code> は不正な状態での操作に用いる（例：Result から不正な取り出し）。</li>
     </ul>
 
     <hr>
@@ -1249,9 +1212,56 @@ finally {
 
     <h3>18.2 Result&lt;T&gt; と ROP の原則</h3>
     <ul>
-      <li><strong>Result に丸めるのはパイプ（filter / producer / consumer）の中のみ。</strong></li>
+      <li><strong>Result に丸めるのは原則としてパイプ（filter / producer / consumer）の中である。</strong></li>
       <li><strong>filter / producer / consumer の bound は Result を返すのが必須</strong>であり、違反はコンパイルエラー。</li>
       <li>通常の関数・メソッドは戻り値自由（Result 強制なし）。失敗時は例外を投げてよい（その関数仕様による）。</li>
+      <li>標準ライブラリは例外を投げない導線として <code>TryParse</code> 等を提供してよい（2.4.2参照）。</li>
+    </ul>
+
+    <h4 id="result-error-model">18.2.1 Result&lt;T&gt; と Error（失敗情報の規格）</h4>
+    <p>
+      <code>Result&lt;T&gt;</code> は、成功（Ok）または失敗（Err）のいずれかを表す結果型である。<br>
+      失敗（Err）の内容は <code>Error</code> によって表現される。
+    </p>
+
+    <h5>18.2.1.1 Result&lt;T&gt; の意味（直和型）</h5>
+    <ul>
+      <li><code>Result&lt;T&gt;</code> は <strong>Ok(value: T)</strong> または <strong>Err(error: Error)</strong> のどちらか一方の状態のみを取る。</li>
+      <li>Ok 状態のときは value を持ち、Err 状態のときは error を持つ。</li>
+      <li>誤った状態での取り出し（例：Ok から error を取り出す等）は <code>InvalidOperationException</code> とする。</li>
+      <li><code>Result&lt;T&gt;</code> の内部表現（フィールド構成、最適化、割当方式）は実装依存とする。ただし上記の意味は観測可能な仕様として固定する。</li>
+    </ul>
+
+    <h5>18.2.1.2 Error（失敗の内容）</h5>
+    <p>
+      <code>Error</code> は失敗の内容を表す参照型（class）であり、少なくとも次の情報を持つ。
+    </p>
+    <ul>
+      <li><code>code: string</code> ... エラーコード。<strong>コード体系はドメインごとに定義される</strong>（統一 enum は作らない）。</li>
+      <li><code>message: string</code> ... エラーメッセージ。<strong>エラー時には必須</strong>（省略不可）。</li>
+      <li><code>cause: Exception</code> ... 原因例外。通常の失敗では未設定（invalid）でよい。</li>
+    </ul>
+
+    <h5>18.2.1.3 cause 必須規則（例外を捕捉して Err を返す場合）</h5>
+    <ul>
+      <li><strong>例外を catch して Result の Err に変換する場合、<code>cause</code> を必ず設定しなければならない。</strong></li>
+      <li>この規則により、例外由来の失敗が原因情報を失わないことを保証する。</li>
+    </ul>
+
+<pre><code>try {
+    // ...
+}
+catch (e) {
+    // 例外を Err に変換する場合は cause 必須
+    return Result.ErrFrom("net.http.unhandled", "Unhandled exception in http filter", e);
+}
+</code></pre>
+
+    <h5>18.2.1.4 エラーコードのドメイン定義</h5>
+    <ul>
+      <li>エラーコードは <code>string</code> とし、ドメイン（namespace / module / library）ごとに定数として定義してよい。</li>
+      <li>例：<code>"std.parse.format"</code>, <code>"net.http.timeout"</code> など。</li>
+      <li>Result はエラーコードの統一体系を持たず、コードの意味は定義元ドメインの仕様に従う。</li>
     </ul>
 
     <h3>18.7 コレクションに対するテンプレート map</h3>
