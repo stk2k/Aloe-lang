@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="37">
-  <meta name="edit-date" content="2025-12-20T00:04:33+09:00">
+  <meta name="edit-version" content="38">
+  <meta name="edit-date" content="2025-12-20T00:24:40+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -80,6 +80,22 @@
     .operator {
       font-family: "JetBrains Mono", "Cascadia Code", Consolas, "Ricty Diminished", monospace;
     }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.75rem 0;
+      border: 1px solid #e5e7eb;
+    }
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 0.5rem 0.6rem;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #1118270d;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -88,7 +104,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 37)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 38)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -123,8 +139,10 @@
         <li><a href="#name-resolution">4.3 名前解決の正式ルール</a></li>
         <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
         <li><a href="#boxing-unboxing">2.4 boxing / unboxing</a></li>
+        <li><a href="#string-value-type">2.3.1 string 値型</a></li>
         <li><a href="#implicit-unbox-cast">5.2.2 暗黙 unbox キャスト</a></li>
         <li><a href="#unbox-operator">15.3 unbox 演算子</a></li>
+        <li><a href="#operator-precedence">15.0 演算子の優先順位</a></li>
       </ul>
     </nav>
   </aside>
@@ -133,8 +151,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 37<br>
-      edit-date: 2025-12-20T00:04:33+09:00
+      edit-version: 38<br>
+      edit-date: 2025-12-20T00:24:40+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -147,6 +165,7 @@
       の拡張を含みます。<br>
       さらに、任意値の受け皿として <strong><code>object</code></strong> を導入し、
       プリミティブ値は <strong>box object</strong> に boxing して保持し、unboxing は <strong><code>as</code> / 暗黙 unbox キャスト / <code>unbox</code></strong> により行います。<br>
+      なお、<strong><code>string</code> は値型</strong>とし、参照の有効性（valid/invalid）の対象ではありません。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
 
@@ -166,14 +185,15 @@
     <ul>
       <li>静的型付け
         <ul>
-          <li><code>var</code> による型推論</li>
-          <li><code>let</code> による明示的な型指定</li>
+          <li><code>var</code> による型推論（初期化必須）</li>
+          <li><code>let</code> による明示的な型指定（初期化省略可）</li>
         </ul>
       </li>
       <li>値型 / 参照型
         <ul>
           <li><code>struct</code> ... 値型</li>
           <li><code>class</code> / <code>object</code> ... 参照型</li>
+          <li><code>string</code> ... 値型（2.3.1 参照）</li>
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
@@ -185,7 +205,7 @@
       </li>
       <li><code>object</code> と box object による boxing / unboxing
         <ul>
-          <li>プリミティブ値を <code>object</code> に保持する場合、対応する box object に boxing される。</li>
+          <li>値型（プリミティブ値を含む）を <code>object</code> に保持する場合、対応する box object に boxing される。</li>
           <li><code>object</code> からプリミティブを取り出す場合、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> を用いる。</li>
         </ul>
       </li>
@@ -359,7 +379,7 @@ print(x);
       <li><code>int</code> / <code>integer</code> - 符号付き整数。</li>
       <li><code>float</code> - 浮動小数点数。</li>
       <li><code>decimal</code> - 高精度 10 進数。</li>
-      <li><code>string</code> - 文字列（値型。不変）。</li>
+      <li><code>string</code> - 文字列（内部的には Unicode）。</li>
       <li><code>byte</code> - 0-255 の符号なし整数。</li>
       <li><code>char</code> - 1 文字。</li>
       <li><code>void</code> - 戻り値なし（戻り値専用）。</li>
@@ -389,7 +409,7 @@ print(x);
     <ul>
       <li>値型：
         <ul>
-          <li><code>int</code>, <code>float</code>, <code>decimal</code>, <code>bool</code>, <code>string</code>, <code>byte</code>, <code>char</code></li>
+          <li><code>int</code>, <code>float</code>, <code>decimal</code>, <code>bool</code>, <code>byte</code>, <code>char</code>, <code>string</code></li>
           <li><code>struct</code></li>
           <li><code>enum</code>, <code>bitfield enum</code>（内部表現は int32）</li>
         </ul>
@@ -403,11 +423,20 @@ print(x);
       </li>
     </ul>
 
+    <h4 id="string-value-type">2.3.1 string は値型（不変）</h4>
+    <ul>
+      <li><code>string</code> は値型である。</li>
+      <li><code>string</code> の代入は「値としてのコピー」を意味する（実装上の最適化は許容するが、観測可能な意味は値型として扱う）。</li>
+      <li><code>string</code> は不変（immutable）である。連結などの操作は新しい <code>string</code> 値を生成する。</li>
+      <li><code>string</code> は参照の有効性（valid/invalid）の対象ではない。したがって <code>delete</code> の対象にならない。</li>
+      <li><code>string</code> を <code>object</code> に代入する場合は boxing され、<code>String</code> box object になる（2.4 参照）。</li>
+    </ul>
+
     <h4>object 型（万能参照型）</h4>
     <ul>
       <li><code>object</code> は、<code>void</code> を除く任意の値を保持できる特別な参照型である。</li>
       <li>参照型の値は <code>object</code> へ暗黙に代入できる（参照コピー）。</li>
-      <li>プリミティブ値を <code>object</code> に代入する場合、対応する box object に boxing される（2.4参照）。</li>
+      <li>値型（プリミティブ型を含む）を <code>object</code> に代入する場合、対応する box object に boxing される（2.4参照）。</li>
       <li><code>object</code> から具体型 T への暗黙変換はない。</li>
       <li><code>if (x is T) { ... }</code> のブロック内では、<code>x</code> を T として扱ってよい（フロー依存の型絞り込み）。</li>
     </ul>
@@ -443,7 +472,7 @@ print(x);
 
     <h4>2.4.0 boxing の正準規則（固定）</h4>
     <ul>
-      <li><strong>プリミティブ値を <code>object</code> に代入する場合、必ず対応する box object に boxing する。</strong></li>
+      <li><strong>値型を <code>object</code> に代入する場合、必ず対応する box object に boxing する。</strong></li>
       <li><strong><code>string</code> もプリミティブとして扱い、<code>object</code> へ代入する場合は必ず <code>String</code> に boxing する。</strong></li>
       <li>box object を <code>object</code> に代入する場合は、その参照を保持する（再 boxing はしない）。</li>
     </ul>
@@ -459,10 +488,9 @@ print(x);
       <li>unboxing：<code>object</code> からプリミティブ値を得るには <code>as</code>（15.1）/ 暗黙 unbox キャスト（5.2.2）/ <code>unbox</code>（15.3）を用いる。</li>
     </ul>
 
-    <h4>2.4.1 角（invalid 時・string 扱い・変換の禁止）</h4>
+    <h4>2.4.1 角（invalid 時・変換の禁止）</h4>
     <ul>
       <li>invalid な参照に対して <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> を評価する場合の挙動は、それぞれの節の規則に従う。</li>
-      <li><code>string</code> を <code>object</code> に代入した場合、必ず <code>String</code> box object に boxing される（2.4.0）。</li>
       <li><strong>型変換は行わない。</strong> 例えば数値型同士の変換や文字列のパースなどは、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の範囲では行わない（失敗として扱う）。</li>
     </ul>
 
@@ -671,7 +699,7 @@ var fb  = new FizzBuzz();
 </code></pre>
     <ul>
       <li>変数の型は右辺の式から推論される。</li>
-      <li><code>var</code> 宣言は <strong>必ず初期化を伴う</strong>。<code>var x;</code> および <code>var x:T;</code>（初期化なし）はコンパイルエラー。</li>
+      <li><strong><code>var</code> 宣言は必ず初期化子を伴う。</strong> したがって <code>var x;</code> はコンパイルエラー。</li>
       <li><code>var x = 1;</code> は常に <code>int</code>。</li>
       <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
       <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
@@ -705,25 +733,31 @@ let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
       <li><code>let x: Foo = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
+      <li><code>let</code> は初期化を省略できる（5.2.1 参照）。</li>
     </ul>
 
-    <h3>5.2.1 未初期化変数（uninitialized）</h3>
+    <h3>5.2.1 未初期化変数（default / invalid）</h3>
     <p>
-      <code>let</code> による宣言は、初期化を省略した宣言を許可する。<br>
-      未初期化時の挙動は、値型と参照型で異なる。
+      <code>let</code> による変数宣言では、初期化を省略できる。<br>
+      初期化省略時の値は、型に応じて次の規則で決定する。
     </p>
     <ul>
-      <li>値型変数は、デフォルト値で初期化される。</li>
-      <li>参照型変数は、<strong>invalid 状態</strong>として扱われる。</li>
-      <li>未初期化参照と invalid は区別しない。</li>
+      <li><strong>プリミティブ型の未初期化はデフォルト値</strong>となる。</li>
+      <li><strong>参照型の未初期化は invalid</strong>となる（未初期化と invalid は区別しない）。</li>
     </ul>
-<pre><code>let i: int;          // i = 0
-let s: string;       // s = ""（空文字列）
-let obj: Foo;        // obj is invalid
-obj.Value;           // 実行時例外（InvalidReferenceException）
+
+<pre><code>let i: int;       // default: 0
+let f: float;     // default: 0.0
+let b: bool;      // default: false
+let c: char;      // default: '\0'
+let s: string;    // default: ""（空文字列）
+
+let obj: Foo;     // invalid（参照型）
 </code></pre>
     <ul>
-      <li>無効参照（invalid）へのメンバーアクセスは <strong>InvalidReferenceException</strong> を投げる。</li>
+      <li>参照型の未初期化（invalid）へのメンバーアクセスは <strong>InvalidReferenceException</strong> を投げる。</li>
+      <li>プリミティブ型のデフォルト値は実装依存ではなく、上記の意味で固定する。</li>
+      <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
     </ul>
 
     <h3 id="implicit-unbox-cast">5.2.2 暗黙 unbox キャスト（非消費）</h3>
@@ -775,6 +809,7 @@ const AppName: string = "Aloe VM";
     <ul>
       <li><code>const</code> 変数は再代入不可。</li>
       <li>const には型注釈が必須。</li>
+      <li>const は初期化を省略できない。</li>
     </ul>
 
     <hr>
@@ -890,7 +925,8 @@ class ConsoleLogger implements ILogger {
     <h3 id="validity-model">8.1 参照の有効性モデル（valid / invalid）</h3>
     <p>
       Aloe では、参照が「有効（valid）」か「無効（invalid）」かという状態をモデル化する。<br>
-      <code>invalid</code> は <strong>代入や初期化に使用できない</strong>が、参照の有効性チェックには使用できる。
+      <code>invalid</code> は <strong>代入や初期化に使用できない</strong>が、参照の有効性チェックには使用できる。<br>
+      本節の規則は <strong>参照型</strong>にのみ適用される（値型は invalid にならない）。
     </p>
 
 <pre><code>var obj = new FizzBuzz();
@@ -908,10 +944,11 @@ if (obj is invalid) {
       <li>オブジェクトの実際の解放（回収）は実行系が決定する（GC）。</li>
       <li><strong>未初期化参照と invalid は区別しない。</strong> 初期化を省略した参照型変数は invalid とみなされる。</li>
       <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
+      <li>値型（例：<code>int</code>, <code>string</code>）に対する <code>delete</code> はコンパイルエラー。</li>
     </ul>
 
     <h3>8.2 invalid 参照アクセス</h3>
-<pre><code>var obj: Foo;     // invalid
+<pre><code>let obj: Foo;     // invalid
 obj.Value;        // throws InvalidReferenceException
 </code></pre>
     <ul>
@@ -941,10 +978,11 @@ if (obj is invalid) {
       <li><code>is</code> は実行時の型チェックを行う（型名が右辺の場合）。</li>
       <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
       <li>インタフェースや trait に対しても使用できる。</li>
-      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックである。</li>
+      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックである（参照型にのみ適用）。</li>
       <li><strong><code>invalid is T</code> は常に <code>false</code>。</strong> 例外にしてはならない。</li>
       <li><strong>曖昧な名前解決は必ずコンパイルエラー。</strong></li>
       <li><code>is</code> 演算子の左辺は必ず「式（値）」でなければならない。</li>
+      <li>値型に対する <code>is valid</code> / <code>is invalid</code> はコンパイルエラーとする。</li>
     </ul>
 
     <hr>
@@ -1032,6 +1070,76 @@ print(b);
     <hr>
 
     <h2 id="ch15">15. Operators（演算子）</h2>
+
+    <h3 id="operator-precedence">15.0 演算子の優先順位と結合</h3>
+    <p>
+      本節は、式の構文解析のための演算子優先順位と結合規則を定義する。<br>
+      括弧 <code>( ... )</code> により、常に評価順序を明示できる。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>優先順位（高 → 低）</th>
+          <th>分類</th>
+          <th>例</th>
+          <th>結合</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>一次（postfix）</td>
+          <td><code>x.Member</code>, <code>f(x)</code>, <code>a[b]</code></td>
+          <td>左</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>単項（prefix）</td>
+          <td>（略：本節は原文に準拠）</td>
+          <td>右</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>乗除</td>
+          <td><code>a * b</code>, <code>a / b</code></td>
+          <td>左</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>加減</td>
+          <td><code>a + b</code>, <code>a - b</code></td>
+          <td>左</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>比較</td>
+          <td><code>a &lt; b</code>, <code>a &gt;= b</code>, <code>a == b</code></td>
+          <td>左</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>型・有効性</td>
+          <td><code>x is T</code>, <code>x is valid</code>, <code>E as T</code></td>
+          <td>左</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>論理 AND</td>
+          <td><code>a and b</code></td>
+          <td>左</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>論理 OR</td>
+          <td><code>a or b</code></td>
+          <td>左</td>
+        </tr>
+      </tbody>
+    </table>
+    <ul>
+      <li><code>E as T ifnot ...</code> は <code>as</code> 演算子の構文拡張であり、優先順位は <code>as</code> と同じである。</li>
+      <li>上表に含まれない演算子の詳細は原文に準拠する。</li>
+    </ul>
 
     <h3>15.1 as 演算子と ifnot（キャストと代替）</h3>
     <p>
@@ -1135,7 +1243,7 @@ finally {
     </p>
 
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
-    <p>（略：本節は原文に準拠）</p>
+    <p>（略：原文に準拠）</p>
 
     <h3>18.2 Result&lt;T&gt; と ROP の原則</h3>
     <ul>
