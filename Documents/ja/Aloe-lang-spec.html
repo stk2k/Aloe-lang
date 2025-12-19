@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="39">
-  <meta name="edit-date" content="2025-12-20T00:33:58+09:00">
+  <meta name="edit-version" content="40">
+  <meta name="edit-date" content="2025-12-20T00:43:15+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 39)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 40)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -133,8 +133,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 39<br>
-      edit-date: 2025-12-20T00:33:58+09:00
+      edit-version: 40<br>
+      edit-date: 2025-12-20T00:43:15+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -166,20 +166,21 @@
     <ul>
       <li>静的型付け
         <ul>
-          <li><code>var</code> による型推論</li>
-          <li><code>let</code> による明示的な型指定</li>
+          <li><code>var</code> による型推論（初期化必須）</li>
+          <li><code>let</code> による明示的な型指定（初期化省略可）</li>
         </ul>
       </li>
       <li>値型 / 参照型
         <ul>
-          <li><code>struct</code> / <code>string</code> / プリミティブ ... 値型</li>
+          <li><code>struct</code> ... 値型</li>
+          <li>プリミティブ（<code>string</code> を含む）... 値型</li>
           <li><code>class</code> / <code>object</code> ... 参照型</li>
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
       <li>参照の無効状態（<code>invalid</code>）を言語レベルのモデルとして導入する
         <ul>
-          <li><code>delete</code> は「参照を無効化する命令」であり、無効化後の参照アクセスは例外となる。</li>
+          <li><code>delete</code> は「参照変数を無効化する命令」であり、無効化後の参照アクセスは例外となる。</li>
           <li><code>invalid</code> は代入や初期化に使えない（有効性チェック用途のみ）。</li>
         </ul>
       </li>
@@ -359,7 +360,7 @@ print(x);
       <li><code>int</code> / <code>integer</code> - 符号付き整数。</li>
       <li><code>float</code> - 浮動小数点数。</li>
       <li><code>decimal</code> - 高精度 10 進数。</li>
-      <li><code>string</code> - 文字列（内部的には Unicode）。</li>
+      <li><code>string</code> - 文字列（Unicode）。</li>
       <li><code>byte</code> - 0-255 の符号なし整数。</li>
       <li><code>char</code> - 1 文字。</li>
       <li><code>void</code> - 戻り値なし（戻り値専用）。</li>
@@ -403,49 +404,21 @@ print(x);
       </li>
     </ul>
 
-    <h4>string 値型の観測可能な意味（固定）</h4>
+    <h4>string 値型の観測可能な意味</h4>
     <ul>
-      <li><strong>string は値型である。</strong> 代入・引数渡し・return は、意味的には常に「値コピー」として扱う。</li>
-
-      <li><strong>string は不変（immutable）である。</strong> 生成後に内容が変化する操作は存在しない。
-          文字列を変更する操作（連結・置換・部分取得など）は、常に新しい string 値を生成して返す。</li>
-
-      <li><strong>共有は観測できない。</strong>
-          実装は最適化として内部バッファ共有・インターン・参照カウント等を行ってよいが、
-          プログラムからは「別々にコピーされた値」と区別できてはならない（値型として振る舞うこと）。</li>
-
-      <li><strong>比較は内容比較である。</strong>
-          <code>==</code> / <code>!=</code> は参照同一性ではなく、文字列内容（文字列長と各文字）の一致で判定する。</li>
-
-      <li><strong>順序比較は辞書順である。</strong>
-          <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code> は
-          先頭から文字単位で比較し、最初に異なる文字の大小で決まる。全て一致する場合は長さで決まる。</li>
-
-      <li><strong>length は文字数（char 個数）である。</strong>
-          <code>s.length</code> は <code>int</code> を返し、string に含まれる <code>char</code> の個数を表す。</li>
-
-      <li><strong>インデクサは 0 始まりで char を返す。</strong>
-          <code>s[i]</code> は <code>char</code> を返す。<code>i</code> が範囲外の場合は <code>IndexOutOfBoundsException</code>。</li>
-
-      <li><strong>string のデフォルト値は空文字列である。</strong>
-          string はプリミティブ値として扱うため、初期化を省略した string 変数は <code>""</code> で初期化される。</li>
-
-      <li><strong>valid / invalid は参照型にのみ適用できる。</strong>
-          string（および他の値型）に対する <code>is valid</code> / <code>is invalid</code> はコンパイルエラーとする。</li>
-
-      <li><strong>delete は参照型にのみ適用できる。</strong>
-          string（および他の値型）に対する <code>delete</code> はコンパイルエラーとする。</li>
-
-      <li><strong>object への代入は boxing である。</strong>
-          string を <code>object</code> に代入する場合、必ず <code>String</code> box object に boxing される（2.4 の規則に従う）。
-          その後の unboxing は string 値を得るだけであり、参照同一性に依存する挙動を導入してはならない。</li>
+      <li><code>string</code> は値型として扱う。代入・引数渡し・戻り値は「値」として意味付けられる。</li>
+      <li>実装が内部で参照共有や最適化を行ってもよいが、それはプログラムから観測できてはならない。</li>
+      <li><code>string</code> の等値比較（<code>==</code>）は文字列内容（Unicodeの並び）で決まる。</li>
+      <li><code>string</code> は <code>invalid</code> にならない（有効性モデルの対象は参照型のみ）。</li>
+      <li><code>delete</code> は参照変数に対する命令であり、<code>string</code> 変数に対して適用してはならない（コンパイルエラー）。</li>
+      <li><code>string</code> を <code>object</code> に代入する場合は <code>String</code> box object に boxing される（2.4参照）。</li>
     </ul>
 
     <h4>object 型（万能参照型）</h4>
     <ul>
       <li><code>object</code> は、<code>void</code> を除く任意の値を保持できる特別な参照型である。</li>
       <li>参照型の値は <code>object</code> へ暗黙に代入できる（参照コピー）。</li>
-      <li>プリミティブ値を <code>object</code> に代入する場合、対応する box object に boxing される（2.4参照）。</li>
+      <li>プリミティブ値（<code>string</code> を含む）を <code>object</code> に代入する場合、対応する box object に boxing される（2.4参照）。</li>
       <li><code>object</code> から具体型 T への暗黙変換はない。</li>
       <li><code>if (x is T) { ... }</code> のブロック内では、<code>x</code> を T として扱ってよい（フロー依存の型絞り込み）。</li>
     </ul>
@@ -709,8 +682,9 @@ var fb  = new FizzBuzz();
 </code></pre>
     <ul>
       <li>変数の型は右辺の式から推論される。</li>
-      <li><strong><code>var</code> 宣言は初期化が必須である。</strong> <code>var x;</code> はコンパイルエラー。</li>
-      <li><strong><code>var</code> は型推論専用であり、型注釈を付けない。</strong> <code>var x: T = ...;</code> および <code>var x: T;</code> はコンパイルエラー。</li>
+      <li><strong><code>var</code> 宣言は初期化が必須である。</strong></li>
+      <li><strong><code>var obj;</code> はコンパイルエラー。</strong></li>
+      <li><strong><code>var obj: Foo;</code> はコンパイルエラー。</strong>（型注釈付き宣言は <code>let</code> を用いる）</li>
       <li><code>var x = 1;</code> は常に <code>int</code>。</li>
       <li><code>var x = 1.0;</code> は <code>float</code> として扱われる。</li>
       <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
@@ -746,26 +720,30 @@ let mp : map&lt;string/int&gt; = ["key": 10];
       <li><code>let x: Foo = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
     </ul>
 
-    <h3>5.2.1 未初期化変数（デフォルト値 / invalid）</h3>
+    <h3>5.2.1 初期化省略（デフォルト値 / invalid）</h3>
     <p>
-      <code>let</code> では初期化を省略した宣言を許可する。<br>
-      初期化を省略した場合の初期値は次の規則で決まる。
+      <code>let</code> 宣言では、初期化を省略した宣言を許可する。<br>
+      初期化を省略した場合の状態は型により決まる。
     </p>
-    <ul>
-      <li><strong>プリミティブ型（値型）はデフォルト値で初期化される。</strong></li>
-      <li><strong>参照型は invalid 状態として扱われる。</strong></li>
-      <li><strong>未初期化参照と invalid は区別しない。</strong></li>
-    </ul>
-<pre><code>let i: int;        // default: 0
-let f: float;      // default: 0.0
-let b: bool;       // default: false
-let s: string;     // default: ""
-
-let obj: Foo;      // invalid（未初期化参照は invalid と同義）
+<pre><code>let i: int;        // default value (0)
+let s: string;     // default value ("")
+let obj: Foo;      // invalid (uninitialized reference is treated as invalid)
 </code></pre>
     <ul>
+      <li>プリミティブ型はデフォルト値で初期化される。</li>
+      <li>参照型は <strong>invalid 状態</strong>として扱われる（未初期化と invalid は区別しない）。</li>
       <li>invalid 参照へのメンバーアクセスは <strong>InvalidReferenceException</strong> を投げる。</li>
-      <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
+    </ul>
+
+    <h4>プリミティブ型のデフォルト値</h4>
+    <ul>
+      <li><code>bool</code>：<code>false</code></li>
+      <li><code>int</code>：<code>0</code></li>
+      <li><code>float</code>：<code>0.0</code></li>
+      <li><code>decimal</code>：<code>0:d</code></li>
+      <li><code>string</code>：<code>""</code></li>
+      <li><code>byte</code>：<code>0</code></li>
+      <li><code>char</code>：<code>'\0'</code></li>
     </ul>
 
     <h3 id="implicit-unbox-cast">5.2.2 暗黙 unbox キャスト（非消費）</h3>
@@ -817,6 +795,7 @@ const AppName: string = "Aloe VM";
     <ul>
       <li><code>const</code> 変数は再代入不可。</li>
       <li>const には型注釈が必須。</li>
+      <li>const は初期化が必須（初期化省略は不可）。</li>
     </ul>
 
     <hr>
@@ -943,7 +922,8 @@ if (obj is invalid) {
 </code></pre>
 
     <ul>
-      <li><code>delete x;</code> は「参照変数 <code>x</code> を無効化する命令」である。</li>
+      <li><strong><code>delete x;</code> は、参照変数 <code>x</code> の状態を <code>invalid</code> にする操作である。</strong></li>
+      <li><strong><code>delete</code> は解放のためのステートメントではなく、あくまで無効化にする処理である。</strong></li>
       <li><strong><code>delete</code> は例外を投げてはならない。</strong> 既に invalid の場合も無効果である。</li>
       <li>無効化後、<code>x</code> を通じた参照先のメンバーアクセスは <strong>InvalidReferenceException</strong> を引き起こす。</li>
       <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は変数単位）。</li>
@@ -983,8 +963,7 @@ if (obj is invalid) {
       <li><code>is</code> は実行時の型チェックを行う（型名が右辺の場合）。</li>
       <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
       <li>インタフェースや trait に対しても使用できる。</li>
-      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックである（参照型にのみ適用できる）。</li>
-      <li><strong>値型（プリミティブ型・struct・enum を含む）に対する <code>is valid</code> / <code>is invalid</code> はコンパイルエラーとする。</strong></li>
+      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックである。</li>
       <li><strong><code>invalid is T</code> は常に <code>false</code>。</strong> 例外にしてはならない。</li>
       <li><strong>曖昧な名前解決は必ずコンパイルエラー。</strong></li>
       <li><code>is</code> 演算子の左辺は必ず「式（値）」でなければならない。</li>
