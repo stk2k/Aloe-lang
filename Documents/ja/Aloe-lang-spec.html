@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="42">
-  <meta name="edit-date" content="2025-12-20T15:55:42+09:00">
+  <meta name="edit-version" content="43">
+  <meta name="edit-date" content="2025-12-21T00:05:22+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 42)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 43)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -135,8 +135,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 42<br>
-      edit-date: 2025-12-20T15:55:42+09:00
+      edit-version: 43<br>
+      edit-date: 2025-12-21T00:05:22+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -873,54 +873,6 @@ const AppName: string = "Aloe VM";
       <li>フィールド初期化を省略した場合は、<code>let</code> のデフォルト初期化規則（5.2.1）に従う。</li>
     </ul>
 
-    <h3>6.1 参照型フィールドのコンストラクタ初期化保証（強制チェック）</h3>
-    <p>
-      Aloe 流では、<strong>フィールドはすべて初期化すべきであり、未初期化のまま使用してはいけない。</strong><br>
-      特に参照型フィールドについては、オブジェクトが構築された直後に invalid 参照アクセス事故が起きないことを保証するため、
-      コンパイラはコンストラクタ実行時に値を強制的にチェックしなければならない。
-    </p>
-    <ul>
-      <li>本節の対象は、class の <strong>インスタンスフィールド</strong>のうち、参照型であるもの（class / object / task / pipe&lt;T&gt; / Result&lt;T&gt; 等）とする。</li>
-      <li>値型フィールド（プリミティブ、struct、enum 等）は対象外である。</li>
-    </ul>
-
-    <h4>6.1.1 確定代入（コンパイル時）</h4>
-    <ul>
-      <li>各 <code>construct</code> は、正常終了するすべての制御経路において、対象フィールドへ <strong>少なくとも 1 回</strong> 代入しなければならない。</li>
-      <li>代入が全経路で確定できない場合は <strong>コンパイルエラー</strong>。</li>
-      <li>フィールド宣言時の初期化式（例：<code>field f: Foo = new Foo();</code>）は、この「代入」とみなしてよい。</li>
-    </ul>
-
-    <h4>6.1.2 valid 強制チェック（実行時・コンパイラ挿入）</h4>
-    <ul>
-      <li><code>construct</code> が正常終了する場合、対象フィールドはすべて <strong>valid</strong> でなければならない。</li>
-      <li>いずれかが invalid の場合、コンストラクタは <strong><code>InvalidReferenceException</code></strong> を投げなければならない。</li>
-      <li>この規則を満たすため、コンパイラは各 <code>construct</code> の正常終了直前に、対象フィールドに対する <strong>valid チェック</strong>を挿入してよい（または挿入しなければならない）。</li>
-    </ul>
-
-<pre><code>class C {
-    field a: Foo;
-
-    // a が全経路で代入されない可能性があるためコンパイルエラー
-    construct(flag: bool, x: Foo) {
-        if (flag) {
-            this.a = x;
-        }
-    }
-}
-</code></pre>
-
-<pre><code>class D {
-    field a: Foo;
-
-    // a は代入されるが、x が invalid の可能性がある
-    // コンストラクタ正常終了時に a が invalid なら InvalidReferenceException
-    construct(x: Foo) {
-        this.a = x;
-    }
-}
-</code></pre>
-
     <hr>
 
     <h2 id="ch7">7. Class / Struct / Interface / Trait</h2>
@@ -1021,23 +973,28 @@ if (obj is invalid) {
 </code></pre>
 
     <ul>
-      <li><strong><code>delete x;</code> は「参照変数 <code>x</code> の状態を invalid にする操作」である。</strong></li>
-      <li><strong><code>delete</code> のオペランドは参照型の lvalue でなければならない。</strong> 値型（string を含む）に対する <code>delete</code> はコンパイルエラー。</li>
-      <li>許可される lvalue の代表例：
+      <li><strong><code>delete x;</code> は「参照 lvalue <code>x</code> の状態を invalid にする操作」である。</strong></li>
+      <li>
+        <strong><code>delete</code> のオペランドは参照型の代入可能な lvalue でなければならない。</strong>
+        許可される代表例：
         <ul>
-          <li>参照型の変数（例：<code>delete obj;</code>）</li>
-          <li>参照型のフィールド（例：<code>delete this.field;</code>, <code>delete obj.field;</code>）</li>
+          <li>参照型の変数（ローカル変数 / 引数 / フィールド）</li>
+          <li>参照型フィールドへのアクセス（例：<code>delete obj.field;</code>, <code>delete this.field;</code>）</li>
         </ul>
+        値型（string を含む）に対する <code>delete</code> はコンパイルエラー。
       </li>
-      <li><strong><code>delete</code> は例外を投げてはならない。</strong> 既に invalid の場合も無効果である。</li>
-      <li><code>delete obj.field;</code> の評価：
-        <ul>
-          <li><code>obj</code> が invalid の場合、<strong>何も行わない</strong>（例外を投げない）。</li>
-          <li><code>obj</code> が valid の場合、そのフィールド参照のみを invalid にする。</li>
-        </ul>
+      <li>
+        <strong><code>delete</code> は例外を投げてはならない。</strong>
+        既に invalid の場合も無効果である。<br>
+        さらに、フィールド delete（<code>delete obj.field;</code>）において、<code>obj</code> が invalid の場合も
+        <strong>例外を投げず無効果（no-op）</strong>とする。
       </li>
-      <li>無効化後、invalid 参照を通じた参照先のメンバーアクセスは <strong>InvalidReferenceException</strong> を引き起こす。</li>
-      <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は変数単位／フィールド単位）。</li>
+      <li>
+        <strong>参照が明らかに invalid と静的に確定できる場合、<code>delete</code> はコンパイラ警告とする。</strong>
+        （例：参照型のデフォルト初期化直後、<code>delete</code> 後、<code>if (x is invalid)</code> ブロック内など。）
+      </li>
+      <li>無効化後、（有効な参照を経由した）参照先のメンバーアクセスは <strong>InvalidReferenceException</strong> を引き起こす。</li>
+      <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は変数単位）。</li>
       <li>オブジェクトの実際の解放（回収）は実行系が決定する（GC）。</li>
       <li>参照型のデフォルト初期化（5.2.1）と invalid は区別しない。</li>
       <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
@@ -1268,7 +1225,7 @@ finally {
     </p>
 
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
-    <p>（略：原文に準拠）</p>
+    <p>（略：本節は原文に準拠）</p>
 
     <h3>18.2 Result&lt;T&gt; と ROP の原則</h3>
     <ul>
