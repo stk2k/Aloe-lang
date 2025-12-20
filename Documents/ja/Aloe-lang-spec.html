@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="43">
-  <meta name="edit-date" content="2025-12-21T00:05:22+09:00">
+  <meta name="edit-version" content="44">
+  <meta name="edit-date" content="2025-12-21T00:57:34+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 43)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 44)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -119,7 +119,8 @@
     <nav>
       <ul>
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
-        <li><a href="#with-type">4.2.1 型名対象 with 拡張</a></li>
+        <li><a href="#with-targets">4.2.1 with 対象と安全アクセス</a></li>
+        <li><a href="#with-type">4.2.2 型名対象 with 拡張</a></li>
         <li><a href="#name-resolution">4.3 名前解決の正式ルール</a></li>
         <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
         <li><a href="#boxing-unboxing">2.4 boxing / unboxing</a></li>
@@ -135,8 +136,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 43<br>
-      edit-date: 2025-12-21T00:05:22+09:00
+      edit-version: 44<br>
+      edit-date: 2025-12-21T00:57:34+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -191,7 +192,7 @@
         <ul>
           <li>プリミティブ値を <code>object</code> に保持する場合、対応する box object に boxing される。</li>
           <li><code>object</code> からプリミティブを取り出す場合、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> を用いる。</li>
-          <li>数値型同士の変換や文字列パースは <code>as</code> / <code>unbox</code> では行わず、標準ライブラリの Parse / TryParse を用いる。</li>
+          <li>数値型同士の変換や文字列パースは <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> では行わず、標準ライブラリの Parse / TryParse を用いる。</li>
         </ul>
       </li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
@@ -308,6 +309,7 @@ yield
       <li><code>final</code> は廃止され、拡張禁止には <code>sealed</code> を用いる。</li>
       <li><code>instanceof</code> は廃止され、型チェックには <code>is</code> を用いる。</li>
       <li><code>null</code> は仕様書から排除する。</li>
+      <li>短絡安全アクセス構文（例：<code>a?.b</code>）は持たない。</li>
     </ul>
 
     <h3>1.4 Literals（リテラル）</h3>
@@ -618,7 +620,7 @@ print(x);
 
     <h3 id="with-blocks">4.2 with-blocks（メンバー省略記法）</h3>
     <p>
-      Aloe には、同一オブジェクトのメンバーアクセスを簡潔に書くための
+      Aloe には、同一オブジェクト（または同一値）のメンバーアクセスを簡潔に書くための
       <code>with</code> ブロックがある。
     </p>
 <pre><code>with (user) {
@@ -628,38 +630,126 @@ print(x);
 }
 </code></pre>
     <ul>
-      <li><code>with (expr) { ... }</code> ブロック内では：
+      <li><code>with (target) { ... }</code> ブロック内では：
         <ul>
-          <li><code>.Member</code> は <code>(expr).Member</code> の省略形。</li>
-          <li><code>expr</code> はブロックの先頭で 1 度だけ評価され、内部で保持される（再評価しない）。</li>
+          <li><code>.Member</code> は <code>(target).Member</code> の省略形。</li>
+          <li><code>target</code> はブロックの開始時に 1 度だけ解決され、内部で保持される（再評価しない）。</li>
         </ul>
       </li>
       <li><strong><code>_</code> は特別扱いしない。</strong> with 対象を表す暗黙変数は存在しない。</li>
-      <li>ネストした <code>with</code> ブロック：
-        <ul>
-          <li>内側の <code>with</code> が <code>.</code> の解決対象となる。</li>
-          <li>外側オブジェクトへは通常の変数名でアクセスできる。</li>
-        </ul>
+      <li>
+        <code>with</code> は短絡安全アクセス（例：<code>a?.b</code>）を提供しない。
+        代わりに、参照型 target に対しては「validity チェック + 明示例外」によって安全性を担保する（4.2.1）。
       </li>
-      <li>C# の <code>using</code> スタイルのように、同じブロックに複数の <code>with</code> を並べられる：</li>
     </ul>
-<pre><code>with (user), (profile) {
-    .name = "Alice";  // resolved against user, then profile
+
+    <h4 id="with-targets">4.2.1 with 対象と安全アクセス（validity チェック、readonly lvalue）</h4>
+    <p>
+      本節は、<code>with (target)</code> の <code>target</code> の制約、および「安全アクセス」としての意味を定義する。
+    </p>
+
+    <h5>4.2.1.1 target の構文制約（式は禁止、lvalue のみ）</h5>
+    <p>
+      <code>with</code> の target は <strong>式</strong>ではなく、次のいずれかの <strong>lvalue（格納場所）</strong>でなければならない。
+      target の評価に一時変数名（tmp 等）を導入する構文は存在しない（リネーム不可）。
+    </p>
+    <ul>
+      <li><strong>Identifier のみ</strong>（例：<code>with (a) { ... }</code>）</li>
+      <li><strong>フィールドまで許可</strong>（例：<code>with (this.a) { ... }</code>、<code>with (obj.field) { ... }</code>）</li>
+    </ul>
+    <p>禁止例（コンパイルエラー）：</p>
+<pre><code>with (GetUser()) { }       // 関数呼び出しは不可
+with (a + b) { }           // 式は不可
+with (a.b.c) { }           // 仕様上、フィールドは 1 段まで（必要なら明示して分ける）
+</code></pre>
+
+    <h5>4.2.1.2 target の型制約（プリミティブ禁止、構造体/コンテナ許可）</h5>
+    <ul>
+      <li><strong>プリミティブ型（bool/int/float/decimal/string/byte/char/void）は target にできない。</strong></li>
+      <li><strong>struct は target にできる。</strong></li>
+      <li><strong>配列/リスト/セット/マップ等のコンテナは target にできる。</strong></li>
+      <li><strong>class/object 等の参照型は target にできる。</strong></li>
+    </ul>
+    <p class="note">
+      プリミティブはプロパティ・メソッドを持たない前提であるため、<code>with</code> の対象から除外する。
+      struct やコンテナはメンバーを持ち得るため対象とする。
+    </p>
+
+    <h5>4.2.1.3 参照型 target の validity チェック（invalid は例外、短絡はしない）</h5>
+    <p>
+      target が参照型である場合、<code>with</code> はブロックの開始時に target の参照を 1 度だけ取得し、
+      その参照が invalid であれば <strong>InvalidException</strong> を投げる。
+      このときブロック本体は実行されない。
+    </p>
+<pre><code>with (a) {
+    .DoWork();
+} catch {
+    // a が invalid の場合のみここに入る
 }
 </code></pre>
     <ul>
-      <li>解決順序は <strong>左から右</strong> とする。</li>
-      <li>左から探索して最初に見つかったメンバーに解決する。</li>
-      <li>ただし同名メンバーが複数ターゲットに存在し、解決が曖昧になる場合は <strong>コンパイルエラー</strong>。</li>
+      <li><strong>短絡して「何も実行しない」挙動は持たない。</strong>（例：<code>a?.b</code> のような仕様は禁止）</li>
+      <li><code>with (a) { ... }</code> は、参照型 a が invalid なら必ず例外で停止する。</li>
+      <li>value type（struct 等）に対しては invalid の概念が無いため、validity チェックは行わない。</li>
     </ul>
-    <p>
-      <code>with</code> は構文糖衣であり、意味的にはすべて明示的な <code>obj.member</code> 呼び出しに書き換えた上で
-      型チェック・コード生成を行うことができる。
-    </p>
 
-    <h4 id="with-type">4.2.1 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
+    <h5>4.2.1.4 with 付属 catch（InvalidException のみトラップ）</h5>
     <p>
-      通常の <code>with (expr)</code> に加えて、<strong>型名</strong> を対象にした
+      <code>with</code> には、target の validity チェックで発生する <strong>InvalidException</strong> をトラップするための
+      付属 <code>catch</code> を 1 つだけ付けられる。
+      これは <strong>with の開始時に投げられる InvalidException のみ</strong>を対象とし、
+      ブロック本体の実行中に発生した例外はトラップしない（必要なら <code>try</code> を使用する）。
+    </p>
+<pre><code>with (a) {
+    .DoWork();
+} catch {
+}
+
+with (a) {
+    .DoWork();
+} catch (e: InvalidException) {
+}
+</code></pre>
+    <ul>
+      <li><code>catch {}</code> は InvalidException を無視する。</li>
+      <li><code>catch (e: InvalidException) {}</code> は InvalidException を捕捉し、例外オブジェクトを <code>e</code> に束縛する。</li>
+      <li>with 付属 catch の型は <code>InvalidException</code> 以外を指定できない（指定した場合はコンパイルエラー）。</li>
+    </ul>
+
+    <h5>4.2.1.5 with ブロック内の禁止事項（readonly は名前ではなく格納場所）</h5>
+    <p>
+      <code>with</code> ブロック内では、target に対応する <strong>格納場所（lvalue）</strong>が一時的に readonly になる。
+      readonly の対象は「変数名」ではなく「格納場所」である。
+    </p>
+    <ul>
+      <li><strong>delete 禁止</strong>（with ブロック内に <code>delete</code> 文が存在した時点でコンパイルエラー）</li>
+      <li><strong>同じ格納場所を target にした with のネスト禁止</strong></li>
+      <li><strong>target への代入禁止</strong>（格納場所が readonly）</li>
+    </ul>
+
+    <h5>4.2.1.6 フィールド target の readonly 展開（b.c の場合）</h5>
+    <p>
+      target がフィールドアクセスの場合、readonly は「基底」と「フィールド本体」に対して適用される。
+    </p>
+    <p>例：<code>with (b.c) { ... }</code></p>
+    <ul>
+      <li>with ブロック内で <strong>b と b.c は readonly</strong> になる。</li>
+      <li>with ブロック内で <strong>b と b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
+      <li>with target のリネーム構文は存在しない（従って b と b.c のリネームも不可）。</li>
+    </ul>
+
+<pre><code>with (b.c) {
+    b = NewB();      // コンパイルエラー（b は readonly）
+    b.c = NewC();    // コンパイルエラー（b.c は readonly）
+    delete b;        // コンパイルエラー（with 内 delete 禁止）
+    with (b) { }     // コンパイルエラー（ネスト不可）
+    with (b.c) { }   // コンパイルエラー（ネスト不可）
+}
+</code></pre>
+
+    <h4 id="with-type">4.2.2 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
+    <p>
+      通常の <code>with (target)</code> に加えて、<strong>型名</strong> を対象にした
       <code>with</code> を利用できる。
     </p>
 <pre><code>with (TypeName) {
@@ -1185,6 +1275,7 @@ finally {
     <h3>16.1 標準例外の概要</h3>
 <pre><code>Exception
 +- SystemException
+|  +- InvalidException
 |  +- InvalidReferenceException
 |  +- InvalidCastException
 |  +- IndexOutOfBoundsException
@@ -1203,6 +1294,7 @@ finally {
    +- IOException (general)
 </code></pre>
     <ul>
+      <li><code>InvalidException</code> は <code>with</code> の開始時 validity チェック失敗で投げる（4.2.1参照）。</li>
       <li><code>InvalidReferenceException</code> は invalid 参照アクセスで投げる（8章参照）。</li>
       <li><code>InvalidCastException</code> は <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の失敗で投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
@@ -1210,6 +1302,25 @@ finally {
       <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
       <li><code>InvalidOperationException</code> は不正な状態での操作に用いる（例：Result から不正な取り出し）。</li>
     </ul>
+
+    <h3>16.2 catch の型注釈（一般機構）</h3>
+    <p>
+      <code>catch</code> は例外変数に型注釈を付けられる。型は例外型でなければならない。
+      型注釈の無い <code>catch (e)</code> は <code>catch (e: Exception)</code> と同義とする。
+    </p>
+<pre><code>try {
+}
+catch {
+    // 全例外を捕捉（例外変数を束縛しない）
+}
+catch (e) {
+    // e: Exception
+}
+catch (e: InvalidException) {
+}
+finally {
+}
+</code></pre>
 
     <hr>
 
