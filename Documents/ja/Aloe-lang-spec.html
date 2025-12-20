@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="41">
-  <meta name="edit-date" content="2025-12-20T01:29:59+09:00">
+  <meta name="edit-version" content="42">
+  <meta name="edit-date" content="2025-12-20T14:43:48+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 41)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 42)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -135,8 +135,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 41<br>
-      edit-date: 2025-12-20T01:29:59+09:00
+      edit-version: 42<br>
+      edit-date: 2025-12-20T14:43:48+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -183,7 +183,7 @@
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
       <li>参照の無効状態（<code>invalid</code>）を言語レベルのモデルとして導入する
         <ul>
-          <li><code>delete</code> は「参照変数を無効化する命令」であり、無効化後の参照アクセスは例外となる。</li>
+          <li><code>delete</code> は「参照（変数またはフィールド）を無効化する命令」であり、無効化後の参照アクセスは例外となる。</li>
           <li><code>invalid</code> は比較用の特殊定数であり、代入や初期化には使用できない。</li>
         </ul>
       </li>
@@ -973,11 +973,12 @@ if (obj is invalid) {
 </code></pre>
 
     <ul>
-      <li><strong><code>delete x;</code> は「参照変数 <code>x</code> の状態を invalid にする操作」である。</strong></li>
-      <li><strong><code>delete</code> のオペランドは参照型の変数（lvalue）でなければならない。</strong> 値型（string を含む）に対する <code>delete</code> はコンパイルエラー。</li>
+      <li><strong><code>delete x;</code> は「参照 lvalue <code>x</code>（変数またはフィールド）の状態を invalid にする操作」である。</strong></li>
+      <li><strong><code>delete</code> のオペランドは参照型の代入可能な lvalue（変数またはフィールド）でなければならない。</strong> 値型（string を含む）に対する <code>delete</code> はコンパイルエラー。</li>
       <li><strong><code>delete</code> は例外を投げてはならない。</strong> 既に invalid の場合も無効果である。</li>
+      <li><strong><code>delete obj.field;</code> において <code>obj</code> が invalid の場合も無効果であり、例外を投げてはならない。</strong></li>
       <li>無効化後、<code>x</code> を通じた参照先のメンバーアクセスは <strong>InvalidReferenceException</strong> を引き起こす。</li>
-      <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は変数単位）。</li>
+      <li>同一オブジェクトを参照している別の参照変数には干渉しない（参照の無効化は lvalue 単位：変数またはフィールド）。</li>
       <li>オブジェクトの実際の解放（回収）は実行系が決定する（GC）。</li>
       <li>参照型のデフォルト初期化（5.2.1）と invalid は区別しない。</li>
       <li><code>invalid</code> は比較・判定用であり、<code>x = invalid</code> や <code>let x: Foo = invalid</code> はコンパイルエラー。</li>
