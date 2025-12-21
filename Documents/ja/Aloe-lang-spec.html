@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="46">
-  <meta name="edit-date" content="2025-12-21T09:34:11+09:00">
+  <meta name="edit-version" content="47">
+  <meta name="edit-date" content="2025-12-21T13:54:36+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 46)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 47)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -136,8 +136,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 46<br>
-      edit-date: 2025-12-21T09:34:11+09:00
+      edit-version: 47<br>
+      edit-date: 2025-12-21T13:54:36+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -655,12 +655,11 @@ print(x);
     </p>
     <ul>
       <li><strong>Identifier のみ</strong>（例：<code>with (a) { ... }</code>）</li>
-      <li><strong>フィールドまで許可</strong>（例：<code>with (this.a) { ... }</code>、<code>with (obj.field) { ... }</code>）</li>
+      <li><strong>メンバーアクセス（ドット連鎖）を許可</strong>（例：<code>with (this.a) { ... }</code>、<code>with (obj.field) { ... }</code>、<code>with (a.b.c) { ... }</code>）</li>
     </ul>
     <p>禁止例（コンパイルエラー）：</p>
 <pre><code>with (GetUser()) { }       // 関数呼び出しは不可
 with (a + b) { }           // 式は不可
-with (a.b.c) { }           // 仕様上、フィールドは 1 段まで（必要なら明示して分ける）
 </code></pre>
 
     <h5>4.2.1.2 target の型制約（プリミティブ禁止、構造体/コンテナ許可）</h5>
@@ -682,11 +681,24 @@ with (a.b.c) { }           // 仕様上、フィールドは 1 段まで（必�
       このときブロック本体は実行されない。
     </p>
     <p>
-      target がフィールドアクセス（例：<code>with (b.c) { ... }</code>）の場合、validity チェックは with 開始時のチェックの一部として次の順で行う：
+      target がメンバーアクセス（例：<code>with (a.b.c) { ... }</code>）の場合、target は左から右へ 1 段ずつ評価し、
+      参照型として評価される各段階で validity チェックを with 開始時チェックの一部として行う。
     </p>
     <ul>
-      <li>まず base（<code>b</code>）を 1 度だけ取得し、<code>b</code> が invalid なら <strong>InvalidException</strong>。</li>
-      <li>次にフィールド（<code>b.c</code>）を 1 度だけ取得し、<code>b.c</code> が invalid なら <strong>InvalidException</strong>。</li>
+      <li>評価順序は <strong>a ⇒ a.b ⇒ a.b.c</strong> の順とする（一般に、左から右へ 1 段ずつ）。</li>
+      <li>各段階の「現在値」が参照型である場合：
+        <ul>
+          <li>その参照が invalid なら <strong>InvalidException</strong>。</li>
+          <li>valid の場合のみ次のメンバー取得を行う。</li>
+        </ul>
+      </li>
+      <li>各段階の「現在値」が値型（struct 等）である場合：
+        <ul>
+          <li>invalid の概念が無いため、validity チェックは行わない。</li>
+          <li>通常の値型メンバーアクセスとして次のメンバー取得を行う。</li>
+        </ul>
+      </li>
+      <li>以上の規則により、メンバーアクセス途中に参照型が現れる場合でも、invalid 参照の逆参照は必ず with 開始時に <strong>InvalidException</strong> で停止する。</li>
     </ul>
 <pre><code>with (a) {
     .DoWork();
@@ -734,23 +746,26 @@ with (a) {
       <li><strong>target への代入禁止</strong>（格納場所が readonly）</li>
     </ul>
 
-    <h5>4.2.1.6 フィールド target の readonly 展開（b.c の場合）</h5>
+    <h5>4.2.1.6 メンバーアクセス target の readonly 展開（a.b.c の場合）</h5>
     <p>
-      target がフィールドアクセスの場合、readonly は「基底」と「フィールド本体」に対して適用される。
+      target がメンバーアクセス（ドット連鎖）の場合、readonly は target そのものだけでなく、
+      その評価に用いられる「前段（prefix）」の格納場所にも適用される。
     </p>
-    <p>例：<code>with (b.c) { ... }</code></p>
+    <p>例：<code>with (a.b.c) { ... }</code></p>
     <ul>
-      <li>with ブロック内で <strong>b と b.c は readonly</strong> になる。</li>
-      <li>with ブロック内で <strong>b と b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
-      <li>with target のリネーム構文は存在しない（従って b と b.c のリネームも不可）。</li>
+      <li>with ブロック内で <strong>a, a.b, a.b.c は readonly</strong> になる。</li>
+      <li>with ブロック内で <strong>a / a.b / a.b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
+      <li>with target のリネーム構文は存在しない（従って a / a.b / a.b.c のリネームも不可）。</li>
     </ul>
 
-<pre><code>with (b.c) {
-    b = NewB();      // コンパイルエラー（b は readonly）
-    b.c = NewC();    // コンパイルエラー（b.c は readonly）
-    delete b;        // コンパイルエラー（with 内 delete 禁止）
-    with (b) { }     // コンパイルエラー（ネスト不可）
-    with (b.c) { }   // コンパイルエラー（ネスト不可）
+<pre><code>with (a.b.c) {
+    a = NewA();        // コンパイルエラー（a は readonly）
+    a.b = NewB();      // コンパイルエラー（a.b は readonly）
+    a.b.c = NewC();    // コンパイルエラー（a.b.c は readonly）
+    delete a;          // コンパイルエラー（with 内 delete 禁止）
+    with (a) { }       // コンパイルエラー（ネスト不可）
+    with (a.b) { }     // コンパイルエラー（ネスト不可）
+    with (a.b.c) { }   // コンパイルエラー（ネスト不可）
 }
 </code></pre>
 
