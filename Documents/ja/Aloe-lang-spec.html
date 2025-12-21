@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="49">
-  <meta name="edit-date" content="2025-12-21T15:17:35+09:00">
+  <meta name="edit-version" content="50">
+  <meta name="edit-date" content="2025-12-21T21:45:29+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 49)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 50)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -128,7 +128,6 @@
         <li><a href="#implicit-unbox-cast">5.2.2 暗黙 unbox キャスト</a></li>
         <li><a href="#unbox-operator">15.3 unbox 演算子</a></li>
         <li><a href="#result-error-model">18.2.1 Result&lt;T&gt; と Error</a></li>
-        <li><a href="#catch-else">16.3 catch_else</a></li>
       </ul>
     </nav>
   </aside>
@@ -137,8 +136,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 49<br>
-      edit-date: 2025-12-21T15:17:35+09:00
+      edit-version: 50<br>
+      edit-date: 2025-12-21T21:45:29+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -640,15 +639,11 @@ print(x);
       <li><strong><code>_</code> は特別扱いしない。</strong> with 対象を表す暗黙変数は存在しない。</li>
       <li>
         <code>with</code> は短絡安全アクセス（例：<code>a?.b</code>）を提供しない。
-        代わりに、参照型 target に対しては「validity チェック + 明示例外」によって安全性を担保する（4.2.1）。
-      </li>
-      <li>
-        <code>with</code> は <code>try</code> と同様に <code>catch</code> / <code>catch_else</code> を伴ってよい（16章参照）。
-        これにより、with ブロック本体内で発生した例外も捕捉できる（4.2.1.4）。
+        代わりに、参照型 target に対しては「lock + validity チェック + 明示例外」によって安全性を担保する（4.2.1）。
       </li>
     </ul>
 
-    <h4 id="with-targets">4.2.1 with 対象と安全アクセス（validity チェック、readonly lvalue）</h4>
+    <h4 id="with-targets">4.2.1 with 対象と安全アクセス（validity チェック、readonly lvalue、lock）</h4>
     <p>
       本節は、<code>with (target)</code> の <code>target</code> の制約、および「安全アクセス」としての意味を定義する。
     </p>
@@ -660,7 +655,7 @@ print(x);
     </p>
     <ul>
       <li><strong>Identifier のみ</strong>（例：<code>with (a) { ... }</code>）</li>
-      <li><strong>フィールドチェーンを許可</strong>（例：<code>with (this.a) { ... }</code>、<code>with (obj.field) { ... }</code>、<code>with (a.b.c) { ... }</code>）</li>
+      <li><strong>フィールドアクセス（任意段）</strong>（例：<code>with (this.a) { ... }</code>、<code>with (obj.field) { ... }</code>、<code>with (a.b.c) { ... }</code>）</li>
     </ul>
     <p>禁止例（コンパイルエラー）：</p>
 <pre><code>with (GetUser()) { }       // 関数呼び出しは不可
@@ -679,51 +674,83 @@ with (a + b) { }           // 式は不可
       struct やコンテナはメンバーを持ち得るため対象とする。
     </p>
 
-    <h5>4.2.1.3 参照型 target の validity チェック（invalid は例外、短絡はしない）</h5>
+    <h5>4.2.1.3 参照型 target の lock + validity チェック（invalid は例外、短絡はしない）</h5>
     <p>
-      target が参照型である場合、<code>with</code> はブロックの開始時に target を左から右へ 1 度だけ評価し、
-      評価途中で invalid が観測された時点で <strong>InvalidException</strong> を投げる。
+      target が参照型である場合、<code>with</code> はブロックの開始時に target を <strong>左から右へ</strong> 1 回だけ評価し、
+      途中で invalid が発生した場合は <strong>InvalidException</strong> を投げる。
       このときブロック本体は実行されない。
     </p>
+
     <p>
-      target がフィールドチェーン（例：<code>with (a.b.c) { ... }</code>）の場合、評価と validity チェックは次の規則で行う：
+      さらに、並行実行における「突然の invalid 化」を避けるため、<code>with</code> は参照型の評価途中で
+      <strong>対象オブジェクトに対する lock（排他）を取得し、with ブロックの終了まで保持する。</strong><br>
+      この lock は <code>delete</code> と同じ lock を使用し、lock が保持されている間は、他のスレッドから当該オブジェクトを <code>delete</code> できない（delete は lock 待ちで停止する）。
     </p>
+
+    <p>評価と lock の規則（target が <code>a.b.c</code> の場合の例）：</p>
     <ul>
-      <li>チェーンは左から右へ順に評価する（例：<code>a</code> → <code>a.b</code> → <code>a.b.c</code>）。</li>
-      <li>参照型の段階で invalid が観測された場合は、その時点で <strong>InvalidException</strong>。</li>
-      <li>値型（struct 等）の段階には invalid の概念が無いため、その段階では validity チェックは行わない。</li>
-      <li>成功した場合、最終ターゲット（例：<code>a.b.c</code>）を 1 度だけ取得し、以後は再評価しない。</li>
+      <li>まず <code>a</code> を 1 回だけ取得する。
+        <ul>
+          <li><code>a</code> が参照型で invalid なら <strong>InvalidException</strong>（lock は取得しない）。</li>
+          <li><code>a</code> が参照型で valid なら、<strong>a が指すオブジェクトに lock を取得</strong>する。</li>
+          <li><code>a</code> が値型（struct 等）の場合、validity チェックと lock は行わない。</li>
+        </ul>
+      </li>
+      <li>次に <code>a.b</code> を 1 回だけ取得する（必要な base は既に固定されている）。
+        <ul>
+          <li><code>a.b</code> が参照型で invalid なら <strong>InvalidException</strong>。この場合、既に取得済みの lock（例：a の lock）は解放して終了する。</li>
+          <li><code>a.b</code> が参照型で valid なら、<strong>a.b が指すオブジェクトに lock を取得</strong>する。</li>
+          <li><code>a.b</code> が値型（struct 等）の場合、validity チェックと lock は行わない。</li>
+        </ul>
+      </li>
+      <li>最後に <code>a.b.c</code> を 1 回だけ取得する。
+        <ul>
+          <li><code>a.b.c</code> が参照型で invalid なら <strong>InvalidException</strong>。この場合、既に取得済みの lock をすべて解放して終了する。</li>
+          <li><code>a.b.c</code> が参照型で valid なら、<strong>a.b.c が指すオブジェクトに lock を取得</strong>する。</li>
+          <li><code>a.b.c</code> が値型（struct 等）の場合、validity チェックと lock は行わない。</li>
+        </ul>
+      </li>
+      <li><strong>with ブロック本体の実行中、取得した lock はすべて保持される。</strong> ブロックを抜けた時点で解放される。</li>
     </ul>
 
-<pre><code>// 参照型チェーン例（a/b/c が参照型のとき）
-with (a.b.c) {
+    <p class="note">
+      lock の単位は「変数」ではなく「その参照が指すオブジェクト」である。<br>
+      したがって <code>with (a)</code> は a という格納場所を lock するのではなく、a が参照するオブジェクトを lock する。<br>
+      値型（struct 等）は invalid の概念を持たないため lock も行わない。ただし、値型 target が参照型のフィールドアクセス経由で到達する場合、評価途中で通過した参照型 base に対する lock は取得される。
+    </p>
+
+<pre><code>with (a.b.c) {
     .DoWork();
+} catch {
+    // a / a.b / a.b.c の評価途中で invalid が発生した場合のみここに入る
 }
 </code></pre>
     <ul>
       <li><strong>短絡して「何も実行しない」挙動は持たない。</strong>（例：<code>a?.b</code> のような仕様は禁止）</li>
-      <li>参照型 target が invalid なら必ず例外で停止する。</li>
-      <li>value type（struct 等）に対しては invalid の概念が無いため、validity チェックは行わない。</li>
+      <li><code>with (a) { ... }</code> は、参照型 a が invalid なら必ず例外で停止する。</li>
     </ul>
 
-    <h5>4.2.1.4 with/catch（try と同等の捕捉、catch_else）</h5>
+    <h5>4.2.1.4 with 付属 catch（InvalidException のみトラップ）</h5>
     <p>
-      <code>with</code> は <code>try</code> と同様に <code>catch</code> / <code>catch_else</code> を伴ってよい。
-      これらは、with 開始時の target 評価（validity チェックを含む）で投げられる例外、および with ブロック本体の実行中に発生した例外の両方を対象とする。
+      <code>with</code> には、target の lock + validity チェックで発生する <strong>InvalidException</strong> をトラップするための
+      付属 <code>catch</code> を 1 つだけ付けられる。
+      これは <strong>with の開始時に行われる lock + validity チェックで投げられる InvalidException のみ</strong>を対象とし、
+      ブロック本体の実行中に発生した例外（InvalidException を含む）はトラップしない（必要なら <code>try</code> を使用する）。
     </p>
-<pre><code>with (a.b.c) {
+<pre><code>with (a) {
     .DoWork();
+} catch {
 }
-catch (e: InvalidException) {
-    // target 評価中の invalid、または本体での invalid 参照アクセスなど
-}
-catch_else (e) {
-    // 上の catch にマッチしなかった例外
+
+with (a) {
+    .DoWork();
+} catch (e: InvalidException) {
 }
 </code></pre>
     <ul>
-      <li><code>catch</code> は上から順に評価され、<strong>最初にマッチした 1 つだけ</strong>が実行される（16章参照）。</li>
-      <li><code>catch_else</code> は「どの catch にもマッチしなかった場合」のハンドラであり、最大 1 個だけ定義でき、最後に置かなければならない（16.3参照）。</li>
+      <li><code>catch {}</code> は InvalidException を無視する。</li>
+      <li><code>catch (e: InvalidException) {}</code> は InvalidException を捕捉し、例外オブジェクトを <code>e</code> に束縛する。</li>
+      <li>with 付属 catch の型は <code>InvalidException</code> 以外を指定できない（指定した場合はコンパイルエラー）。</li>
     </ul>
 
     <h5>4.2.1.5 with ブロック内の禁止事項（readonly は名前ではなく格納場所）</h5>
@@ -737,25 +764,25 @@ catch_else (e) {
       <li><strong>target への代入禁止</strong>（格納場所が readonly）</li>
     </ul>
 
-    <h5>4.2.1.6 フィールドチェーン target の readonly 展開（a.b.c の場合）</h5>
+    <h5>4.2.1.6 フィールド target の readonly 展開（a.b.c の場合）</h5>
     <p>
-      target がフィールドチェーンの場合、readonly は「チェーンに含まれる格納場所（prefix を含む）」に対して適用される。
+      target がフィールドアクセスの場合、readonly は「基底」と「到達した各フィールド本体」に対して適用される。
     </p>
     <p>例：<code>with (a.b.c) { ... }</code></p>
     <ul>
-      <li>with ブロック内で <strong>a, a.b, a.b.c は readonly</strong> になる。</li>
-      <li>with ブロック内で <strong>a, a.b, a.b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
-      <li>with target のリネーム構文は存在しない（従って a, a.b, a.b.c のリネームも不可）。</li>
+      <li>with ブロック内で <strong>a と a.b と a.b.c は readonly</strong> になる。</li>
+      <li>with ブロック内で <strong>a / a.b / a.b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
+      <li>with target のリネーム構文は存在しない（従って a / a.b / a.b.c のリネームも不可）。</li>
     </ul>
 
 <pre><code>with (a.b.c) {
-    a = NewA();        // コンパイルエラー（a は readonly）
-    a.b = NewB();      // コンパイルエラー（a.b は readonly）
-    a.b.c = NewC();    // コンパイルエラー（a.b.c は readonly）
-    delete a;          // コンパイルエラー（with 内 delete 禁止）
-    with (a) { }       // コンパイルエラー（ネスト不可）
-    with (a.b) { }     // コンパイルエラー（ネスト不可）
-    with (a.b.c) { }   // コンパイルエラー（ネスト不可）
+    a = NewA();         // コンパイルエラー（a は readonly）
+    a.b = NewB();       // コンパイルエラー（a.b は readonly）
+    a.b.c = NewC();     // コンパイルエラー（a.b.c は readonly）
+    delete a;           // コンパイルエラー（with 内 delete 禁止）
+    with (a) { }        // コンパイルエラー（ネスト不可）
+    with (a.b) { }      // コンパイルエラー（ネスト不可）
+    with (a.b.c) { }    // コンパイルエラー（ネスト不可）
 }
 </code></pre>
 
@@ -1085,12 +1112,31 @@ if (obj is invalid) {
         </ul>
         値型（string を含む）に対する <code>delete</code> はコンパイルエラー。
       </li>
+
+      <li>
+        <strong>delete は lock を取得してから実行される。</strong>
+        <ul>
+          <li><code>delete x;</code> は、x が参照するオブジェクトに対して lock（排他）を取得し、その lock を保持したまま x を invalid にする。</li>
+          <li><code>delete a.b.c;</code> のようなフィールドアクセスの場合、評価は <code>with</code>（4.2.1.3）と同様に左から右へ進み、参照型の各段で lock を取得してから次段を読み取る。</li>
+          <li>他のスレッドが lock を保持している場合、delete は lock が取得できるまで待機する（例外は投げない）。</li>
+        </ul>
+      </li>
+
       <li>
         <strong><code>delete</code> は例外を投げてはならない。</strong>
         既に invalid の場合も無効果である。<br>
         さらに、フィールド delete（<code>delete obj.field;</code>）において、<code>obj</code> が invalid の場合も
         <strong>例外を投げず無効果（no-op）</strong>とする。
       </li>
+
+      <li>
+        <strong>delete が実行された時点で Dispose が起動される。</strong>
+        <ul>
+          <li>対象オブジェクトが <code>method Dispose(): void</code> を持つ場合、実行系は <strong>delete の時点で</strong> Dispose を呼び出してよい（GC の都合によらない）。</li>
+          <li>Dispose 呼び出しの有無・タイミングの詳細（同期/非同期、呼び出しスレッド等）は実装依存とするが、「GC 任せ」ではなく「delete を契機に起動される」ことを観測可能な仕様として固定する。</li>
+        </ul>
+      </li>
+
       <li>
         <strong>参照が明らかに invalid と静的に確定できる場合、<code>delete</code> はコンパイラ警告とする。</strong>
         （例：参照型のデフォルト初期化直後、<code>delete</code> 後、<code>if (x is invalid)</code> ブロック内など。）
@@ -1278,9 +1324,7 @@ let i: int = unbox o;        // i = 123, o becomes invalid
     <h2 id="ch16">16. Exceptions（例外）</h2>
 <pre><code>try {
 }
-catch (e: InvalidException) {
-}
-catch_else (e) {
+catch (e) {
 }
 finally {
 }
@@ -1307,7 +1351,7 @@ finally {
    +- IOException (general)
 </code></pre>
     <ul>
-      <li><code>InvalidException</code> は invalid 参照アクセス、および <code>with</code> の target 評価中に invalid が観測された場合に投げる（4.2.1 / 8章参照）。</li>
+      <li><code>InvalidException</code> は invalid 参照アクセス、および <code>with</code> の開始時 lock + validity チェック失敗で投げる（4.2.1 / 8章参照）。</li>
       <li><code>InvalidCastException</code> は <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の「型不一致」による失敗で投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
@@ -1317,8 +1361,8 @@ finally {
 
     <h3>16.2 catch の型注釈（一般機構）</h3>
     <p>
-      <code>catch</code> は例外変数に型注釈を付けられる。型は例外型でなければならない。<br>
-      また、複数の <code>catch</code> がある場合は <strong>上から順に評価</strong>され、<strong>最初にマッチした 1 つだけ</strong>が実行される。
+      <code>catch</code> は例外変数に型注釈を付けられる。型は例外型でなければならない。
+      型注釈の無い <code>catch (e)</code> は <code>catch (e: Exception)</code> と同義とする。
     </p>
 <pre><code>try {
 }
@@ -1333,36 +1377,6 @@ catch (e: InvalidException) {
 finally {
 }
 </code></pre>
-    <ul>
-      <li>型注釈の無い <code>catch (e)</code> は <code>catch (e: Exception)</code> と同義とする。</li>
-      <li><code>catch {}</code> は <code>catch (e: Exception) {}</code> と同義とする。</li>
-      <li>例外型のマッチは「実行時型が指定型に代入可能であること」によって判定する（派生型は基底型 catch にマッチしうる）。</li>
-    </ul>
-
-    <h3 id="catch-else">16.3 catch_else（未マッチ例外のハンドラ）</h3>
-    <p>
-      <code>catch_else</code> は、<code>catch</code> 群のいずれにもマッチしなかった場合に実行されるハンドラである。
-      <code>catch_else</code> は最大 1 個だけ定義でき、存在する場合は必ず最後に置かなければならない。
-    </p>
-<pre><code>try {
-    // ...
-}
-catch (e: InvalidException) {
-    // ...
-}
-catch (e: IOException) {
-    // ...
-}
-catch_else (e) {
-    // 上記のいずれにもマッチしなかった例外
-}
-</code></pre>
-    <ul>
-      <li><code>catch_else</code> は「例外が発生したが、どの catch にもマッチしない」場合にのみ実行される。</li>
-      <li><code>catch_else</code> に束縛される <code>e</code> の型は <code>Exception</code> とする。</li>
-      <li><code>catch_else</code> の省略は「未マッチ例外は外側へ伝搬する」ことを意味する。</li>
-      <li>本仕様の <code>catch_else</code> 規則は <code>try</code> だけでなく、<code>with</code> および（存在する場合の）capture 構文にも同様に適用される。</li>
-    </ul>
 
     <hr>
 
