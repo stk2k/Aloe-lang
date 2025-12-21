@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="48">
-  <meta name="edit-date" content="2025-12-21T14:53:45+09:00">
+  <meta name="edit-version" content="49">
+  <meta name="edit-date" content="2025-12-21T15:17:35+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 48)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 49)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -128,7 +128,7 @@
         <li><a href="#implicit-unbox-cast">5.2.2 暗黙 unbox キャスト</a></li>
         <li><a href="#unbox-operator">15.3 unbox 演算子</a></li>
         <li><a href="#result-error-model">18.2.1 Result&lt;T&gt; と Error</a></li>
-        <li><a href="#catch-all">16.3 catch_all（最後のハンドラ）</a></li>
+        <li><a href="#catch-else">16.3 catch_else</a></li>
       </ul>
     </nav>
   </aside>
@@ -137,8 +137,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 48<br>
-      edit-date: 2025-12-21T14:53:45+09:00
+      edit-version: 49<br>
+      edit-date: 2025-12-21T15:17:35+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -241,7 +241,6 @@ bitfield
 break
 case
 catch
-catch_all
 class
 const
 construct
@@ -644,8 +643,8 @@ print(x);
         代わりに、参照型 target に対しては「validity チェック + 明示例外」によって安全性を担保する（4.2.1）。
       </li>
       <li>
-        <code>with</code> には <code>catch</code> / <code>catch_all</code> を付与でき、これは <code>try</code> と同等に
-        ブロック本体内の例外も捕捉できる（4.2.1.4 / 16章参照）。
+        <code>with</code> は <code>try</code> と同様に <code>catch</code> / <code>catch_else</code> を伴ってよい（16章参照）。
+        これにより、with ブロック本体内で発生した例外も捕捉できる（4.2.1.4）。
       </li>
     </ul>
 
@@ -666,7 +665,6 @@ print(x);
     <p>禁止例（コンパイルエラー）：</p>
 <pre><code>with (GetUser()) { }       // 関数呼び出しは不可
 with (a + b) { }           // 式は不可
-with ((a.b).c) { }         // 括弧を含む式は不可（target は構文的に lvalue を要求）
 </code></pre>
 
     <h5>4.2.1.2 target の型制約（プリミティブ禁止、構造体/コンテナ許可）</h5>
@@ -681,69 +679,52 @@ with ((a.b).c) { }         // 括弧を含む式は不可（target は構文的�
       struct やコンテナはメンバーを持ち得るため対象とする。
     </p>
 
-    <h5>4.2.1.3 参照型 target の validity チェック（フィールドチェーンを左から評価）</h5>
+    <h5>4.2.1.3 参照型 target の validity チェック（invalid は例外、短絡はしない）</h5>
     <p>
-      target が参照型を含む場合、<code>with</code> はブロック開始時に target を <strong>左から右に 1 回だけ評価</strong>し、
-      必要な箇所で validity を検査する。短絡はせず、invalid が見つかった時点で <strong>InvalidException</strong> を投げる。
-      このときブロック本体は実行されない（ただし 4.2.1.4 の <code>catch</code> / <code>catch_all</code> があれば捕捉できる）。
+      target が参照型である場合、<code>with</code> はブロックの開始時に target を左から右へ 1 度だけ評価し、
+      評価途中で invalid が観測された時点で <strong>InvalidException</strong> を投げる。
+      このときブロック本体は実行されない。
     </p>
-
-    <p>フィールドチェーン target の一般形：</p>
-<pre><code>x0.x1.x2...xn
-</code></pre>
     <p>
-      ここで <code>x0</code> は識別子（または <code>this</code> を含むフィールドアクセスの起点）であり、
-      各 <code>xi</code> はフィールド名である。
-      評価は次の規則で行う。
+      target がフィールドチェーン（例：<code>with (a.b.c) { ... }</code>）の場合、評価と validity チェックは次の規則で行う：
     </p>
     <ul>
-      <li>評価は左から右であり、各段階は高々 1 回だけ評価される（再評価しない）。</li>
-      <li>参照型の値を <strong>デリファレンスして次のフィールドを読む直前</strong>に、その参照が invalid であれば <strong>InvalidException</strong>。</li>
-      <li>最終ターゲットが参照型であり、その値が invalid であれば <strong>InvalidException</strong>。</li>
-      <li>値型（struct 等）は invalid の概念がないため、値型そのものに対して validity チェックは行わない。</li>
+      <li>チェーンは左から右へ順に評価する（例：<code>a</code> → <code>a.b</code> → <code>a.b.c</code>）。</li>
+      <li>参照型の段階で invalid が観測された場合は、その時点で <strong>InvalidException</strong>。</li>
+      <li>値型（struct 等）の段階には invalid の概念が無いため、その段階では validity チェックは行わない。</li>
+      <li>成功した場合、最終ターゲット（例：<code>a.b.c</code>）を 1 度だけ取得し、以後は再評価しない。</li>
     </ul>
 
-    <p>例：</p>
-<pre><code>with (a.b.c) {
+<pre><code>// 参照型チェーン例（a/b/c が参照型のとき）
+with (a.b.c) {
     .DoWork();
 }
 </code></pre>
     <ul>
-      <li><code>a</code> が参照型で invalid なら InvalidException。</li>
-      <li><code>a</code> が参照型で valid の場合、<code>a.b</code> を取得する。</li>
-      <li><code>a.b</code> が参照型で、その値が invalid なら（<code>.c</code> を読む前に）InvalidException。</li>
-      <li><code>a.b</code> が値型なら validity チェックは無い（値として <code>.c</code> を取得する）。</li>
-      <li>最終的に得られた <code>a.b.c</code> が参照型で invalid なら InvalidException。</li>
+      <li><strong>短絡して「何も実行しない」挙動は持たない。</strong>（例：<code>a?.b</code> のような仕様は禁止）</li>
+      <li>参照型 target が invalid なら必ず例外で停止する。</li>
+      <li>value type（struct 等）に対しては invalid の概念が無いため、validity チェックは行わない。</li>
     </ul>
 
-    <h5>4.2.1.4 with に付与できる catch / catch_all（try と同等）</h5>
+    <h5>4.2.1.4 with/catch（try と同等の捕捉、catch_else）</h5>
     <p>
-      <code>with (target) { ... }</code> の直後には <code>catch</code> 節を 0 個以上、必要に応じて最後に <code>catch_all</code> を 1 個だけ付与できる。
-      これらは <strong><code>try</code> の catch と同等</strong>であり、次を対象として例外を捕捉できる。
+      <code>with</code> は <code>try</code> と同様に <code>catch</code> / <code>catch_else</code> を伴ってよい。
+      これらは、with 開始時の target 評価（validity チェックを含む）で投げられる例外、および with ブロック本体の実行中に発生した例外の両方を対象とする。
     </p>
-    <ul>
-      <li>with の開始時に行われる target 評価（4.2.1.3）で発生した例外</li>
-      <li>with ブロック本体の実行中に発生した例外</li>
-    </ul>
-    <p>
-      catch の選択は「発生した例外の型」によって行われ、<strong>上から順に評価し、最初に一致した catch ブロックだけが実行される。</strong>
-      どの catch にも一致しない場合、例外は外側へ伝播する。
-      <code>catch_all</code> が存在する場合、未一致時の最後のハンドラとして必ず実行される（16.3参照）。
-    </p>
-
 <pre><code>with (a.b.c) {
     .DoWork();
 }
 catch (e: InvalidException) {
-    // InvalidException のみ
+    // target 評価中の invalid、または本体での invalid 参照アクセスなど
 }
-catch (e: Exception) {
-    // その他
-}
-catch_all (e) {
-    // どの catch にもマッチしなかった場合の最後のハンドラ
+catch_else (e) {
+    // 上の catch にマッチしなかった例外
 }
 </code></pre>
+    <ul>
+      <li><code>catch</code> は上から順に評価され、<strong>最初にマッチした 1 つだけ</strong>が実行される（16章参照）。</li>
+      <li><code>catch_else</code> は「どの catch にもマッチしなかった場合」のハンドラであり、最大 1 個だけ定義でき、最後に置かなければならない（16.3参照）。</li>
+    </ul>
 
     <h5>4.2.1.5 with ブロック内の禁止事項（readonly は名前ではなく格納場所）</h5>
     <p>
@@ -758,15 +739,13 @@ catch_all (e) {
 
     <h5>4.2.1.6 フィールドチェーン target の readonly 展開（a.b.c の場合）</h5>
     <p>
-      target がフィールドチェーンの場合、readonly は target 自身に加えて、
-      その評価に関与する <strong>代入可能な prefix lvalue</strong> に対しても適用される。
-      これは with ブロック本体の実行中に target の経路が書き換わることを禁止するためである。
+      target がフィールドチェーンの場合、readonly は「チェーンに含まれる格納場所（prefix を含む）」に対して適用される。
     </p>
     <p>例：<code>with (a.b.c) { ... }</code></p>
     <ul>
-      <li>with ブロック内で <strong>a / a.b / a.b.c は readonly</strong> になる（代入可能なもののみ）。</li>
-      <li>with ブロック内で <strong>a / a.b / a.b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
-      <li>with target のリネーム構文は存在しない。</li>
+      <li>with ブロック内で <strong>a, a.b, a.b.c は readonly</strong> になる。</li>
+      <li>with ブロック内で <strong>a, a.b, a.b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
+      <li>with target のリネーム構文は存在しない（従って a, a.b, a.b.c のリネームも不可）。</li>
     </ul>
 
 <pre><code>with (a.b.c) {
@@ -1299,7 +1278,9 @@ let i: int = unbox o;        // i = 123, o becomes invalid
     <h2 id="ch16">16. Exceptions（例外）</h2>
 <pre><code>try {
 }
-catch (e) {
+catch (e: InvalidException) {
+}
+catch_else (e) {
 }
 finally {
 }
@@ -1326,7 +1307,7 @@ finally {
    +- IOException (general)
 </code></pre>
     <ul>
-      <li><code>InvalidException</code> は invalid 参照アクセス、および with の target 評価で invalid が検出された場合に投げる（4.2.1 / 8章参照）。</li>
+      <li><code>InvalidException</code> は invalid 参照アクセス、および <code>with</code> の target 評価中に invalid が観測された場合に投げる（4.2.1 / 8章参照）。</li>
       <li><code>InvalidCastException</code> は <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の「型不一致」による失敗で投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
@@ -1336,8 +1317,8 @@ finally {
 
     <h3>16.2 catch の型注釈（一般機構）</h3>
     <p>
-      <code>catch</code> は例外変数に型注釈を付けられる。型は例外型でなければならない。
-      型注釈の無い <code>catch (e)</code> は <code>catch (e: Exception)</code> と同義とする。
+      <code>catch</code> は例外変数に型注釈を付けられる。型は例外型でなければならない。<br>
+      また、複数の <code>catch</code> がある場合は <strong>上から順に評価</strong>され、<strong>最初にマッチした 1 つだけ</strong>が実行される。
     </p>
 <pre><code>try {
 }
@@ -1353,27 +1334,34 @@ finally {
 }
 </code></pre>
     <ul>
-      <li><strong>複数の catch が存在する場合、上から順に評価し、最初に一致した catch ブロックだけが実行される。</strong></li>
-      <li>一致条件は「例外の実行時型が catch の型に代入可能であること」とする。</li>
+      <li>型注釈の無い <code>catch (e)</code> は <code>catch (e: Exception)</code> と同義とする。</li>
+      <li><code>catch {}</code> は <code>catch (e: Exception) {}</code> と同義とする。</li>
+      <li>例外型のマッチは「実行時型が指定型に代入可能であること」によって判定する（派生型は基底型 catch にマッチしうる）。</li>
     </ul>
 
-    <h3 id="catch-all">16.3 catch_all（最後のハンドラ）</h3>
+    <h3 id="catch-else">16.3 catch_else（未マッチ例外のハンドラ）</h3>
     <p>
-      <code>catch_all</code> は、上に並んだ <code>catch</code> のいずれにも一致しなかった場合の最後のハンドラを表す。
-      <code>catch_all</code> は <strong>1 個だけ</strong>記述でき、かつ <strong>必ず最後</strong>に置かなければならない。違反はコンパイルエラー。
+      <code>catch_else</code> は、<code>catch</code> 群のいずれにもマッチしなかった場合に実行されるハンドラである。
+      <code>catch_else</code> は最大 1 個だけ定義でき、存在する場合は必ず最後に置かなければならない。
     </p>
 <pre><code>try {
+    // ...
 }
 catch (e: InvalidException) {
+    // ...
 }
-catch_all (e) {
-    // ここに来た時点で、上の catch に一致しなかったことが確定している
+catch (e: IOException) {
+    // ...
+}
+catch_else (e) {
+    // 上記のいずれにもマッチしなかった例外
 }
 </code></pre>
     <ul>
-      <li><code>catch_all (e)</code> は常に捕捉する（型は <code>Exception</code> と同義）。</li>
-      <li><code>catch_all</code> を省略した場合、未捕捉の例外は外側へ伝播する。</li>
-      <li>この規則は <code>try</code> に限らず、<code>with</code> に付与される catch 群にも同様に適用する（4.2.1.4）。</li>
+      <li><code>catch_else</code> は「例外が発生したが、どの catch にもマッチしない」場合にのみ実行される。</li>
+      <li><code>catch_else</code> に束縛される <code>e</code> の型は <code>Exception</code> とする。</li>
+      <li><code>catch_else</code> の省略は「未マッチ例外は外側へ伝搬する」ことを意味する。</li>
+      <li>本仕様の <code>catch_else</code> 規則は <code>try</code> だけでなく、<code>with</code> および（存在する場合の）capture 構文にも同様に適用される。</li>
     </ul>
 
     <hr>
