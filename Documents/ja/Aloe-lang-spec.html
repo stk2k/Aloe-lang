@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="53">
-  <meta name="edit-date" content="2025-12-24T22:51:11+09:00">
+  <meta name="edit-version" content="54">
+  <meta name="edit-date" content="2025-12-24T23:56:51+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 53)</div>
+    <div class="subtitle">Draft - Japanese translation (edit-version 54)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -101,7 +101,7 @@
         <li><a href="#ch5"><span class="chapter-index">5.</span>変数と定数 (Variables &amp; Constants)</a></li>
         <li><a href="#ch6"><span class="chapter-index">6.</span>フィールド (Fields)</a></li>
         <li><a href="#ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
-        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; invalid</a></li>
+        <li><a href="#ch8"><span class="chapter-index">8.</span>using &amp; Dispose</a></li>
         <li><a href="#ch9"><span class="chapter-index">9.</span>is 演算子 (is Operator)</a></li>
         <li><a href="#ch10"><span class="chapter-index">10.</span>コレクション (Collections)</a></li>
         <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
@@ -119,15 +119,13 @@
     <nav>
       <ul>
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
-        <li><a href="#with-targets">4.2.1 with 対象と安全アクセス</a></li>
+        <li><a href="#with-targets">4.2.1 with 対象と評価</a></li>
         <li><a href="#with-type">4.2.2 型名対象 with 拡張</a></li>
-        <li><a href="#capture-blocks">4.4 capture ブロック</a></li>
+        <li><a href="#capture-blocks">4.4 using ブロック</a></li>
         <li><a href="#name-resolution">4.3 名前解決の正式ルール</a></li>
-        <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
         <li><a href="#boxing-unboxing">2.4 boxing / unboxing</a></li>
         <li><a href="#string-value-semantics">2.3.1 string 値型の観測可能な意味</a></li>
         <li><a href="#implicit-unbox-cast">5.2.2 暗黙 unbox キャスト</a></li>
-        <li><a href="#unbox-operator">15.3 unbox 演算子</a></li>
         <li><a href="#result-error-model">18.2.1 Result&lt;T&gt; と Error</a></li>
       </ul>
     </nav>
@@ -137,20 +135,16 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 53<br>
-      edit-date: 2025-12-24T22:51:11+09:00
+      edit-version: 54<br>
+      edit-date: 2025-12-24T23:56:51+09:00
     </p>
     <p class="note">
-      この文書は、英語版仕様
-      <code>https://stk2k.github.io/Aloe-lang/Documents/en/Aloe-lang-spec-en.html</code>
-      をベースにした日本語ドラフトです。<br>
-      その上で、参照の無効状態を <strong>valid / invalid</strong> によって扱う「有効性モデル」を導入し、
-      <strong>null を仕様書から排除</strong>しています。<br>
-      また <strong>4.2 with-blocks</strong> に
-      <strong>class / struct / enum を対象にした型ベース with（static メンバー／列挙子への短縮アクセス）</strong>
-      の拡張を含みます。<br>
+      この文書は、英語版仕様をベースにした日本語ドラフトです。<br>
+      本版では「欠如」を言語として認めない方針とし、<strong>null / valid / invalid / delete / capture</strong> を仕様から排除します。<br>
+      オブジェクト破棄は GC に任せ、外部資源（ファイル等）は <strong>using / Dispose パターン</strong>で管理します（8章）。<br>
+      <strong>with ブロックは target を 1 回だけ評価して保持し、<code>.Member</code> を <code>target.Member</code> に展開する省略記法</strong>として定義します（ロック/timeout/特別な例外扱いはありません）。<br>
       さらに、任意値の受け皿として <strong><code>object</code></strong> を導入し、
-      プリミティブ値は <strong>box object</strong> に boxing して保持し、unboxing は <strong><code>as</code> / 暗黙 unbox キャスト / <code>unbox</code></strong> により行います。<br>
+      プリミティブ値は <strong>box object</strong> に boxing して保持し、unboxing は <strong><code>as</code> / 暗黙 unbox キャスト</strong> により行います。<br>
       文字列型 <strong><code>string</code></strong> は <strong>値型</strong> として扱います（2.3.1）。<br>
       それ以外の仕様は原文にできるだけ忠実に訳しています。
     </p>
@@ -172,7 +166,7 @@
       <li>静的型付け
         <ul>
           <li><code>var</code> による型推論（初期化必須）</li>
-          <li><code>let</code> による明示的な型指定（初期化省略可）</li>
+          <li><code>let</code> による明示的な型指定（初期化必須）</li>
         </ul>
       </li>
       <li>値型 / 参照型
@@ -183,18 +177,17 @@
         </ul>
       </li>
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
-      <li>参照の無効状態（<code>invalid</code>）を言語レベルのモデルとして導入する
+      <li>外部資源は using / Dispose パターンで管理する
         <ul>
-          <li><code>delete</code> は「オブジェクト破棄（Dispose 起動を含む）」であり、破棄済みオブジェクトへの参照アクセスは例外となる。</li>
-          <li><code>invalid</code> は比較用の特殊定数であり、代入や初期化には使用できない。</li>
-          <li>オブジェクト破棄はスレッド間で観測され得る（別スレッドの参照が突然 invalid 相当になる）。これを避けるために with によるピン止め（ロック）を持つ（4.2.1.4）。</li>
+          <li>using ブロック終了時に Dispose を確定的に呼ぶ（8章参照）。</li>
+          <li>Dispose 後のメンバーアクセスは <code>ObjectDisposedException</code> とする（8章参照）。</li>
         </ul>
       </li>
       <li><code>object</code> と box object による boxing / unboxing
         <ul>
-          <li>プリミティブ値を <code>object</code> に保持する場合、対応する box object に boxing される。</li>
-          <li><code>object</code> からプリミティブを取り出す場合、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> を用いる。</li>
-          <li>数値型同士の変換や文字列パースは <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> では行わず、標準ライブラリの Parse / TryParse を用いる。</li>
+          <li>プリミティブ値（string を含む）を <code>object</code> に保持する場合、対応する box object に boxing される。</li>
+          <li><code>object</code> からプリミティブを取り出す場合、<code>as</code> / 暗黙 unbox キャストを用いる。</li>
+          <li>数値型同士の変換や文字列パースは <code>as</code> / 暗黙 unbox キャストでは行わず、標準ライブラリの Parse / TryParse を用いる。</li>
         </ul>
       </li>
       <li><code>pipe</code> / <code>filter</code> によるデータフロースタイルの設計</li>
@@ -248,7 +241,6 @@ construct
 constructor
 continue
 default
-delete
 do
 else
 enum
@@ -293,20 +285,16 @@ swap
 this
 throw
 throws
-timeout
 trait
 true
 try
-unbox
-valid
-invalid
+using
 var
 virtual
 void
 while
 with
 yield
-capture
 catch_else
 </code></pre>
     <ul>
@@ -325,7 +313,6 @@ catch_else
       <li>真偽値：<code>true</code>, <code>false</code></li>
       <li>文字列：<code>"Hello, World!"</code></li>
       <li>文字：<code>'A'</code>, <code>'z'</code> など</li>
-      <li>参照有効性：<code>valid</code>, <code>invalid</code>（有効性チェック専用。代入・初期化には使用できない）</li>
       <li>配列リテラル：<code>[1, 2, 3]</code></li>
       <li>リストリテラル：<code>(1, 2, 3)</code></li>
       <li>セットリテラル：<code>{1, 2, 3}</code></li>
@@ -377,9 +364,7 @@ print(x);
       <li><code>void</code> - 戻り値なし（戻り値専用）。</li>
     </ul>
     <p>
-      <code>valid</code> / <code>invalid</code> は型ではなく、
-      <strong>参照の有効性を判定するための特殊定数（リテラル）</strong>である。<br>
-      仕様書から <code>null</code> は排除し、参照の無効状態は <code>invalid</code> で表現する。
+      仕様書から <code>null</code> は排除する。
     </p>
 
     <h3>2.2 Composite / user-defined types（合成型 / ユーザー定義型）</h3>
@@ -420,8 +405,7 @@ print(x);
       <li><strong>代入は値コピーとして観測される。</strong> 実装は内部共有などの最適化を行ってよいが、その有無は仕様上観測できない。</li>
       <li><strong>string は不変（immutable）</strong>であり、既存の string の内容を書き換える操作は存在しない。連結や置換は新しい string を返す。</li>
       <li><strong>比較演算子 <code>==</code> は内容比較</strong>である（参照比較ではない）。</li>
-      <li><strong>string は値型であるため、参照の有効性モデル（valid / invalid）の対象ではない。</strong></li>
-      <li><strong>値型に対する <code>delete</code> はコンパイルエラー</strong>であり、<code>delete</code> は参照型オブジェクトの破棄にのみ使用できる（8章参照）。</li>
+      <li><strong>値型に対する破棄は言語仕様として持たない。</strong></li>
       <li><code>object</code> へ代入する場合、string は常に <code>String</code> box object に boxing される（2.4参照）。</li>
     </ul>
 
@@ -477,18 +461,17 @@ print(x);
           <li><code>ToBool()</code>, <code>ToInt()</code>, <code>ToFloat()</code>, <code>ToDecimal()</code>, <code>ToString()</code>, <code>ToByte()</code>, <code>ToChar()</code></li>
         </ul>
       </li>
-      <li>unboxing：<code>object</code> からプリミティブ値を得るには <code>as</code>（15.1）/ 暗黙 unbox キャスト（5.2.2）/ <code>unbox</code>（15.3）を用いる。</li>
+      <li>unboxing：<code>object</code> からプリミティブ値を得るには <code>as</code>（15.1）/ 暗黙 unbox キャスト（5.2.2）を用いる。</li>
     </ul>
 
-    <h4>2.4.1 角（invalid 時・変換の禁止）</h4>
+    <h4>2.4.1 角（変換の禁止）</h4>
     <ul>
-      <li>invalid な参照に対して <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> を評価する場合の挙動は、それぞれの節の規則に従う。</li>
-      <li><strong>型変換は行わない。</strong> 例えば数値型同士の変換や文字列のパースなどは、<code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の範囲では行わない（失敗として扱う）。</li>
+      <li><strong>型変換は行わない。</strong> 例えば数値型同士の変換や文字列のパースなどは、<code>as</code> / 暗黙 unbox キャストの範囲では行わない（失敗として扱う）。</li>
     </ul>
 
     <h4>2.4.2 Parse / TryParse（文字列から数値への導線）</h4>
     <p>
-      数値型同士の変換や文字列パースは <code>as</code> / <code>unbox</code> では行わない。<br>
+      数値型同士の変換や文字列パースは <code>as</code> では行わない。<br>
       文字列から数値への変換は、対応する box object が提供する <strong><code>Parse</code></strong> / <strong><code>TryParse</code></strong> を用いる。
     </p>
     <ul>
@@ -605,6 +588,7 @@ print(x);
       <li>クラス定義ブロック</li>
       <li>メソッド定義ブロック</li>
       <li>任意の <code>{ ... }</code> ブロック</li>
+      <li><code>using</code> ブロック（4.4参照）</li>
     </ul>
 
     <h3>4.1 Static (lexical) scope and shadowing（静的スコープとシャドウイング）</h3>
@@ -623,11 +607,11 @@ print(x);
       <li>フィールド名とローカル変数名がぶつかった場合、ローカル変数が優先される。フィールドは <code>this.</code> で参照する。</li>
     </ul>
 
-    <h3 id="with-blocks">4.2 with-blocks（メンバー省略記法 / ピン止め）</h3>
+    <h3 id="with-blocks">4.2 with-blocks（メンバー省略記法）</h3>
     <p>
       Aloe には、同一オブジェクト（または同一値）のメンバーアクセスを簡潔に書くための
       <code>with</code> ブロックがある。<br>
-      さらに、参照型 target に対しては <strong>ピン止め（ロック）</strong> を行い、ブロック実行中にそのオブジェクトが <code>delete</code> されないことを保証する（4.2.1.4）。
+      本版の <code>with</code> は <strong>省略記法のみ</strong>を提供し、ロック、timeout、例外の特別扱い等は行わない。
     </p>
 <pre><code>with (user) {
     .name = "Alice";
@@ -639,37 +623,27 @@ print(x);
       <li><code>with (target) { ... }</code> ブロック内では：
         <ul>
           <li><code>.Member</code> は <code>(target).Member</code> の省略形。</li>
-          <li><code>target</code> はブロックの開始時に 1 度だけ解決され、内部で保持される（再評価しない）。</li>
+          <li><code>target</code> はブロックの開始時に 1 度だけ評価され、内部で保持される（再評価しない）。</li>
         </ul>
       </li>
       <li><strong><code>_</code> は特別扱いしない。</strong> with 対象を表す暗黙変数は存在しない。</li>
-      <li>
-        <code>with</code> は短絡安全アクセス（例：<code>a?.b</code>）を提供しない。
-        代わりに、参照型 target に対しては「validity チェック + 明示例外」によって安全性を担保する（4.2.1）。
-      </li>
+      <li><code>with</code> は短絡安全アクセス（例：<code>a?.b</code>）を提供しない。</li>
     </ul>
 
-    <h4 id="with-targets">4.2.1 with 対象と安全アクセス（validity チェック、readonly lvalue、ロック）</h4>
+    <h4 id="with-targets">4.2.1 with 対象と評価（target を 1 回だけ評価して保持）</h4>
     <p>
-      本節は、<code>with (target)</code> の <code>target</code> の制約、および「安全アクセス」としての意味を定義する。
+      <code>with (target)</code> の target は式であり、<strong>ブロック開始時に 1 回だけ評価して保持</strong>する。<br>
+      ブロック内の <code>.Member</code> は、保持した target へのメンバーアクセスに展開する。
     </p>
 
-    <h5>4.2.1.1 target の構文制約（式は禁止、lvalue のみ）</h5>
-    <p>
-      <code>with</code> の target は <strong>式</strong>ではなく、次のいずれかの <strong>lvalue（格納場所）</strong>でなければならない。
-      target の評価に一時変数名（tmp 等）を導入する構文は存在しない（リネーム不可）。
-    </p>
+    <h5>4.2.1.1 target の評価回数（固定）</h5>
     <ul>
-      <li><strong>Identifier のみ</strong>（例：<code>with (a) { ... }</code>）</li>
-      <li><strong>フィールドチェーンを許可</strong>（例：<code>with (this.a) { ... }</code>、<code>with (obj.field) { ... }</code>、<code>with (a.b.c) { ... }</code>）</li>
+      <li>target 式は 1 回だけ評価される。</li>
+      <li>評価結果は内部的に保持され、ブロック内で繰り返し利用される。</li>
+      <li>target 式を再評価する構文は存在しない。</li>
     </ul>
-    <p>禁止例（コンパイルエラー）：</p>
-<pre><code>with (GetUser()) { }       // 関数呼び出しは不可
-with (a + b) { }           // 式は不可
-with ((a.b).c) { }         // 括弧で式化したものは不可
-</code></pre>
 
-    <h5>4.2.1.2 target の型制約（プリミティブ禁止、構造体/コンテナ許可）</h5>
+    <h5>4.2.1.2 target の型制約（プリミティブ禁止、構造体/コンテナ/参照型許可）</h5>
     <ul>
       <li><strong>プリミティブ型（bool/int/float/decimal/string/byte/char/void）は target にできない。</strong></li>
       <li><strong>struct は target にできる。</strong></li>
@@ -681,117 +655,21 @@ with ((a.b).c) { }         // 括弧で式化したものは不可
       struct やコンテナはメンバーを持ち得るため対象とする。
     </p>
 
-    <h5>4.2.1.3 フィールドチェーン target の評価順（左から右、invalid で停止）</h5>
+    <h5>4.2.1.3 フィールドチェーン target の評価順（左から右）</h5>
     <p>
-      target がフィールドチェーン（例：<code>a.b.c</code>）の場合、<code>with</code> は <strong>左から右</strong>に評価し、
-      参照型の段階で invalid（または破棄済み）を検出した時点で評価を停止し、<strong>InvalidException</strong> とする。<br>
-      これにより <code>a.b.c</code> は <code>a</code>、<code>a.b</code>、<code>a.b.c</code> の順に評価される。
+      target がフィールドチェーン（例：<code>a.b.c</code>）の場合、<code>with</code> は <strong>左から右</strong>に評価する。<br>
+      ただし、評価結果は最終的に「保持される target 値」として 1 つに確定する。
     </p>
     <ul>
       <li>評価は各段階で 1 度だけ行い、同じ段階を再評価しない。</li>
-      <li>参照型の段階で invalid（または破棄済み）を検出した場合は InvalidException。</li>
-      <li>値型（struct 等）の段階には invalid の概念が無いので、その段階では validity チェックを行わない。</li>
     </ul>
 
-    <h5>4.2.1.4 参照型 target のピン止め（ロック）と timeout</h5>
-    <p>
-      target が参照型（class/object 等）である場合、<code>with</code> はブロック開始時に対象オブジェクトを <strong>ピン止め（ロック）</strong>する。<br>
-      ピン止めされたオブジェクトは、with ブロックを抜けるまで <strong>delete されない</strong>ことが保証される。<br>
-      これは、別スレッドによる delete によって参照が突然 invalid 相当になる事象を避けるための仕組みである。
-    </p>
-    <p>
-      フィールドチェーン（例：<code>with (a.b.c)</code>）の場合、デッドロック回避のために
-      <strong>左から右の順（a → a.b → a.b.c）</strong>で必要なロックを獲得する。
-      <code>with (a) with (b)</code> のようなネストも同様に、外側から内側の順でロックを獲得する。
-    </p>
-
-<pre><code>with (a) {
-    // a はピン止めされる。別スレッドの delete は完了できない。
-}
-
-with (a.b.c) {
-    // ロック獲得順：a → a.b → a.b.c
-}
-</code></pre>
-
+    <h5>4.2.1.4 ロック/timeout/特別な例外扱いは行わない（固定）</h5>
     <ul>
-      <li><strong>timeout 指定が無い場合、ロック獲得待ち時間は無限大</strong>（永遠に待つ）。</li>
-      <li><code>timeout(...)</code> を指定した場合、期限内にロックを獲得できなければ <strong>TimeoutException</strong> を投げる。</li>
-      <li>timeout の単位や表記（例：<code>1000ms</code>）は実装依存だが、意味は「ロック獲得待ち時間」として固定する。</li>
+      <li><code>with</code> はピン止め（ロック）を行わない。</li>
+      <li><code>timeout(...)</code> は <code>with</code> の構文として存在しない。</li>
+      <li><code>with</code> には <code>catch</code> を付ける特例はない（例外処理は通常の <code>try/catch</code> を用いる）。</li>
     </ul>
-
-<pre><code>with (a) timeout(1000ms) {
-    .DoWork();
-}
-</code></pre>
-
-    <h5>4.2.1.5 再入（reentrant）</h5>
-    <p>
-      同一スレッドが既に対象オブジェクトに対する必要なロック（または所有権）を保持している場合、
-      <code>with</code> によるロック獲得は <strong>何もしない</strong>（再入は許可される）。
-    </p>
-    <ul>
-      <li>再入時は追加の待機を行わない。</li>
-      <li>再入時は timeout の消費を行わない（実装は即時成功扱いとしてよい）。</li>
-    </ul>
-
-    <h5>4.2.1.6 with/catch（try/catch と同等の捕捉）</h5>
-    <p>
-      <code>with</code> には <code>try</code> と同等の <code>catch</code> を付けられる。<br>
-      ロック獲得・validity チェック・ブロック本体の実行で発生した例外は、いずれも catch の対象となる。
-      catch ハンドラは「上から順に評価」し、<strong>例外型</strong>が一致した最初の 1 つだけが実行される。
-    </p>
-<pre><code>with (a) timeout(1000ms) {
-    .DoWork();
-}
-catch (e: TimeoutException) {
-    print("timeout");
-}
-catch (e: InvalidException) {
-    print("invalid");
-}
-catch_else (e) {
-    // ここは最後の手段（catch が 1 つもマッチしなかった場合）
-    print("other");
-}
-</code></pre>
-    <ul>
-      <li><code>catch_else (e) { ... }</code> は任意の最終ハンドラであり、マッチしなかった場合のみ実行される。</li>
-      <li><code>catch_else</code> は 0 個または 1 個のみ付けられる。</li>
-      <li><code>catch_else</code> は最後にのみ置ける（それ以外はコンパイルエラー）。</li>
-    </ul>
-
-    <h5>4.2.1.7 with ブロック内の禁止事項（readonly は名前ではなく格納場所）</h5>
-    <p>
-      <code>with</code> ブロック内では、target に対応する <strong>格納場所（lvalue）</strong>が一時的に readonly になる。
-      readonly の対象は「変数名」ではなく「格納場所」である。
-    </p>
-    <ul>
-      <li><strong>delete 禁止</strong>（with ブロック内に <code>delete</code> 文が存在した時点でコンパイルエラー）</li>
-      <li><strong>同じ格納場所を target にした with のネスト禁止</strong></li>
-      <li><strong>target への代入禁止</strong>（格納場所が readonly）</li>
-    </ul>
-
-    <h5>4.2.1.8 フィールドチェーン target の readonly 展開</h5>
-    <p>
-      target がフィールドチェーンの場合、readonly はチェーン上の各格納場所に適用される。
-    </p>
-    <p>例：<code>with (a.b.c) { ... }</code></p>
-    <ul>
-      <li>with ブロック内で <strong>a, a.b, a.b.c は readonly</strong> になる。</li>
-      <li>with ブロック内で <strong>a, a.b, a.b.c を target にした with をネストできない</strong>（ネスト不可）。</li>
-      <li>with target のリネーム構文は存在しない。</li>
-    </ul>
-
-<pre><code>with (a.b.c) {
-    a = NewA();        // コンパイルエラー（a は readonly）
-    a.b = NewB();      // コンパイルエラー（a.b は readonly）
-    a.b.c = NewC();    // コンパイルエラー（a.b.c は readonly）
-    delete a;          // コンパイルエラー（with 内 delete 禁止）
-    with (a) { }       // コンパイルエラー（ネスト不可）
-    with (a.b) { }     // コンパイルエラー（ネスト不可）
-}
-</code></pre>
 
     <h4 id="with-type">4.2.2 Type-based with（class / struct / enum の static / 列挙子ショートカット）</h4>
     <p>
@@ -856,24 +734,24 @@ catch_else (e) {
       <li>複数ターゲットで解決が曖昧になる場合は <strong>コンパイルエラー</strong>。</li>
     </ul>
 
-    <h3 id="capture-blocks">4.4 capture ブロック（所有権ロック獲得）</h3>
+    <h3 id="capture-blocks">4.4 using ブロック（Dispose の確定呼び出し）</h3>
     <p>
-      <code>capture</code> は、参照型オブジェクトに対する <strong>所有権ロック（delete のための排他ロック）</strong>を獲得するブロックである。<br>
-      <code>delete</code> を実行する側は、原則として対象オブジェクトの所有権ロックを保持していなければならない（8章参照）。<br>
-      なお、<code>capture</code> は別名付け（as による別名導入）を持たない。
+      <code>using</code> は、ブロック終了時に対象オブジェクトの <code>Dispose()</code> を確定的に呼び出す構文である。<br>
+      <code>using</code> は外部資源（ファイル、ソケット等）の解放を目的とし、オブジェクト破棄（メモリ解放）を行うものではない。
     </p>
 
-<pre><code>capture (a) {
-    delete a;        // OK（所有権ロック保持）
+<pre><code>using (r = OpenReader("file.txt")) {
+    var s = r.ReadLine();
+    print(s);
 }
+// ブロック終了時に r.Dispose() が呼ばれる
 </code></pre>
 
     <ul>
-      <li>target の構文・評価順は <code>with</code> と同様（式禁止、lvalue、チェーンは左から右）。</li>
-      <li><code>timeout(...)</code> を指定できる。指定が無い場合は無限大。</li>
-      <li>期限内に所有権ロックを獲得できなければ <code>TimeoutException</code>。</li>
-      <li>同一スレッドが既に所有権ロックを保持している場合、再入は何もしない（即時成功）。</li>
-      <li><code>capture</code> にも <code>catch</code> / <code>catch_else</code> を付けられ、try/catch と同等に動作する。</li>
+      <li><code>using (x = E) { ... }</code> の <code>E</code> は 1 回だけ評価され、結果が <code>x</code> に束縛される。</li>
+      <li><code>using</code> ブロックを抜けるとき（正常終了・例外伝播のいずれでも）、<code>x.Dispose()</code> が 1 回だけ呼ばれる。</li>
+      <li><code>Dispose()</code> の呼び出し順序は、ネストした using については内側から外側（LIFO）とする。</li>
+      <li><code>Dispose()</code> が例外を投げた場合、その例外はブロック終了処理の例外として伝播する（集約の有無は実装依存）。</li>
     </ul>
 
     <hr>
@@ -895,7 +773,6 @@ var fb  = new FizzBuzz();
       <li><strong><code>var</code> は型推論専用であり、初期化が必須</strong>である。</li>
       <li><code>var x;</code> はコンパイルエラー。</li>
       <li><code>var x: T = ...;</code> のような型注釈付き var 宣言は行わない（明示型は let を用いる）。</li>
-      <li><code>var x = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
       <li><code>object</code> 型の式を右辺に置いた場合、推論結果の型も <code>object</code> になる。</li>
     </ul>
 
@@ -911,7 +788,7 @@ function main(args: string[]): int {
 }
 </code></pre>
 
-    <h3>5.2 let（明示的な型。初期化省略可）</h3>
+    <h3>5.2 let（明示的な型。初期化必須）</h3>
 <pre><code>let i: int = 10;
 let f: float = 10.5;
 let d: decimal = 10.12345678901234567890:d;
@@ -926,38 +803,15 @@ let mp : map&lt;string/int&gt; = ["key": 10];
 </code></pre>
     <ul>
       <li><code>let</code> には型注釈が必須。</li>
-      <li><code>let x: Foo = invalid;</code> はコンパイルエラー（<code>invalid</code> は代入・初期化に使用できない）。</li>
-      <li><strong>初期化を省略した場合は型に応じたデフォルト値で初期化される（5.2.1）。</strong></li>
-    </ul>
-
-    <h3>5.2.1 デフォルト初期化（プリミティブはデフォルト値、参照は invalid）</h3>
-    <p>
-      <code>let</code> において初期化を省略した場合、変数は次の規則で初期化される。
-    </p>
-    <ul>
-      <li>プリミティブ型：デフォルト値で初期化する。</li>
-      <li>参照型：<strong>invalid 状態</strong>として初期化される。</li>
-    </ul>
-<pre><code>let a: int;         // 0
-let b: bool;        // false
-let c: float;       // 0.0
-let d: decimal;     // 0:d
-let s: string;      // ""（空文字列）
-let ch: char;       // '\0' 相当（実装が定義するゼロ文字）
-let by: byte;       // 0
-
-let obj: Foo;       // invalid（参照型）
-</code></pre>
-    <ul>
-      <li>参照型のデフォルト初期化は「未初期化参照」と同義であり、invalid と区別しない。</li>
-      <li>invalid 参照へのメンバーアクセスは <code>InvalidException</code> を投げる（8章参照）。</li>
+      <li><strong><code>let</code> も初期化が必須</strong>である。</li>
+      <li><code>let x: T;</code> はコンパイルエラー。</li>
     </ul>
 
     <h3 id="implicit-unbox-cast">5.2.2 暗黙 unbox キャスト（非消費）</h3>
     <p>
       期待される型がプリミティブ型 <code>P</code> に固定できるコンテキストでは、
       式 <code>E</code> に対して <strong>暗黙 unbox キャスト</strong> を許可する。<br>
-      暗黙 unbox キャストは <strong>参照を消費しない</strong>（変数を invalid にしない）。
+      暗黙 unbox キャストは <strong>参照を消費しない</strong>。
     </p>
     <p>暗黙 unbox キャストが許可される代表的なコンテキスト：</p>
     <ul>
@@ -977,7 +831,6 @@ let obj: Foo;       // invalid（参照型）
 let i: int = o;        // OK（暗黙 unbox キャスト） == (o as int)
 </code></pre>
     <ul>
-      <li><code>E</code> が invalid 参照の場合：<code>InvalidException</code>（<code>InvalidCastException</code> ではない）。</li>
       <li>成功条件：
         <ul>
           <li><code>E</code> がプリミティブ <code>P</code> の値である。</li>
@@ -987,11 +840,10 @@ let i: int = o;        // OK（暗黙 unbox キャスト） == (o as int)
       <li><strong>型変換は行わない。</strong> 数値型同士の変換や文字列パース等は行わず、該当しなければ失敗とする。</li>
     </ul>
 
-    <h3>5.2.3 推奨（as / 暗黙 unbox / unbox）</h3>
+    <h3>5.2.3 推奨（as / 暗黙 unbox）</h3>
     <ul>
       <li>失敗を分岐で扱いたい場合は <code>as P ifnot ...</code> を推奨する。</li>
       <li>短く書きたい場合は暗黙 unbox キャストを許可するが、失敗時は例外となる。</li>
-      <li>値の取り出しと同時に「参照を消費したい」場合のみ <code>unbox</code> を用いる。</li>
     </ul>
 
     <h3>5.3 Constants（const）</h3>
@@ -1026,7 +878,7 @@ const AppName: string = "Aloe VM";
       <li><code>field</code> ... 通常のフィールド。</li>
       <li><code>readonly field</code> ... コンストラクタ内のみ代入可、それ以降は読み取り専用。</li>
       <li>struct / class の両方で同じ意味。</li>
-      <li>フィールド初期化を省略した場合は、<code>let</code> のデフォルト初期化規則（5.2.1）に従う。</li>
+      <li>フィールド初期化を省略した場合は、コンストラクタで必ず初期化されなければならない（未初期化は許可しない）。</li>
     </ul>
 
     <hr>
@@ -1074,7 +926,55 @@ const AppName: string = "Aloe VM";
     </ul>
 
     <h4>Struct layout annotations: @StructLayout / @FieldOffset</h4>
-    <p>（略：本節は原文に準拠）</p>
+    <p>
+      Aloe は、struct のメモリレイアウトを指定するための注釈（アノテーション）を提供する。<br>
+      これらは主に相互運用（バイナリ形式、外部 API 呼び出し、メモリマップ等）を目的とする。
+    </p>
+    <ul>
+      <li><code>@StructLayout(...)</code> は struct 全体の配置方式を指定する。</li>
+      <li><code>@FieldOffset(n)</code> はフィールドのオフセット（バイト）を指定する。</li>
+      <li>注釈の有無にかかわらず、通常の struct の観測可能な意味（値コピー等）は変わらない。</li>
+    </ul>
+
+    <h5>7.2.1 @StructLayout</h5>
+    <p>
+      <code>@StructLayout</code> は次のいずれかの配置方式を取る。
+    </p>
+    <ul>
+      <li><strong>Sequential</strong>：宣言順に並べる。パディングは実装が挿入してよい。</li>
+      <li><strong>Explicit</strong>：各フィールドに <code>@FieldOffset</code> が必須となる。</li>
+      <li><strong>Auto</strong>：実装が自由に配置する。外部相互運用を目的としてはならない。</li>
+    </ul>
+<pre><code>@StructLayout(Sequential)
+struct Header {
+    field a: int;
+    field b: byte;
+}
+</code></pre>
+
+    <h5>7.2.2 @FieldOffset（Explicit レイアウト）</h5>
+    <p>
+      <code>@StructLayout(Explicit)</code> を指定した struct では、各フィールドに <code>@FieldOffset</code> を付けなければならない。<br>
+      付いていない場合はコンパイルエラーとする。
+    </p>
+<pre><code>@StructLayout(Explicit)
+struct Pixel {
+    @FieldOffset(0) field r: byte;
+    @FieldOffset(1) field g: byte;
+    @FieldOffset(2) field b: byte;
+    @FieldOffset(3) field a: byte;
+}
+</code></pre>
+    <ul>
+      <li>オフセットが重なる場合、ビットレベルの同一領域共有として扱う（用途は相互運用に限定される）。</li>
+      <li>フィールドの型に対して不正なアラインメントや領域外参照となる場合はコンパイルエラーまたは実行時例外とする（検出可能な範囲は実装依存）。</li>
+    </ul>
+
+    <h5>7.2.3 相互運用上の注意</h5>
+    <ul>
+      <li>レイアウト注釈は ABI の一部となり得るため、安定性が要求される場合は explicit を推奨する。</li>
+      <li>実装が異なる環境（WASM 等）ではアラインメント・パディング規則が異なり得るため、相互運用を前提とする場合はフィールドサイズとオフセットを明示する。</li>
+    </ul>
 
     <h3>7.3 Inheritance and sealed</h3>
 <pre><code>class Base {
@@ -1109,61 +1009,47 @@ class ConsoleLogger implements ILogger {
 }
 </code></pre>
 
-    <p>（trait の詳細は原文に準拠）</p>
+    <p>
+      trait は、クラスに「振る舞い（メソッド実装）」を合成するための仕組みである。<br>
+      interface と異なり、trait はメソッド本体（デフォルト実装）を持てる。
+    </p>
+    <ul>
+      <li>class は <code>implements</code> によって 0 個以上の trait を適用できる。</li>
+      <li>trait はメソッド宣言（抽象）とメソッド実装（本体付き）の両方を持てる。</li>
+      <li>trait 自身は状態（フィールド）を持たない（フィールド宣言は許可しない）。</li>
+      <li>同名メソッドが複数の trait から導入され、解決が曖昧になる場合はコンパイルエラーとする。</li>
+    </ul>
 
     <hr>
 
-    <h2 id="ch8">8. delete &amp; invalid</h2>
+    <h2 id="ch8">8. using &amp; Dispose</h2>
 
-    <h3 id="validity-model">8.1 参照の有効性モデル（valid / invalid）</h3>
+    <h3>8.1 Dispose の基本</h3>
     <p>
-      Aloe では、参照が「有効（valid）」か「無効（invalid）」かという状態をモデル化する。<br>
-      <code>invalid</code> は <strong>代入や初期化に使用できない</strong>が、参照の有効性チェックには使用できる。<br>
-      <strong>delete はオブジェクト破棄</strong>であり、破棄されたオブジェクトへの参照アクセスは InvalidException とする。
-    </p>
-
-<pre><code>var obj = new FizzBuzz();
-capture (obj) {
-    delete obj;           // obj is deleted (Dispose is triggered)
-}
-if (obj is invalid) {
-    print("invalid");
-}
-</code></pre>
-
-    <ul>
-      <li><strong><code>delete x;</code> は「参照型オブジェクトを破棄する操作」である。</strong></li>
-      <li>破棄に成功した場合、以後そのオブジェクトへの参照アクセスは <strong>InvalidException</strong> として扱う（参照は invalid 相当）。</li>
-      <li>delete はスレッド間で観測され得る（別スレッドの参照が突然 invalid 相当になる可能性がある）。</li>
-      <li>この事象を避けるために、with によるピン止め（ロック）が存在する（4.2.1.4）。</li>
-    </ul>
-
-    <h3>8.1.1 delete の制約（所有権ロック必須、フィールド delete 禁止）</h3>
-    <ul>
-      <li><strong>delete の実行には、対象オブジェクトに対する所有権ロックが必要</strong>である。</li>
-      <li>所有権ロックは <code>capture (x) { ... }</code> により獲得する。</li>
-      <li>所有権ロック無しで delete を実行した場合は <strong>OwnershipException</strong>。</li>
-      <li><strong><code>delete a.b;</code> のようなフィールド delete は原則禁止（コンパイルエラー）</strong>とする。</li>
-      <li>フィールドを破棄したい場合は、その格納場所を capture した上で delete する（例：<code>capture (this.b) { delete this.b; }</code>）。</li>
-    </ul>
-
-    <h3>8.1.2 Dispose の起動（delete 時に確定的に呼ばれる）</h3>
-    <p>
-      オブジェクトが delete された場合、そのオブジェクトの <code>Dispose()</code>（または実装が定義する破棄フック）が
-      <strong>確定的に起動される</strong>。これは GC のタイミングとは独立である。
+      外部資源（ファイル、ネットワーク、ロック等）は、GC に任せず、<code>Dispose()</code> により明示的に解放する。<br>
+      破棄（メモリ解放）は GC の責務であり、言語仕様としてオブジェクト破棄命令は持たない。
     </p>
     <ul>
-      <li>Dispose の呼び出し可否・名前・詳細は実装依存だが、「delete 時に起動される」という意味は観測可能な仕様として固定する。</li>
-      <li>Dispose 内では、対象オブジェクトは自身のフィールドに対して所有権を持つものとして扱ってよい（実装依存）。</li>
+      <li>資源を保持する型は <code>Dispose()</code> を提供してよい（標準ライブラリまたはユーザー定義）。</li>
+      <li>Dispose が呼ばれた後、そのオブジェクトは「破棄済み（disposed）」状態となる。</li>
+      <li><strong>Dispose 後にメンバーアクセスを行った場合は <code>ObjectDisposedException</code> を投げる。</strong></li>
     </ul>
 
-    <h3>8.2 invalid 参照アクセス</h3>
-<pre><code>let obj: Foo;     // invalid（参照型のデフォルト初期化）
-obj.Value;        // throws InvalidException
+<pre><code>var r = OpenReader("file.txt");
+r.Dispose();
+r.ReadLine();     // throws ObjectDisposedException
 </code></pre>
+
+    <h3>8.2 using ブロック（Dispose の確定呼び出し）</h3>
+    <p>
+      <code>using</code> により、例外の有無にかかわらず Dispose を確実に実行できる。
+      using の詳細は 4.4 を参照。
+    </p>
+
+    <h3>8.3 Dispose の冪等性</h3>
     <ul>
-      <li>invalid 参照へのメンバーアクセスは必ず <code>InvalidException</code>。</li>
-      <li>（実装が静的に invalid を確定できても）原則として挙動は同じとし、最適化は実装依存とする。</li>
+      <li><code>Dispose()</code> を複数回呼んだ場合の挙動は実装依存とする。</li>
+      <li>ただし一般に、二重解放を避けるため、同一オブジェクトの二重 Dispose は例外を投げない実装が推奨される。</li>
     </ul>
 
     <hr>
@@ -1177,19 +1063,11 @@ if (obj is ILogger) {
 
 if (obj is Trait_A) {
 }
-
-if (obj is valid) {
-}
-
-if (obj is invalid) {
-}
 </code></pre>
     <ul>
       <li><code>is</code> は実行時の型チェックを行う（型名が右辺の場合）。</li>
       <li>継承関係（Derived は Base としても扱う）を考慮する。</li>
       <li>インタフェースや trait に対しても使用できる。</li>
-      <li><code>is valid</code> / <code>is invalid</code> は参照の有効性チェックである。</li>
-      <li><strong><code>invalid is T</code> は常に <code>false</code>。</strong> 例外にしてはならない。</li>
       <li><strong>曖昧な名前解決は必ずコンパイルエラー。</strong></li>
       <li><code>is</code> 演算子の左辺は必ず「式（値）」でなければならない。</li>
     </ul>
@@ -1303,30 +1181,26 @@ let i3: int = o as int ifnot throw;    // 失敗時は InvalidCastException（�
       <li><code>ifnot</code> を省略した場合は <code>ifnot throw</code> と同義とする。</li>
       <li><strong>型変換は行わない。</strong> 数値型同士の変換、文字列パース等は行わない（パースは Parse / TryParse を用いる）。</li>
       <li><code>ifnot</code> 節は、キャストが失敗した場合にのみ評価する。</li>
-      <li><strong><code>E</code> が invalid 参照の場合は <code>InvalidException</code>。</strong> これはキャスト失敗ではなく参照エラーであり、<code>ifnot</code> では捕捉しない。</li>
     </ul>
 
-    <h3 id="unbox-operator">15.3 unbox 演算子（消費 unboxing）</h3>
+    <h3>15.2 演算子一覧（算術 / 比較 / 論理 / ビット）</h3>
     <p>
-      <code>unbox</code> は、参照変数からプリミティブ値を取り出し、成功時にその変数を invalid にする「消費 unboxing」である。
+      Aloe の主要な演算子は次の通りである。型付けにより不正な組み合わせはコンパイルエラーとなる。
     </p>
-<pre><code>let o: object = 123;         // boxing: Integer
-let i: int = unbox o;        // i = 123, o becomes invalid
-</code></pre>
     <ul>
-      <li><code>unbox</code> のオペランドは代入可能な参照変数（lvalue）でなければならない。</li>
-      <li><code>unbox</code> は、期待される型がプリミティブ型 <code>P</code> に固定できるコンテキストでのみ使用できる。</li>
-      <li>評価規則（<code>x</code> は 1 回だけ評価）：
-        <ul>
-          <li><code>x</code> が invalid の場合：<code>InvalidException</code>（<code>x</code> は変化しない）。</li>
-          <li>unboxing に失敗する場合：<code>InvalidCastException</code>（<code>x</code> は変化しない）。</li>
-          <li>unboxing に成功する場合：値を返し、その後 <code>delete x;</code> と同様に <code>x</code> を invalid にする。</li>
-        </ul>
-      </li>
-      <li>暗黙 unbox キャスト（5.2.2）は非消費であり、<code>unbox</code> は消費である。</li>
+      <li>算術：<code>+</code>, <code>-</code>, <code>*</code>, <code>/</code>, <code>%</code></li>
+      <li>単項：<code>+x</code>, <code>-x</code>, <code>not x</code></li>
+      <li>比較：<code>==</code>, <code>!=</code>, <code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>, <code>&gt;=</code></li>
+      <li>論理：<code>and</code>, <code>or</code>（短絡評価）</li>
+      <li>ビット（int / bitfield enum）：<code>&amp;</code>, <code>|</code>, <code>^</code>, <code>&lt;&lt;</code>, <code>&gt;&gt;</code></li>
+      <li>代入：<code>=</code></li>
     </ul>
 
-    <p>（その他の演算子は略：原文に準拠）</p>
+    <h3>15.3 演算子優先順位（概要）</h3>
+    <p>
+      優先順位は一般的な言語と同様に「単項 &gt; 乗除 &gt; 加減 &gt; シフト &gt; 比較 &gt; 等価 &gt; ビット &gt; 論理 &gt; 代入」の順とする。<br>
+      厳密な規則は実装が定義してよいが、曖昧さが生じる場合は括弧により明示すること。
+    </p>
 
     <hr>
 
@@ -1342,7 +1216,6 @@ finally {
     <h3>16.1 標準例外の概要</h3>
 <pre><code>Exception
 +- SystemException
-|  +- InvalidException
 |  +- InvalidCastException
 |  +- IndexOutOfBoundsException
 |  +- OverflowException
@@ -1350,25 +1223,24 @@ finally {
 |  +- InvalidOperationException
 |  +- NotImplementedException
 |  +- TimeoutException
-|  +- OwnershipException
 |  +- ArgumentException
 |  |  +- ArgumentNullException
 |  |  +- ArgumentOutOfRangeException
 |  +- FormatException
+|  +- ObjectDisposedException
 +- IOException
    +- FileNotFoundException
    +- EndOfStreamException
    +- IOException (general)
 </code></pre>
     <ul>
-      <li><code>InvalidException</code> は invalid 参照アクセス、および with/capture の評価・ロック関連の invalid で投げる（4章 / 8章参照）。</li>
-      <li><code>InvalidCastException</code> は <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の「型不一致」による失敗で投げる。</li>
+      <li><code>InvalidCastException</code> は <code>as</code> / 暗黙 unbox キャストの「型不一致」による失敗で投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
       <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
       <li><code>InvalidOperationException</code> は不正な状態での操作に用いる（例：Result から不正な取り出し）。</li>
-      <li><code>TimeoutException</code> は with/capture のロック獲得 timeout で投げる。</li>
-      <li><code>OwnershipException</code> は所有権ロック無しの delete など、所有権規則違反で投げる。</li>
+      <li><code>TimeoutException</code> は期限切れの一般例外として用いる（用途はライブラリ/実装依存）。</li>
+      <li><code>ObjectDisposedException</code> は Dispose 後のメンバーアクセスで投げる（8章参照）。</li>
     </ul>
 
     <h3>16.2 catch の型注釈（一般機構）</h3>
@@ -1385,7 +1257,7 @@ catch {
 catch (e) {
     // e: Exception
 }
-catch (e: InvalidException) {
+catch (e: ObjectDisposedException) {
 }
 catch_else (e) {
 }
@@ -1396,7 +1268,43 @@ finally {
     <hr>
 
     <h2 id="ch17">17. Modules / namespace / import</h2>
-    <p>（略：原文に準拠）</p>
+    <p>
+      Aloe のプログラムは複数ファイルから構成できる。<br>
+      名前空間は <code>namespace</code> により宣言し、外部の宣言は <code>import</code> により導入する。
+    </p>
+
+    <h3>17.1 namespace（名前空間）</h3>
+<pre><code>namespace MyApp.Core;
+
+function Foo(): int {
+    return 1;
+}
+
+class Bar {
+}
+</code></pre>
+    <ul>
+      <li>ファイルは 0 個または 1 個の <code>namespace</code> 宣言を持つ。</li>
+      <li><code>namespace</code> を省略した場合、そのファイルはグローバル名前空間に属する。</li>
+      <li>同一 namespace に属するトップレベル宣言は互いに参照できる（4.3 の規則に従う）。</li>
+    </ul>
+
+    <h3>17.2 import（導入）</h3>
+<pre><code>import MyApp.Core;
+import MyApp.Utils;
+</code></pre>
+    <ul>
+      <li><code>import</code> は他 namespace の公開宣言（型・関数・定数等）を参照可能にする。</li>
+      <li>同名が衝突する場合、曖昧となりコンパイルエラーとする（4.3 の規則に従う）。</li>
+      <li>import のスコープはファイル単位である（そのファイル内の全ての宣言に適用される）。</li>
+    </ul>
+
+    <h3>17.3 アクセス修飾と公開範囲</h3>
+    <ul>
+      <li>トップレベル宣言はデフォルトで public として扱ってよい（実装依存）。</li>
+      <li>class メンバーは明示された修飾子（public/private/protected）に従う。</li>
+      <li>名前解決は 4.3 に従い、曖昧な場合はコンパイルエラーとする。</li>
+    </ul>
 
     <hr>
 
@@ -1407,7 +1315,27 @@ finally {
     </p>
 
     <h3>18.1 pipe&lt;T&gt; の基本</h3>
-    <p>（略：本節は原文に準拠）</p>
+    <p>
+      <code>pipe&lt;T&gt;</code> は、型 <code>T</code> の要素列を運ぶストリーム（参照型）である。<br>
+      生成、接続、実行モデルの詳細は実装依存だが、観測可能な意味として「順序付きの要素列」であることを保証する。
+    </p>
+    <ul>
+      <li>pipe は要素を 0 個以上運ぶ。</li>
+      <li>要素の順序は保存される（投入順に観測される）。</li>
+      <li>pipe は完了（終了）を持ち得る。完了後は追加の要素は到達しない。</li>
+      <li>エラーは Result により表現する（18.2参照）。</li>
+    </ul>
+
+    <h3>18.1.1 filter の概要</h3>
+    <p>
+      <code>filter</code> は pipe を入力として受け取り、処理結果の pipe を返す処理単位である。<br>
+      filter はパイプラインとして連結され、データフローを形成する。
+    </p>
+<pre><code>filter Upper(input: pipe&lt;string&gt;): pipe&lt;Result&lt;string&gt;&gt; {
+    // 概念例（詳細な構文は実装依存）
+    // input の各要素を大文字化して出力する
+}
+</code></pre>
 
     <h3>18.2 Result&lt;T&gt; と ROP の原則</h3>
     <ul>
@@ -1438,7 +1366,7 @@ finally {
     <ul>
       <li><code>code: string</code> ... エラーコード。<strong>コード体系はドメインごとに定義される</strong>（統一 enum は作らない）。</li>
       <li><code>message: string</code> ... エラーメッセージ。<strong>エラー時には必須</strong>（省略不可）。</li>
-      <li><code>cause: Exception</code> ... 原因例外。通常の失敗では未設定（invalid）でよい。</li>
+      <li><code>cause: Exception</code> ... 原因例外。通常の失敗では未設定でよい。</li>
     </ul>
 
     <h5>18.2.1.3 cause 必須規則（例外を捕捉して Err を返す場合）</h5>
