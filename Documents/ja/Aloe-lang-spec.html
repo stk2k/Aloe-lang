@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <title>Aloe 言語仕様書（ドラフト、日本語版）</title>
-  <meta name="edit-version" content="51">
-  <meta name="edit-date" content="2025-12-22T00:32:17+09:00">
+  <meta name="edit-version" content="52">
+  <meta name="edit-date" content="2025-12-24T22:06:39+09:00">
   <style>
     :root { color-scheme: light dark; }
     body {
@@ -88,7 +88,7 @@
   <!-- 左側メニュー -->
   <aside class="sidebar">
     <h1>Aloe Language Spec</h1>
-    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 51)</div>
+    <div class="subtitle">Draft - Japanese translation + validity model (edit-version 52)</div>
 
     <h2>Chapters</h2>
     <nav>
@@ -101,7 +101,7 @@
         <li><a href="#ch5"><span class="chapter-index">5.</span>変数と定数 (Variables &amp; Constants)</a></li>
         <li><a href="#ch6"><span class="chapter-index">6.</span>フィールド (Fields)</a></li>
         <li><a href="#ch7"><span class="chapter-index">7.</span>Class / Struct / Interface / Trait</a></li>
-        <li><a href="#ch8"><span class="chapter-index">8.</span>delete &amp; invalid</a></li>
+        <li><a href="#ch8"><span class="chapter-index">8.</span>GC &amp; invalid</a></li>
         <li><a href="#ch9"><span class="chapter-index">9.</span>is 演算子 (is Operator)</a></li>
         <li><a href="#ch10"><span class="chapter-index">10.</span>コレクション (Collections)</a></li>
         <li><a href="#ch11"><span class="chapter-index">11.</span>enum / bitfield enum</a></li>
@@ -121,7 +121,7 @@
         <li><a href="#with-blocks">4.2 with ブロック</a></li>
         <li><a href="#with-targets">4.2.1 with 対象と安全アクセス</a></li>
         <li><a href="#with-type">4.2.2 型名対象 with 拡張</a></li>
-        <li><a href="#capture-blocks">4.4 capture ブロック</a></li>
+        <li><a href="#using-blocks">4.4 using ブロック</a></li>
         <li><a href="#name-resolution">4.3 名前解決の正式ルール</a></li>
         <li><a href="#validity-model">8.1 参照の有効性モデル</a></li>
         <li><a href="#boxing-unboxing">2.4 boxing / unboxing</a></li>
@@ -137,8 +137,8 @@
   <main class="content">
     <h1 id="top">Aloe 言語仕様書（ドラフト、日本語版）</h1>
     <p class="note">
-      edit-version: 51<br>
-      edit-date: 2025-12-22T00:32:17+09:00
+      edit-version: 52<br>
+      edit-date: 2025-12-24T22:06:39+09:00
     </p>
     <p class="note">
       この文書は、英語版仕様
@@ -152,7 +152,7 @@
       さらに、任意値の受け皿として <strong><code>object</code></strong> を導入し、
       プリミティブ値は <strong>box object</strong> に boxing して保持し、unboxing は <strong><code>as</code> / 暗黙 unbox キャスト / <code>unbox</code></strong> により行います。<br>
       文字列型 <strong><code>string</code></strong> は <strong>値型</strong> として扱います（2.3.1）。<br>
-      それ以外の仕様は原文にできるだけ忠実に訳しています。
+      なお、オブジェクト破棄は GC に委ね、外部リソースの解放は <strong>using / Dispose</strong> パターンで行います（4.4）。
     </p>
 
     <hr>
@@ -185,11 +185,12 @@
       <li>GC ベースのメモリ管理（具体的なアルゴリズムは VM 実装依存）</li>
       <li>参照の無効状態（<code>invalid</code>）を言語レベルのモデルとして導入する
         <ul>
-          <li><code>delete</code> は「オブジェクト破棄（Dispose 起動を含む）」であり、破棄済みオブジェクトへの参照アクセスは例外となる。</li>
           <li><code>invalid</code> は比較用の特殊定数であり、代入や初期化には使用できない。</li>
-          <li>オブジェクト破棄はスレッド間で観測され得る（別スレッドの参照が突然 invalid 相当になる）。これを避けるために with によるピン止め（ロック）を持つ（4.2.1.4）。</li>
+          <li>参照型の <code>let</code> 省略初期化は invalid 状態として扱う（5.2.1）。</li>
+          <li>invalid 参照アクセスは例外となる（8章参照）。</li>
         </ul>
       </li>
+      <li>外部リソース管理は <code>using</code> / <code>Dispose</code> パターンで行う（4.4参照）</li>
       <li><code>object</code> と box object による boxing / unboxing
         <ul>
           <li>プリミティブ値を <code>object</code> に保持する場合、対応する box object に boxing される。</li>
@@ -248,7 +249,6 @@ construct
 constructor
 continue
 default
-delete
 do
 else
 enum
@@ -293,11 +293,11 @@ swap
 this
 throw
 throws
-timeout
 trait
 true
 try
 unbox
+using
 valid
 invalid
 var
@@ -306,7 +306,6 @@ void
 while
 with
 yield
-capture
 catch_else
 </code></pre>
     <ul>
@@ -421,7 +420,6 @@ print(x);
       <li><strong>string は不変（immutable）</strong>であり、既存の string の内容を書き換える操作は存在しない。連結や置換は新しい string を返す。</li>
       <li><strong>比較演算子 <code>==</code> は内容比較</strong>である（参照比較ではない）。</li>
       <li><strong>string は値型であるため、参照の有効性モデル（valid / invalid）の対象ではない。</strong></li>
-      <li><strong>値型に対する <code>delete</code> はコンパイルエラー</strong>であり、<code>delete</code> は参照型オブジェクトの破棄にのみ使用できる（8章参照）。</li>
       <li><code>object</code> へ代入する場合、string は常に <code>String</code> box object に boxing される（2.4参照）。</li>
     </ul>
 
@@ -623,11 +621,11 @@ print(x);
       <li>フィールド名とローカル変数名がぶつかった場合、ローカル変数が優先される。フィールドは <code>this.</code> で参照する。</li>
     </ul>
 
-    <h3 id="with-blocks">4.2 with-blocks（メンバー省略記法 / ピン止め）</h3>
+    <h3 id="with-blocks">4.2 with-blocks（メンバー省略記法）</h3>
     <p>
       Aloe には、同一オブジェクト（または同一値）のメンバーアクセスを簡潔に書くための
       <code>with</code> ブロックがある。<br>
-      さらに、参照型 target に対しては <strong>ピン止め（ロック）</strong> を行い、ブロック実行中にそのオブジェクトが <code>delete</code> されないことを保証する（4.2.1.4）。
+      <code>with</code> は省略記法であり、オブジェクト破棄（GC）やリソース管理（Dispose）とは無関係である。
     </p>
 <pre><code>with (user) {
     .name = "Alice";
@@ -649,7 +647,7 @@ print(x);
       </li>
     </ul>
 
-    <h4 id="with-targets">4.2.1 with 対象と安全アクセス（validity チェック、readonly lvalue、ロック）</h4>
+    <h4 id="with-targets">4.2.1 with 対象と安全アクセス（validity チェック、readonly lvalue）</h4>
     <p>
       本節は、<code>with (target)</code> の <code>target</code> の制約、および「安全アクセス」としての意味を定義する。
     </p>
@@ -684,68 +682,23 @@ with ((a.b).c) { }         // 括弧で式化したものは不可
     <h5>4.2.1.3 フィールドチェーン target の評価順（左から右、invalid で停止）</h5>
     <p>
       target がフィールドチェーン（例：<code>a.b.c</code>）の場合、<code>with</code> は <strong>左から右</strong>に評価し、
-      参照型の段階で invalid（または破棄済み）を検出した時点で評価を停止し、<strong>InvalidException</strong> とする。<br>
+      参照型の段階で invalid を検出した時点で評価を停止し、<strong>InvalidException</strong> とする。<br>
       これにより <code>a.b.c</code> は <code>a</code>、<code>a.b</code>、<code>a.b.c</code> の順に評価される。
     </p>
     <ul>
       <li>評価は各段階で 1 度だけ行い、同じ段階を再評価しない。</li>
-      <li>参照型の段階で invalid（または破棄済み）を検出した場合は InvalidException。</li>
+      <li>参照型の段階で invalid を検出した場合は InvalidException。</li>
       <li>値型（struct 等）の段階には invalid の概念が無いので、その段階では validity チェックを行わない。</li>
     </ul>
 
-    <h5>4.2.1.4 参照型 target のピン止め（ロック）と timeout</h5>
-    <p>
-      target が参照型（class/object 等）である場合、<code>with</code> はブロック開始時に対象オブジェクトを <strong>ピン止め（ロック）</strong>する。<br>
-      ピン止めされたオブジェクトは、with ブロックを抜けるまで <strong>delete されない</strong>ことが保証される。<br>
-      これは、別スレッドによる delete によって参照が突然 invalid 相当になる事象を避けるための仕組みである。
-    </p>
-    <p>
-      フィールドチェーン（例：<code>with (a.b.c)</code>）の場合、デッドロック回避のために
-      <strong>左から右の順（a → a.b → a.b.c）</strong>で必要なロックを獲得する。
-      <code>with (a) with (b)</code> のようなネストも同様に、外側から内側の順でロックを獲得する。
-    </p>
-
-<pre><code>with (a) {
-    // a はピン止めされる。別スレッドの delete は完了できない。
-}
-
-with (a.b.c) {
-    // ロック獲得順：a → a.b → a.b.c
-}
-</code></pre>
-
-    <ul>
-      <li><strong>timeout 指定が無い場合、ロック獲得待ち時間は無限大</strong>（永遠に待つ）。</li>
-      <li><code>timeout(...)</code> を指定した場合、期限内にロックを獲得できなければ <strong>TimeoutException</strong> を投げる。</li>
-      <li>timeout の単位や表記（例：<code>1000ms</code>）は実装依存だが、意味は「ロック獲得待ち時間」として固定する。</li>
-    </ul>
-
-<pre><code>with (a) timeout(1000ms) {
-    .DoWork();
-}
-</code></pre>
-
-    <h5>4.2.1.5 再入（reentrant）</h5>
-    <p>
-      同一スレッドが既に対象オブジェクトに対する必要なロック（または所有権）を保持している場合、
-      <code>with</code> によるロック獲得は <strong>何もしない</strong>（再入は許可される）。
-    </p>
-    <ul>
-      <li>再入時は追加の待機を行わない。</li>
-      <li>再入時は timeout の消費を行わない（実装は即時成功扱いとしてよい）。</li>
-    </ul>
-
-    <h5>4.2.1.6 with/catch（try/catch と同等の捕捉）</h5>
+    <h5>4.2.1.4 with/catch（try/catch と同等の捕捉）</h5>
     <p>
       <code>with</code> には <code>try</code> と同等の <code>catch</code> を付けられる。<br>
-      ロック獲得・validity チェック・ブロック本体の実行で発生した例外は、いずれも catch の対象となる。
+      target の評価・validity チェック・ブロック本体の実行で発生した例外は、いずれも catch の対象となる。
       catch ハンドラは「上から順に評価」し、<strong>例外型</strong>が一致した最初の 1 つだけが実行される。
     </p>
-<pre><code>with (a) timeout(1000ms) {
+<pre><code>with (a) {
     .DoWork();
-}
-catch (e: TimeoutException) {
-    print("timeout");
 }
 catch (e: InvalidException) {
     print("invalid");
@@ -761,18 +714,17 @@ catch_else (e) {
       <li><code>catch_else</code> は最後にのみ置ける（それ以外はコンパイルエラー）。</li>
     </ul>
 
-    <h5>4.2.1.7 with ブロック内の禁止事項（readonly は名前ではなく格納場所）</h5>
+    <h5>4.2.1.5 with ブロック内の禁止事項（readonly は名前ではなく格納場所）</h5>
     <p>
       <code>with</code> ブロック内では、target に対応する <strong>格納場所（lvalue）</strong>が一時的に readonly になる。
       readonly の対象は「変数名」ではなく「格納場所」である。
     </p>
     <ul>
-      <li><strong>delete 禁止</strong>（with ブロック内に <code>delete</code> 文が存在した時点でコンパイルエラー）</li>
       <li><strong>同じ格納場所を target にした with のネスト禁止</strong></li>
       <li><strong>target への代入禁止</strong>（格納場所が readonly）</li>
     </ul>
 
-    <h5>4.2.1.8 フィールドチェーン target の readonly 展開</h5>
+    <h5>4.2.1.6 フィールドチェーン target の readonly 展開</h5>
     <p>
       target がフィールドチェーンの場合、readonly はチェーン上の各格納場所に適用される。
     </p>
@@ -787,7 +739,6 @@ catch_else (e) {
     a = NewA();        // コンパイルエラー（a は readonly）
     a.b = NewB();      // コンパイルエラー（a.b は readonly）
     a.b.c = NewC();    // コンパイルエラー（a.b.c は readonly）
-    delete a;          // コンパイルエラー（with 内 delete 禁止）
     with (a) { }       // コンパイルエラー（ネスト不可）
     with (a.b) { }     // コンパイルエラー（ネスト不可）
 }
@@ -856,24 +807,31 @@ catch_else (e) {
       <li>複数ターゲットで解決が曖昧になる場合は <strong>コンパイルエラー</strong>。</li>
     </ul>
 
-    <h3 id="capture-blocks">4.4 capture ブロック（所有権ロック獲得）</h3>
+    <h3 id="using-blocks">4.4 using ブロック（Dispose の確定呼び出し）</h3>
     <p>
-      <code>capture</code> は、参照型オブジェクトに対する <strong>所有権ロック（delete のための排他ロック）</strong>を獲得するブロックである。<br>
-      <code>delete</code> を実行する側は、原則として対象オブジェクトの所有権ロックを保持していなければならない（8章参照）。<br>
-      なお、<code>capture</code> は別名付け（as による別名導入）を持たない。
+      <code>using</code> は、外部リソース（ファイル、ソケット等）を保持するオブジェクトに対して、
+      ブロック終了時に <code>Dispose()</code> を <strong>確定的に</strong>呼び出すための構文である。<br>
+      オブジェクトのメモリ解放は GC に委ねるため、<code>using</code> はメモリ管理ではなくリソース管理のために用いる。
     </p>
 
-<pre><code>capture (a) {
-    delete a;        // OK（所有権ロック保持）
-}
+<pre><code>using (res) {
+    res.Use();
+} // ブロック終了時に res.Dispose() が呼ばれる（例外があっても呼ばれる）
 </code></pre>
 
     <ul>
-      <li>target の構文・評価順は <code>with</code> と同様（式禁止、lvalue、チェーンは左から右）。</li>
-      <li><code>timeout(...)</code> を指定できる。指定が無い場合は無限大。</li>
-      <li>期限内に所有権ロックを獲得できなければ <code>TimeoutException</code>。</li>
-      <li>同一スレッドが既に所有権ロックを保持している場合、再入は何もしない（即時成功）。</li>
-      <li><code>capture</code> にも <code>catch</code> / <code>catch_else</code> を付けられ、try/catch と同等に動作する。</li>
+      <li><code>using (target) { ... }</code> の <code>target</code> は <strong>lvalue</strong> でなければならない（式は禁止）。</li>
+      <li><code>target</code> はブロック開始時に 1 度だけ解決され、内部で保持される（再評価しない）。</li>
+      <li><code>target</code> が invalid の場合、ブロック開始時に <code>InvalidException</code>。</li>
+      <li><code>target</code> の静的型は、次のいずれかを満たさなければならない（満たさない場合はコンパイルエラー）：
+        <ul>
+          <li>標準ライブラリが提供する <code>IDisposable</code>（<code>method Dispose(): void</code>）を implements している。</li>
+          <li>または、同一シグネチャの <code>Dispose(): void</code> を持つ。</li>
+        </ul>
+      </li>
+      <li><code>using</code> は意味的に <code>try/finally</code> と同等であり、ブロック本体が例外で中断されても <code>Dispose()</code> は呼ばれる。</li>
+      <li><code>Dispose()</code> 呼び出しは参照の valid/invalid を変更しない（Dispose 後も参照は valid のまま）。</li>
+      <li>Dispose 後の挙動（再利用可否、例外種別等）は各型の仕様に従う。推奨としては不正操作は <code>InvalidOperationException</code> とする。</li>
     </ul>
 
     <hr>
@@ -1113,48 +1071,34 @@ class ConsoleLogger implements ILogger {
 
     <hr>
 
-    <h2 id="ch8">8. delete &amp; invalid</h2>
+    <h2 id="ch8">8. GC &amp; invalid</h2>
+
+    <h3>8.0 ガベージコレクションとリソース管理（GC / using）</h3>
+    <ul>
+      <li>参照型オブジェクトのメモリ解放は GC に委ねる。</li>
+      <li>確定的破棄（明示的なオブジェクト破棄命令）は言語機能として持たない。</li>
+      <li>外部リソース（ファイル、ソケット等）の解放は <code>using</code> により <code>Dispose()</code> を確定的に呼び出して行う（4.4参照）。</li>
+      <li>GC のタイミング、最適化、世代別管理等の詳細は VM 実装依存であり、観測可能な仕様として固定しない。</li>
+    </ul>
 
     <h3 id="validity-model">8.1 参照の有効性モデル（valid / invalid）</h3>
     <p>
       Aloe では、参照が「有効（valid）」か「無効（invalid）」かという状態をモデル化する。<br>
       <code>invalid</code> は <strong>代入や初期化に使用できない</strong>が、参照の有効性チェックには使用できる。<br>
-      <strong>delete はオブジェクト破棄</strong>であり、破棄されたオブジェクトへの参照アクセスは InvalidException とする。
+      オブジェクト破棄は GC に委ねるため、<code>invalid</code> は「破棄済み」を表すものではない。
     </p>
 
-<pre><code>var obj = new FizzBuzz();
-capture (obj) {
-    delete obj;           // obj is deleted (Dispose is triggered)
-}
+<pre><code>let obj: Foo;           // invalid（参照型のデフォルト初期化）
 if (obj is invalid) {
     print("invalid");
 }
 </code></pre>
 
     <ul>
-      <li><strong><code>delete x;</code> は「参照型オブジェクトを破棄する操作」である。</strong></li>
-      <li>破棄に成功した場合、以後そのオブジェクトへの参照アクセスは <strong>InvalidException</strong> として扱う（参照は invalid 相当）。</li>
-      <li>delete はスレッド間で観測され得る（別スレッドの参照が突然 invalid 相当になる可能性がある）。</li>
-      <li>この事象を避けるために、with によるピン止め（ロック）が存在する（4.2.1.4）。</li>
-    </ul>
-
-    <h3>8.1.1 delete の制約（所有権ロック必須、フィールド delete 禁止）</h3>
-    <ul>
-      <li><strong>delete の実行には、対象オブジェクトに対する所有権ロックが必要</strong>である。</li>
-      <li>所有権ロックは <code>capture (x) { ... }</code> により獲得する。</li>
-      <li>所有権ロック無しで delete を実行した場合は <strong>OwnershipException</strong>。</li>
-      <li><strong><code>delete a.b;</code> のようなフィールド delete は原則禁止（コンパイルエラー）</strong>とする。</li>
-      <li>フィールドを破棄したい場合は、その格納場所を capture した上で delete する（例：<code>capture (this.b) { delete this.b; }</code>）。</li>
-    </ul>
-
-    <h3>8.1.2 Dispose の起動（delete 時に確定的に呼ばれる）</h3>
-    <p>
-      オブジェクトが delete された場合、そのオブジェクトの <code>Dispose()</code>（または実装が定義する破棄フック）が
-      <strong>確定的に起動される</strong>。これは GC のタイミングとは独立である。
-    </p>
-    <ul>
-      <li>Dispose の呼び出し可否・名前・詳細は実装依存だが、「delete 時に起動される」という意味は観測可能な仕様として固定する。</li>
-      <li>Dispose 内では、対象オブジェクトは自身のフィールドに対して所有権を持つものとして扱ってよい（実装依存）。</li>
+      <li><strong>invalid は参照型の無効状態を表す。</strong></li>
+      <li>参照型のデフォルト初期化は invalid 状態とする（5.2.1）。</li>
+      <li><code>unbox</code> の成功は参照変数を invalid にする（15.3）。</li>
+      <li>invalid 参照へのメンバーアクセスは <strong>InvalidException</strong> とする（8.2）。</li>
     </ul>
 
     <h3>8.2 invalid 参照アクセス</h3>
@@ -1320,7 +1264,7 @@ let i: int = unbox o;        // i = 123, o becomes invalid
         <ul>
           <li><code>x</code> が invalid の場合：<code>InvalidException</code>（<code>x</code> は変化しない）。</li>
           <li>unboxing に失敗する場合：<code>InvalidCastException</code>（<code>x</code> は変化しない）。</li>
-          <li>unboxing に成功する場合：値を返し、その後 <code>delete x;</code> と同様に <code>x</code> を invalid にする。</li>
+          <li>unboxing に成功する場合：値を返し、その後 <code>x</code> を invalid 状態にする。</li>
         </ul>
       </li>
       <li>暗黙 unbox キャスト（5.2.2）は非消費であり、<code>unbox</code> は消費である。</li>
@@ -1350,7 +1294,6 @@ finally {
 |  +- InvalidOperationException
 |  +- NotImplementedException
 |  +- TimeoutException
-|  +- OwnershipException
 |  +- ArgumentException
 |  |  +- ArgumentNullException
 |  |  +- ArgumentOutOfRangeException
@@ -1361,14 +1304,13 @@ finally {
    +- IOException (general)
 </code></pre>
     <ul>
-      <li><code>InvalidException</code> は invalid 参照アクセス、および with/capture の評価・ロック関連の invalid で投げる（4章 / 8章参照）。</li>
+      <li><code>InvalidException</code> は invalid 参照アクセス、および with/using の評価で invalid を検出した場合に投げる（4章 / 8章参照）。</li>
       <li><code>InvalidCastException</code> は <code>as</code> / 暗黙 unbox キャスト / <code>unbox</code> の「型不一致」による失敗で投げる。</li>
       <li><code>OverflowException</code> はオーバーフロー / アンダーフロー両方に用いる。</li>
       <li><code>ZeroDivisionException</code> は 0 / 0.0 による除算で投げる。</li>
       <li>パースやフォーマットエラーは <code>FormatException</code>。</li>
-      <li><code>InvalidOperationException</code> は不正な状態での操作に用いる（例：Result から不正な取り出し）。</li>
-      <li><code>TimeoutException</code> は with/capture のロック獲得 timeout で投げる。</li>
-      <li><code>OwnershipException</code> は所有権ロック無しの delete など、所有権規則違反で投げる。</li>
+      <li><code>InvalidOperationException</code> は不正な状態での操作に用いる（例：Result から不正な取り出し、Dispose 後の不正操作等）。</li>
+      <li><code>TimeoutException</code> は時間制限超過を表す一般例外として標準ライブラリ等で用いてよい。</li>
     </ul>
 
     <h3>16.2 catch の型注釈（一般機構）</h3>
